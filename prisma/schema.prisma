@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Enum-значения храним строками (SQLite не поддерживает enum),
+// допустимые значения контролируются zod-схемами на сервере.
+// Currency: RUB | USD | EUR | CNY
+// DealStatus: holding | sold | withdrawn_via_skin
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  baseCurrency String   @default("RUB") @map("base_currency")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  deals     Deal[]
+  platforms Platform[]
+
+  @@map("users")
+}
+
+model Platform {
+  id                String  @id @default(uuid())
+  name              String
+  defaultSellFeePct Decimal @default(0) @map("default_sell_fee_pct")
+  defaultBuyFeePct  Decimal @default(0) @map("default_buy_fee_pct")
+  isCustom          Boolean @default(false) @map("is_custom")
+  userId            String? @map("user_id")
+
+  user      User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buyDeals  Deal[] @relation("BuyPlatform")
+  sellDeals Deal[] @relation("SellPlatform")
+
+  @@map("platforms")
+}
+
+model Deal {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  itemName    String  @map("item_name")
+  itemQuality String? @map("item_quality")
+  quantity    Int     @default(1)
+
+  buyPlatformId String   @map("buy_platform_id")
+  buyPrice      Decimal  @map("buy_price")
+  buyCurrency   String   @default("RUB") @map("buy_currency")
+  buyFxRate     Decimal  @default(1) @map("buy_fx_rate")
+  buyFeePct     Decimal  @default(0) @map("buy_fee_pct")
+  buyDate       DateTime @map("buy_date")
+
+  status String @default("holding")
+
+  sellPlatformId String?   @map("sell_platform_id")
+  sellPrice      Decimal?  @map("sell_price")
+  sellCurrency   String?   @map("sell_currency")
+  sellFxRate     Decimal?  @map("sell_fx_rate")
+  sellFeePct     Decimal?  @map("sell_fee_pct")
+  sellDate       DateTime? @map("sell_date")
+
+  withdrawalDiscountPct Decimal? @map("withdrawal_discount_pct")
+  note                  String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buyPlatform  Platform  @relation("BuyPlatform", fields: [buyPlatformId], references: [id])
+  sellPlatform Platform? @relation("SellPlatform", fields: [sellPlatformId], references: [id])
+
+  @@index([userId, status])
+  @@index([userId, buyDate])
+  @@index([userId, sellDate])
+  @@map("deals")
+}
