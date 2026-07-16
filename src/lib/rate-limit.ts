@@ -1,22 +1,40 @@
-// Простой in-memory rate limiter (достаточно для MVP на одном инстансе).
+// Простой in-memory rate limiter.
+// Ограничение: память процесса — не переживает рестарт и не разделяется
+// между инстансами. На этапе деплоя (serverless) заменить на общее
+// хранилище (таблица в Postgres или Upstash Redis).
+
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
-export function rateLimit(
-  key: string,
-  limit = 5,
-  windowMs = 60_000,
-): { ok: boolean; retryAfterSec: number } {
-  const now = Date.now();
+function liveBucket(key: string) {
   const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= Date.now()) return null;
+  return bucket;
+}
 
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return { ok: true, retryAfterSec: 0 };
-  }
+/** Проверка без инкремента: не превышен ли лимит по ключу. */
+export function checkLimit(
+  key: string,
+  limit: number,
+): { limited: boolean; retryAfterSec: number } {
+  const bucket = liveBucket(key);
+  if (!bucket || bucket.count < limit) return { limited: false, retryAfterSec: 0 };
+  return {
+    limited: true,
+    retryAfterSec: Math.ceil((bucket.resetAt - Date.now()) / 1000),
+  };
+}
 
-  bucket.count += 1;
-  if (bucket.count > limit) {
-    return { ok: false, retryAfterSec: Math.ceil((bucket.resetAt - now) / 1000) };
+/** Зафиксировать неудачную попытку (создаёт окно, если его нет). */
+export function recordFailure(key: string, windowMs: number): void {
+  const bucket = liveBucket(key);
+  if (!bucket) {
+    buckets.set(key, { count: 1, resetAt: Date.now() + windowMs });
+  } else {
+    bucket.count += 1;
   }
-  return { ok: true, retryAfterSec: 0 };
+}
+
+/** Сбросить счётчик (после успешного входа). */
+export function clearLimit(key: string): void {
+  buckets.delete(key);
 }

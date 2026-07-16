@@ -1,20 +1,28 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { AuthError } from "next-auth";
-import { headers } from "next/headers";
+import { AuthError, CredentialsSignin } from "next-auth";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { rateLimit } from "@/lib/rate-limit";
 import { loginSchema, registerSchema } from "@/lib/validation";
 
 export type AuthFormState = { error?: string };
 
-async function clientKey(email: string) {
-  const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  return `${ip}:${email.toLowerCase()}`;
+// Ошибка из authorize() может прийти как есть или обёрнутой (cause.err).
+function rateLimitRetrySec(e: unknown): number | null {
+  const codes: unknown[] = [];
+  if (e instanceof CredentialsSignin) codes.push(e.code);
+  if (e instanceof AuthError && e.cause?.err instanceof CredentialsSignin) {
+    codes.push(e.cause.err.code);
+  }
+  for (const code of codes) {
+    if (typeof code === "string" && code.startsWith("rate_limited")) {
+      const sec = parseInt(code.split(":")[1] ?? "", 10);
+      return Number.isFinite(sec) && sec > 0 ? sec : 60;
+    }
+  }
+  return null;
 }
 
 export async function registerAction(
@@ -61,13 +69,6 @@ export async function loginAction(
     return { error: parsed.error.issues[0].message };
   }
 
-  const limit = rateLimit(await clientKey(parsed.data.email));
-  if (!limit.ok) {
-    return {
-      error: `Слишком много попыток входа. Повторите через ${limit.retryAfterSec} с.`,
-    };
-  }
-
   try {
     await signIn("credentials", {
       email: parsed.data.email.toLowerCase(),
@@ -76,6 +77,12 @@ export async function loginAction(
     });
   } catch (e) {
     if (isRedirectError(e)) throw e;
+    const retrySec = rateLimitRetrySec(e);
+    if (retrySec != null) {
+      return {
+        error: `Слишком много попыток входа. Повторите через ${retrySec} с.`,
+      };
+    }
     if (e instanceof AuthError) {
       return { error: "Неверный email или пароль" };
     }
