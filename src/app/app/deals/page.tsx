@@ -16,7 +16,7 @@ export default async function DealsPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [user, platformRows, dealRows, nameRows] = await Promise.all([
+  const [user, platformRows, dealRows] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     prisma.platform.findMany({
       where: { OR: [{ isCustom: false }, { userId }] },
@@ -24,16 +24,9 @@ export default async function DealsPage() {
     }),
     prisma.deal.findMany({
       where: { userId },
-      include: { buyPlatform: true, sellPlatform: true },
+      include: { buyPlatform: true, sellPlatform: true, skin: true },
       orderBy: { createdAt: "desc" },
       take: 200,
-    }),
-    prisma.deal.findMany({
-      where: { userId },
-      select: { itemName: true },
-      distinct: ["itemName"],
-      orderBy: { updatedAt: "desc" },
-      take: 300,
     }),
   ]);
 
@@ -66,13 +59,16 @@ export default async function DealsPage() {
     sellFeePct: d.sellFeePct != null ? Number(d.sellFeePct) : null,
     sellDate: toDateStr(d.sellDate),
     note: d.note,
+    skinId: d.skinId,
+    skinFamilyId: d.skin?.skinFamilyId ?? null,
+    skinStattrak: d.skin?.stattrak ?? false,
+    skinSouvenir: d.skin?.souvenir ?? false,
   }));
 
   return (
     <DealsClient
       deals={deals}
       platforms={platforms}
-      itemNames={nameRows.map((r) => r.itemName)}
       baseCurrency={user.baseCurrency}
     />
   );

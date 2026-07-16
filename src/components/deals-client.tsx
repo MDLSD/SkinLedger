@@ -95,11 +95,10 @@ function DeleteButton({ deal }: { deal: DealDTO }) {
 type Props = {
   deals: DealDTO[];
   platforms: PlatformDTO[];
-  itemNames: string[];
   baseCurrency: string;
 };
 
-export function DealsClient({ deals, platforms, itemNames, baseCurrency }: Props) {
+export function DealsClient({ deals, platforms, baseCurrency }: Props) {
   const [dialog, setDialog] = useState<{
     open: boolean;
     deal: DealDTO | null;
@@ -249,7 +248,6 @@ export function DealsClient({ deals, platforms, itemNames, baseCurrency }: Props
           {dialog.open && (
             <DealForm
               platforms={platforms}
-              itemNames={itemNames}
               baseCurrency={baseCurrency}
               deal={dialog.deal}
               initialWithSell={dialog.withSell}

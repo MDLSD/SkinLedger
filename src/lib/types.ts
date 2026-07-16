@@ -27,4 +27,9 @@ export type DealDTO = {
   sellFeePct: number | null;
   sellDate: string | null; // yyyy-MM-dd
   note: string | null;
+  // Ссылка на справочник (для восстановления выбора при редактировании).
+  skinId: string | null;
+  skinFamilyId: string | null;
+  skinStattrak: boolean;
+  skinSouvenir: boolean;
 };

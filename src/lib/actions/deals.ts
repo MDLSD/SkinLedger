@@ -59,6 +59,7 @@ function dealData(userId: string, d: DealInput) {
     userId,
     itemName: d.itemName,
     itemQuality: d.itemQuality ?? null,
+    skinId: null as string | null,
     quantity: d.quantity,
     buyPlatformId: d.buyPlatformId,
     buyPrice: d.buyPrice,
@@ -75,6 +76,26 @@ function dealData(userId: string, d: DealInput) {
     sellDate: isHolding ? null : (d.sellDate ?? null),
     withdrawalDiscountPct,
     note: d.note ?? null,
+  };
+}
+
+// Резолвим ссылку на каноничный скин по семейству + износу + флагам.
+// Каноничные item_name/item_quality берём из справочника, а не из формы.
+async function resolveSkin(d: DealInput) {
+  if (!d.skinFamilyId) return null;
+  const skin = await prisma.skin.findFirst({
+    where: {
+      skinFamilyId: d.skinFamilyId,
+      wear: d.itemQuality ?? null,
+      stattrak: d.stattrak,
+      souvenir: d.souvenir,
+    },
+  });
+  if (!skin) throw new DealError("Выбранный вариант скина не найден в справочнике");
+  return {
+    skinId: skin.id,
+    itemName: skin.skinName ? `${skin.weapon} | ${skin.skinName}` : skin.weapon,
+    itemQuality: skin.wear,
   };
 }
 
@@ -101,6 +122,12 @@ export async function saveDealAction(
     }
 
     const data = dealData(userId, parsed.data);
+    const resolved = await resolveSkin(parsed.data);
+    if (resolved) {
+      data.skinId = resolved.skinId;
+      data.itemName = resolved.itemName;
+      data.itemQuality = resolved.itemQuality;
+    }
 
     if (dealId) {
       const existing = await prisma.deal.findFirst({

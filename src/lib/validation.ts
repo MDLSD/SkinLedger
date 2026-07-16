@@ -67,6 +67,11 @@ export const dealSchema = z
     sellDate: z.preprocess(emptyToUndef, z.coerce.date().optional()),
 
     note: z.preprocess(emptyToUndef, z.string().trim().max(2000).optional()),
+
+    // Ссылка на справочник (если скин выбран из автокомплита).
+    skinFamilyId: z.preprocess(emptyToUndef, z.string().optional()),
+    stattrak: z.preprocess((v) => v === "true" || v === true, z.boolean()),
+    souvenir: z.preprocess((v) => v === "true" || v === true, z.boolean()),
   })
   .superRefine((d, ctx) => {
     if (d.status === "holding") return;

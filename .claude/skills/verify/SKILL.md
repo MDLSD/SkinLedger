@@ -23,8 +23,16 @@ Test user: `test@example.com` / `password123`.
 Playwright установлен (devDependency + chromium). Скрипты запускать из корня проекта:
 
 ```bash
-SHOT_DIR=/tmp node .claude/skills/verify/e2e-deals.mjs   # e2e CRUD сделок, скриншоты в SHOT_DIR
+SHOT_DIR=/tmp node .claude/skills/verify/e2e-skins.mjs   # автокомплит скинов + резолв skin_id
+# node .claude/skills/verify/e2e-deals.mjs — УСТАРЕЛ: форма больше не имеет
+# свободного #itemName, название скина вводится через combobox ([role=combobox]).
 ```
+
+Справочник скинов: `npm run import:skins` (скачивает ByMykel/CSGO-API + русскую
+локализацию из counter-strike-file-tracker, upsert по market_hash_name, идемпотентно).
+Для отладки без сети: `SKINS_JSON=… EN_LANG_JSON=… RU_LANG_JSON=… npx tsx scripts/import-skins.ts`.
+Название скина в форме: `[role=combobox]` → набрать «ak red» → кликнуть `ul li button`;
+износ `#wear` (select), StatTrak/Souvenir — чекбоксы.
 
 Гочи:
 - Селекторы скоупить на `[data-slot=dialog-content]` — `form button[type=submit]` цепляет кнопку «Выйти» в шапке (она тоже в форме).

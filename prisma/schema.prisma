@@ -66,15 +66,51 @@ model Deal {
   withdrawalDiscountPct Decimal? @map("withdrawal_discount_pct")
   note                  String?
 
+  // Ссылка на каноничный скин из справочника. Nullable: старые сделки
+  // со свободным текстом остаются без ссылки (миграция — позже).
+  skinId String? @map("skin_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   buyPlatform  Platform  @relation("BuyPlatform", fields: [buyPlatformId], references: [id])
   sellPlatform Platform? @relation("SellPlatform", fields: [sellPlatformId], references: [id])
+  skin         Skin?     @relation(fields: [skinId], references: [id], onDelete: SetNull)
 
   @@index([userId, status])
   @@index([userId, buyDate])
   @@index([userId, sellDate])
   @@map("deals")
+}
+
+// Справочник скинов CS2 (источник: ByMykel/CSGO-API).
+// Одна запись = один торгуемый вариант: оружие + скин + износ + StatTrak/Souvenir.
+model Skin {
+  id String @id @default(uuid())
+
+  // Идентификаторы из источника для идемпотентного импорта.
+  externalId   String @unique @map("external_id") // id варианта, напр. skin-...._3
+  skinFamilyId String @map("skin_family_id") // общий id семейства (все износы/ST/SV)
+
+  weapon    String // базовое оружие: AK-47, AWP, Karambit …
+  skinName  String? @map("skin_name") // название скина (pattern); null у ванильных ножей
+  wear      String? // Factory New … Battle-Scarred; null если без износа
+  stattrak  Boolean @default(false)
+  souvenir  Boolean @default(false)
+  star      Boolean @default(false) // ★ у ножей/перчаток (для сборки market_hash_name)
+
+  // Полное имя в формате Steam, напр. StatTrak™ AWP | Dragon Lore (Field-Tested).
+  marketHashName String @unique @map("market_hash_name")
+
+  // Русские алиасы для поиска.
+  ruWeapon   String? @map("ru_weapon")
+  ruSkinName String? @map("ru_skin_name")
+
+  deals Deal[]
+
+  @@index([skinFamilyId])
+  @@index([weapon, skinName])
+  @@index([skinFamilyId, wear, stattrak, souvenir])
+  @@map("skins")
 }

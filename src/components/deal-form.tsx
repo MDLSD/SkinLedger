@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/native-select";
+import { SkinCombobox } from "@/components/skin-combobox";
 import { saveDealAction } from "@/lib/actions/deals";
 import {
   buyCostBase,
@@ -16,15 +17,9 @@ import {
   profit,
 } from "@/lib/deal-math";
 import { CURRENCIES } from "@/lib/validation";
+import { useSkinsIndex } from "@/lib/skins-client";
+import { buildMarketHashName, type SkinFamily } from "@/lib/skin-search";
 import type { DealDTO, PlatformDTO } from "@/lib/types";
-
-const QUALITIES = [
-  "Factory New",
-  "Minimal Wear",
-  "Field-Tested",
-  "Well-Worn",
-  "Battle-Scarred",
-];
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -37,7 +32,6 @@ const num = (s: string) => {
 
 type Props = {
   platforms: PlatformDTO[];
-  itemNames: string[];
   baseCurrency: string;
   deal?: DealDTO | null;
   initialWithSell?: boolean;
@@ -46,7 +40,6 @@ type Props = {
 
 export function DealForm({
   platforms,
-  itemNames,
   baseCurrency,
   deal,
   initialWithSell,
@@ -54,10 +47,27 @@ export function DealForm({
 }: Props) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(saveDealAction, {});
+  const families = useSkinsIndex();
 
   const [withSell, setWithSell] = useState(
     (deal ? deal.status !== "holding" : false) || (initialWithSell ?? false),
   );
+
+  // Выбранный скин из справочника + его варианты.
+  const [skin, setSkin] = useState<SkinFamily | null>(null);
+  const [wear, setWear] = useState(deal?.itemQuality ?? "");
+  const [stattrak, setStattrak] = useState(deal?.skinStattrak ?? false);
+  const [souvenir, setSouvenir] = useState(deal?.skinSouvenir ?? false);
+  // Для legacy-сделок без ссылки на справочник — исходный свободный текст.
+  const legacyName = deal && !deal.skinFamilyId ? deal.itemName : "";
+
+  // При редактировании: восстановить выбранный скин по индексу.
+  useEffect(() => {
+    if (deal?.skinFamilyId && families && !skin) {
+      const f = families.find((x) => x.f === deal.skinFamilyId);
+      if (f) setSkin(f);
+    }
+  }, [deal?.skinFamilyId, families, skin]);
 
   const [buyPlatformId, setBuyPlatformId] = useState(deal?.buyPlatformId ?? "");
   const [sellPlatformId, setSellPlatformId] = useState(deal?.sellPlatformId ?? "");
@@ -118,12 +128,39 @@ export function DealForm({
     if (p) setSellFeePct(String(p.defaultSellFeePct));
   };
 
+  const onSelectSkin = (f: SkinFamily) => {
+    setSkin(f);
+    setWear((prev) => (f.wears.includes(prev) ? prev : (f.wears[0] ?? "")));
+    setStattrak(false);
+    setSouvenir(false);
+  };
+
+  // Каноничное имя и market_hash_name выбранного варианта (для превью и отправки).
+  const canonicalName = skin
+    ? skin.w + (skin.s ? ` | ${skin.s}` : "")
+    : legacyName;
+  const marketHashName = skin
+    ? buildMarketHashName({
+        star: skin.star,
+        stattrak,
+        souvenir,
+        weapon: skin.w,
+        skinName: skin.s,
+        wear: wear || null,
+      })
+    : null;
+
   return (
     <form action={formAction} className="space-y-4">
       {deal && <input type="hidden" name="dealId" value={deal.id} />}
       <input type="hidden" name="status" value={status} />
       <input type="hidden" name="buyPlatformId" value={buyPlatformId} />
       <input type="hidden" name="sellPlatformId" value={withSell ? sellPlatformId : ""} />
+      <input type="hidden" name="itemName" value={canonicalName} />
+      <input type="hidden" name="itemQuality" value={skin ? wear : (deal?.itemQuality ?? "")} />
+      <input type="hidden" name="skinFamilyId" value={skin?.f ?? ""} />
+      <input type="hidden" name="stattrak" value={stattrak ? "true" : "false"} />
+      <input type="hidden" name="souvenir" value={souvenir ? "true" : "false"} />
 
       {!deal && (
         <div className="grid grid-cols-2 gap-2">
@@ -144,37 +181,64 @@ export function DealForm({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_170px_80px]">
+      <div className="grid gap-1.5">
+        <Label>Скин</Label>
+        <SkinCombobox value={skin} onSelect={onSelectSkin} autoFocus={!deal} />
+        {legacyName && !skin && (
+          <p className="text-xs text-muted-foreground">
+            Текущее значение: «{legacyName}». Выберите скин из справочника, чтобы
+            привязать каноничное название.
+          </p>
+        )}
+        {marketHashName && (
+          <p className="text-xs text-muted-foreground">
+            В справочнике: <span className="font-medium">{marketHashName}</span>
+          </p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_80px] sm:items-end">
         <div className="grid gap-1.5">
-          <Label htmlFor="itemName">Скин</Label>
-          <Input
-            id="itemName"
-            name="itemName"
-            list="item-name-suggestions"
-            placeholder="AK-47 | Redline"
-            defaultValue={deal?.itemName ?? ""}
-            required
-          />
-          <datalist id="item-name-suggestions">
-            {itemNames.map((n) => (
-              <option key={n} value={n} />
+          <Label htmlFor="wear">Износ</Label>
+          <NativeSelect
+            id="wear"
+            value={wear}
+            onChange={(e) => setWear(e.target.value)}
+            disabled={!skin || skin.wears.length === 0}
+          >
+            {skin && skin.wears.length === 0 && <option value="">—</option>}
+            {(skin?.wears ?? []).map((w) => (
+              <option key={w} value={w}>
+                {w}
+              </option>
             ))}
-          </datalist>
+          </NativeSelect>
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="itemQuality">Качество</Label>
-          <Input
-            id="itemQuality"
-            name="itemQuality"
-            list="quality-suggestions"
-            placeholder="Field-Tested"
-            defaultValue={deal?.itemQuality ?? ""}
-          />
-          <datalist id="quality-suggestions">
-            {QUALITIES.map((q) => (
-              <option key={q} value={q} />
-            ))}
-          </datalist>
+        <div className="flex gap-4 pb-1.5">
+          <label className="flex items-center gap-1.5 text-sm">
+            <input
+              type="checkbox"
+              checked={stattrak}
+              disabled={!skin?.st}
+              onChange={(e) => {
+                setStattrak(e.target.checked);
+                if (e.target.checked) setSouvenir(false);
+              }}
+            />
+            StatTrak™
+          </label>
+          <label className="flex items-center gap-1.5 text-sm">
+            <input
+              type="checkbox"
+              checked={souvenir}
+              disabled={!skin?.sv}
+              onChange={(e) => {
+                setSouvenir(e.target.checked);
+                if (e.target.checked) setStattrak(false);
+              }}
+            />
+            Souvenir
+          </label>
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="quantity">Кол-во</Label>
@@ -435,7 +499,7 @@ export function DealForm({
         <Button type="button" variant="outline" onClick={onDone}>
           Отмена
         </Button>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || !canonicalName}>
           {pending ? "Сохранение…" : deal ? "Сохранить" : "Добавить сделку"}
         </Button>
       </div>
