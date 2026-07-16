@@ -8,9 +8,14 @@ import { dealSchema, type DealInput } from "@/lib/validation";
 
 export type DealFormState = { error?: string; success?: boolean };
 
+// Доменная ошибка: её текст безопасно показывать пользователю.
+// Всё остальное (в т.ч. ошибки Prisma с именами моделей/полей) наружу
+// не уходит — только генерик-сообщение.
+class DealError extends Error {}
+
 async function requireUserId(): Promise<string> {
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Не авторизован");
+  if (!session?.user?.id) throw new DealError("Не авторизован");
   return session.user.id;
 }
 
@@ -22,7 +27,7 @@ async function assertPlatformVisible(platformId: string, userId: string) {
   const platform = await prisma.platform.findFirst({
     where: { id: platformId, OR: [{ isCustom: false }, { userId }] },
   });
-  if (!platform) throw new Error("Площадка не найдена");
+  if (!platform) throw new DealError("Площадка не найдена");
 }
 
 function dealData(userId: string, d: DealInput) {
@@ -112,7 +117,9 @@ export async function saveDealAction(
     return { success: true };
   } catch (e) {
     console.error("saveDealAction", e);
-    return { error: e instanceof Error ? e.message : "Не удалось сохранить сделку" };
+    return {
+      error: e instanceof DealError ? e.message : "Не удалось сохранить сделку",
+    };
   }
 }
 

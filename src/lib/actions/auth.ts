@@ -2,12 +2,24 @@
 
 import bcrypt from "bcryptjs";
 import { AuthError, CredentialsSignin } from "next-auth";
+import { headers } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { checkLimit, recordFailure } from "@/lib/rate-limit";
 import { loginSchema, registerSchema } from "@/lib/validation";
 
 export type AuthFormState = { error?: string };
+
+// Лимит регистраций: ключ только по IP, чтобы смена email не обходила его.
+// bcrypt.hash дорог — это ещё и защита CPU от массовой регистрации.
+const REGISTER_LIMIT = 5;
+const REGISTER_WINDOW_MS = 60 * 60_000;
+
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
 
 // Ошибка из authorize() может прийти как есть или обёрнутой (cause.err).
 function rateLimitRetrySec(e: unknown): number | null {
@@ -36,6 +48,17 @@ export async function registerAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
+
+  const ipKey = `register:ip:${await clientIp()}`;
+  const limit = checkLimit(ipKey, REGISTER_LIMIT);
+  if (limit.limited) {
+    return {
+      error: `Слишком много регистраций. Повторите через ${Math.ceil(limit.retryAfterSec / 60)} мин.`,
+    };
+  }
+  // Считаем каждую попытку (не только успешные): массовую регистрацию
+  // с одного адреса нужно резать независимо от исхода.
+  recordFailure(ipKey, REGISTER_WINDOW_MS);
 
   const email = parsed.data.email.toLowerCase();
   const { password } = parsed.data;
