@@ -18,6 +18,19 @@ DB: SQLite at `prisma/dev.db` (env `DATABASE_URL="file:./prisma/dev.db"`, resolv
 Migrate: `npx prisma migrate dev`; seed platforms: `npx prisma db seed`.
 Test user: `test@example.com` / `password123`.
 
+## Playwright (предпочтительно для всего, что живёт в диалогах/на клиенте)
+
+Playwright установлен (devDependency + chromium). Скрипты запускать из корня проекта:
+
+```bash
+SHOT_DIR=/tmp node .claude/skills/verify/e2e-deals.mjs   # e2e CRUD сделок, скриншоты в SHOT_DIR
+```
+
+Гочи:
+- Селекторы скоупить на `[data-slot=dialog-content]` — `form button[type=submit]` цепляет кнопку «Выйти» в шапке (она тоже в форме).
+- ru-RU форматирование денег использует NBSP ( ) — нормализуй перед сравнением текста.
+- Server actions, вызываемые из JS (useActionState в диалоге), нельзя дёрнуть curl'ом через $ACTION_ID — формы нет в SSR-HTML. Не трать время на реверс flight-протокола (Next-Action заголовок) — гоняй через Playwright.
+
 ## Driving server actions without a browser (progressive enhancement)
 
 Forms rendered by `useActionState` can be POSTed with curl. Extract hidden fields from the page HTML first:
