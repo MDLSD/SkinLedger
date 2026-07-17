@@ -41,6 +41,15 @@ export function buildMarketHashName(a: {
   return prefix + body + suffix;
 }
 
+/**
+ * Миниатюра картинки Steam CDN: суффикс размера отдаёт уменьшенную версию
+ * (напр. 96×96 ≈ 7 КБ вместо ~70 КБ оригинала). 96 — 2× от размера показа
+ * (48px), чтобы не мылилось на retina.
+ */
+export function skinThumb(url: string | null, size = 96): string | undefined {
+  return url ? `${url}/${size}fx${size}f` : undefined;
+}
+
 /** Нормализация: lower case, убрать ™ | ( ) и прочие разделители. */
 export function normalize(s: string): string {
   return s

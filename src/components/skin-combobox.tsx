@@ -6,6 +6,7 @@ import { useSkinsIndex } from "@/lib/skins-client";
 import {
   indexFamilies,
   searchFamilies,
+  skinThumb,
   type SkinFamily,
 } from "@/lib/skin-search";
 
@@ -116,8 +117,10 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={f.img ?? ""}
+                  src={skinThumb(f.img)}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   className="h-8 w-12 shrink-0 rounded bg-muted object-contain"
                 />
                 <span className="flex min-w-0 flex-col">
