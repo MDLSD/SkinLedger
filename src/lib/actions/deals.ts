@@ -71,7 +71,10 @@ function dealData(userId: string, d: DealInput) {
     sellPlatformId: isHolding ? null : (d.sellPlatformId ?? null),
     sellPrice: isHolding ? null : (d.sellPrice ?? null),
     sellCurrency: isHolding ? null : (d.sellCurrency ?? d.buyCurrency),
-    sellFxRate: isHolding ? null : (d.sellFxRate ?? 1),
+    // Дефолт курса продажи парен с дефолтом валюты: раз валюта наследуется
+    // от покупки, то и курс — от покупки (иначе валютная сделка без явного
+    // курса продажи считалась бы по курсу 1 и искажала прибыль).
+    sellFxRate: isHolding ? null : (d.sellFxRate ?? d.buyFxRate),
     sellFeePct: isHolding ? null : (d.sellFeePct ?? 0),
     sellDate: isHolding ? null : (d.sellDate ?? null),
     withdrawalDiscountPct,
