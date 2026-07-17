@@ -217,7 +217,7 @@ export function DealForm({
       )}
 
       <div className="grid gap-1.5">
-        <Label>Скин или стикер</Label>
+        <Label>Название скина</Label>
         <SkinCombobox value={skin} onSelect={onSelectSkin} autoFocus={!deal} />
         {legacyName && !skin && (
           <p className="text-xs text-muted-foreground">

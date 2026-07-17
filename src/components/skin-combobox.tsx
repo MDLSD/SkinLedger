@@ -14,6 +14,20 @@ function familyLabel(f: SkinFamily): string {
   return f.label;
 }
 
+// Названия для анимации подсказки (печатаются и стираются по букве).
+const PLACEHOLDER_SKINS = [
+  "AK-47 | Redline",
+  "AWP | Dragon Lore",
+  "M4A4 | Howl",
+  "AWP | Asiimov",
+  "Glock-18 | Fade",
+  "Desert Eagle | Blaze",
+  "Karambit | Doppler",
+  "AK-47 | Fire Serpent",
+  "USP-S | Kill Confirmed",
+  "M4A1-S | Hyper Beast",
+];
+
 // Подпись под названием: рус. алиас у скинов, тип у стикеров.
 function familySubtitle(f: SkinFamily): string | null {
   if (f.kind === "sticker") return "Стикер";
@@ -62,6 +76,57 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  // Анимация подсказки: названия печатаются и стираются по букве; когда
+  // строка пуста — «Поиск». Останавливается, когда поле в фокусе или выбрано
+  // значение — тогда просто «Поиск».
+  const [typed, setTyped] = useState("");
+  const animate = !open && !value && families !== null;
+  useEffect(() => {
+    if (!animate) return;
+    let cancelled = false;
+    let nameIdx = 0;
+    let charIdx = 0;
+    let phase: "typing" | "pause" | "deleting" | "idle" = "typing";
+    let timer: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      if (cancelled) return;
+      const name = PLACEHOLDER_SKINS[nameIdx];
+      let delay = 80;
+      if (phase === "typing") {
+        charIdx += 1;
+        setTyped(name.slice(0, charIdx));
+        if (charIdx >= name.length) {
+          phase = "pause";
+          delay = 1300;
+        } else delay = 60 + Math.random() * 70;
+      } else if (phase === "pause") {
+        phase = "deleting";
+        delay = 400;
+      } else if (phase === "deleting") {
+        charIdx -= 1;
+        setTyped(name.slice(0, Math.max(0, charIdx)));
+        if (charIdx <= 0) {
+          phase = "idle";
+          setTyped("Поиск");
+          delay = 1000;
+        } else delay = 35;
+      } else {
+        nameIdx = (nameIdx + 1) % PLACEHOLDER_SKINS.length;
+        charIdx = 0;
+        phase = "typing";
+        delay = 250;
+      }
+      timer = setTimeout(tick, delay);
+    };
+
+    timer = setTimeout(tick, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [animate]);
+
   const pick = (f: SkinFamily) => {
     onSelect(f);
     setQuery("");
@@ -69,15 +134,19 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
   };
 
   const displayValue = open ? query : value ? familyLabel(value) : query;
+  const placeholder =
+    families === null
+      ? "Загрузка справочника…"
+      : animate
+        ? typed || "Поиск"
+        : "Поиск";
 
   return (
     <div ref={boxRef} className="relative">
       <Input
         autoFocus={autoFocus}
         value={displayValue}
-        placeholder={
-          families === null ? "Загрузка справочника…" : "Начните вводить: ak red, awp дракон…"
-        }
+        placeholder={placeholder}
         disabled={families === null}
         onFocus={() => {
           setOpen(true);
