@@ -73,8 +73,10 @@ export function parseDealFilters(sp: RawParams): DealFilters {
   };
 }
 
-/** Диапазон дат покупки для выбранного периода (null — без ограничения). */
-export function periodRange(f: DealFilters): { gte?: Date; lte?: Date } | null {
+/** Диапазон дат для выбранного периода (null — без ограничения). */
+export function periodRange(
+  f: Pick<DealFilters, "period" | "from" | "to">,
+): { gte?: Date; lte?: Date } | null {
   const now = new Date();
   const daysAgo = (d: number) => new Date(now.getTime() - d * 86_400_000);
   if (f.period === "week") return { gte: daysAgo(7) };
