@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/native-select";
 import { Button } from "@/components/ui/button";
+import { DateRangePicker } from "@/components/date-range-picker";
 import {
   buildDealQuery,
   PERIOD_OPTIONS,
@@ -75,23 +76,11 @@ export function DealsToolbar({ filters, platforms }: Props) {
       {filters.period === "custom" && (
         <label className="grid gap-1 text-xs text-muted-foreground">
           Даты
-          <div className="flex items-center gap-1">
-            <Input
-              type="date"
-              aria-label="Дата начала"
-              className="h-8 w-36"
-              value={filters.from}
-              onChange={(e) => go({ from: e.target.value })}
-            />
-            <span className="text-muted-foreground">–</span>
-            <Input
-              type="date"
-              aria-label="Дата конца"
-              className="h-8 w-36"
-              value={filters.to}
-              onChange={(e) => go({ to: e.target.value })}
-            />
-          </div>
+          <DateRangePicker
+            from={filters.from}
+            to={filters.to}
+            onChange={(f, t) => go({ from: f, to: t })}
+          />
         </label>
       )}
 
