@@ -1,5 +1,6 @@
 // Общая логика поиска и сборки market_hash_name.
 // Используется и на клиенте (автокомплит, live-превью), и на сервере.
+import fuzzysort from "fuzzysort";
 
 export type SkinFamily = {
   f: string; // skinFamilyId
@@ -7,9 +8,12 @@ export type SkinFamily = {
   s: string | null; // skinName (pattern)
   r: string | null; // ruSkinName
   star: boolean; // ★ (ножи/перчатки)
-  st: boolean; // есть StatTrak-вариант
-  sv: boolean; // есть Souvenir-вариант
-  wears: string[]; // доступные износы (в порядке FN…BS)
+  img: string | null; // картинка (CDN Steam)
+  wears: string[]; // износы обычного варианта (FN…BS)
+  stWears: string[]; // износы StatTrak-варианта
+  svWears: string[]; // износы Souvenir-варианта
+  st: boolean; // существует StatTrak-вариант (в т.ч. без износа)
+  sv: boolean; // существует Souvenir-вариант
 };
 
 export const WEAR_ORDER = [
@@ -37,58 +41,68 @@ export function buildMarketHashName(a: {
   return prefix + body + suffix;
 }
 
-function normalize(s: string): string {
+/** Нормализация: lower case, убрать ™ | ( ) и прочие разделители. */
+export function normalize(s: string): string {
   return s
     .toLowerCase()
-    .replace(/[★™|()\-–—.,/]/g, " ")
+    .replace(/[™|()★–—\-_/.,]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-type Indexed = SkinFamily & { _hay: string; _len: number };
+export type IndexedFamily = {
+  fam: SkinFamily;
+  _p: Fuzzysort.Prepared;
+  len: number;
+};
 
-/** Предподготовка семейств для быстрого повторного поиска. */
-export function indexFamilies(families: SkinFamily[]): Indexed[] {
+/** Предподготовка семейств (haystack: англ. оружие + скин + рус. скин). */
+export function indexFamilies(families: SkinFamily[]): IndexedFamily[] {
   return families.map((f) => ({
-    ...f,
-    _hay: normalize([f.w, f.s ?? "", f.r ?? ""].join(" ")),
-    _len: (f.w + (f.s ?? "")).length,
+    fam: f,
+    _p: fuzzysort.prepare(normalize([f.w, f.s ?? "", f.r ?? ""].join(" "))),
+    len: (f.w + (f.s ?? "")).length,
   }));
 }
 
 /**
- * Поиск по подстрокам: все токены запроса должны найтись в haystack
- * (англ. оружие + англ. скин + рус. скин). Ранжирование: раньше позиция и
- * совпадение с началом слова — выше; при равенстве — короче название.
+ * Нечёткий поиск (fuzzysort), устойчивый к опечаткам и порядку слов:
+ * запрос разбивается на токены, каждый ищется отдельно, семейство проходит
+ * только если найдены все токены; итоговый ранг — сумма оценок токенов.
  */
 export function searchFamilies(
-  indexed: Indexed[],
+  indexed: IndexedFamily[],
   query: string,
-  limit = 30,
+  limit = 10,
 ): SkinFamily[] {
   const tokens = normalize(query).split(" ").filter(Boolean);
   if (tokens.length === 0) return [];
 
-  const scored: { f: Indexed; score: number }[] = [];
-  for (const f of indexed) {
-    let ok = true;
-    let score = 0;
-    for (const t of tokens) {
-      const pos = f._hay.indexOf(t);
-      if (pos === -1) {
-        ok = false;
-        break;
+  let acc: Map<IndexedFamily, number> | null = null;
+  for (const t of tokens) {
+    const res = fuzzysort.go(t, indexed, {
+      key: "_p",
+      threshold: 0.2,
+      limit: 2000,
+    });
+    if (acc === null) {
+      acc = new Map();
+      for (const r of res) acc.set(r.obj, r.score);
+    } else {
+      const scores = new Map<IndexedFamily, number>();
+      for (const r of res) scores.set(r.obj, r.score);
+      const next = new Map<IndexedFamily, number>();
+      for (const [obj, sum] of acc) {
+        const s = scores.get(obj);
+        if (s !== undefined) next.set(obj, sum + s);
       }
-      const atWordStart = pos === 0 || f._hay[pos - 1] === " ";
-      score += pos + (atWordStart ? 0 : 40);
+      acc = next;
     }
-    if (ok) scored.push({ f, score });
+    if (acc.size === 0) return [];
   }
 
-  scored.sort((a, b) => a.score - b.score || a.f._len - b.f._len);
-  return scored.slice(0, limit).map(({ f }) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { _hay, _len, ...family } = f;
-    return family;
-  });
+  return [...acc!.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].len - b[0].len)
+    .slice(0, limit)
+    .map(([obj]) => obj.fam);
 }

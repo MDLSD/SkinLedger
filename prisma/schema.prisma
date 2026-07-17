@@ -103,6 +103,9 @@ model Skin {
   // Полное имя в формате Steam, напр. StatTrak™ AWP | Dragon Lore (Field-Tested).
   marketHashName String @unique @map("market_hash_name")
 
+  // Картинка предмета (CDN Steam) — для превью в автокомплите.
+  image String?
+
   // Русские алиасы для поиска.
   ruWeapon   String? @map("ru_weapon")
   ruSkinName String? @map("ru_skin_name")

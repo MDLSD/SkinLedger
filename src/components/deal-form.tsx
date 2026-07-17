@@ -128,11 +128,29 @@ export function DealForm({
     if (p) setSellFeePct(String(p.defaultSellFeePct));
   };
 
+  // Износы, реально существующие для выбранного режима (normal/ST/Souvenir).
+  const availableWears = souvenir
+    ? (skin?.svWears ?? [])
+    : stattrak
+      ? (skin?.stWears ?? [])
+      : (skin?.wears ?? []);
+
+  // При смене режима/скина держим износ в списке допустимых.
+  useEffect(() => {
+    if (!skin) return;
+    if (availableWears.length === 0) {
+      if (wear !== "") setWear("");
+    } else if (!availableWears.includes(wear)) {
+      setWear(availableWears[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skin, stattrak, souvenir]);
+
   const onSelectSkin = (f: SkinFamily) => {
     setSkin(f);
-    setWear((prev) => (f.wears.includes(prev) ? prev : (f.wears[0] ?? "")));
     setStattrak(false);
     setSouvenir(false);
+    setWear(f.wears[0] ?? "");
   };
 
   // Каноничное имя и market_hash_name выбранного варианта (для превью и отправки).
@@ -204,10 +222,10 @@ export function DealForm({
             id="wear"
             value={wear}
             onChange={(e) => setWear(e.target.value)}
-            disabled={!skin || skin.wears.length === 0}
+            disabled={!skin || availableWears.length === 0}
           >
-            {skin && skin.wears.length === 0 && <option value="">—</option>}
-            {(skin?.wears ?? []).map((w) => (
+            {skin && availableWears.length === 0 && <option value="">—</option>}
+            {availableWears.map((w) => (
               <option key={w} value={w}>
                 {w}
               </option>

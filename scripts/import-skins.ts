@@ -35,6 +35,7 @@ type NgSkin = {
   wear: Named;
   stattrak: boolean;
   souvenir: boolean;
+  image?: string | null;
 };
 
 async function loadJson<T>(url: string, envOverride?: string): Promise<T> {
@@ -126,6 +127,7 @@ async function main() {
           souvenir: !!s.souvenir,
           star: mhn.startsWith("★"),
           marketHashName: mhn,
+          image: s.image ?? null,
           ruWeapon: null as string | null, // оружие в RU совпадает с латиницей
           ruSkinName: skinName ? (patternRu.get(skinName.toLowerCase()) ?? null) : null,
         };

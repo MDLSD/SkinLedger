@@ -26,17 +26,24 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
   const [active, setActive] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
 
+  // Debounce ввода 200 мс.
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(query), 200);
+    return () => clearTimeout(id);
+  }, [query]);
+
   const indexed = useMemo(
     () => (families ? indexFamilies(families) : []),
     [families],
   );
 
   const results = useMemo(() => {
-    if (!open || query.trim().length === 0) return [];
-    return searchFamilies(indexed, query, 30);
-  }, [indexed, query, open]);
+    if (!open || debounced.trim().length === 0) return [];
+    return searchFamilies(indexed, debounced, 10);
+  }, [indexed, debounced, open]);
 
-  useEffect(() => setActive(0), [query]);
+  useEffect(() => setActive(0), [debounced]);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -98,7 +105,7 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
             <li key={f.f}>
               <button
                 type="button"
-                className={`flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left text-sm ${
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
                   i === active ? "bg-muted" : "hover:bg-muted"
                 }`}
                 onMouseEnter={() => setActive(i)}
@@ -107,16 +114,26 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
                   pick(f);
                 }}
               >
-                <span>{familyLabel(f)}</span>
-                {f.r && f.r !== f.s && (
-                  <span className="text-xs text-muted-foreground">{f.r}</span>
-                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={f.img ?? ""}
+                  alt=""
+                  className="h-8 w-12 shrink-0 rounded bg-muted object-contain"
+                />
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate">{familyLabel(f)}</span>
+                  {f.r && f.r !== f.s && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {f.r}
+                    </span>
+                  )}
+                </span>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {open && query.trim().length > 0 && results.length === 0 && (
+      {open && debounced.trim().length > 0 && results.length === 0 && (
         <div className="absolute z-50 mt-1 w-full rounded-lg border bg-popover px-3 py-2 text-sm text-muted-foreground shadow-md">
           Ничего не найдено
         </div>
