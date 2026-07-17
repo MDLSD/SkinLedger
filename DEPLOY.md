@@ -1,0 +1,34 @@
+# Деплой SkinLedger (чек-лист)
+
+## Переменные окружения (прод)
+
+- [ ] `AUTH_SECRET` — сгенерировать: `openssl rand -base64 32`.
+- [ ] `DATABASE_URL` — Postgres (Neon/Supabase), не SQLite.
+- [ ] **`TRUST_PROXY=true`** — ⚠️ **обязательно за доверенным прокси (Vercel/nginx).**
+      Без него все клиенты делят один ключ rate-limit `"unknown"`: подделку IP это
+      не пропускает (fail-closed), но один атакующий 5 запросами блокирует
+      **регистрацию всем** на час, ~30/мин — вход (см. `src/lib/client-ip.ts`).
+      За прокси, который перезаписывает `x-forwarded-for` реальным IP, лимит снова
+      работает per-IP.
+
+## База данных
+
+- [ ] Сменить `provider` в `prisma/schema.prisma` на `postgresql`, поправить адаптер
+      (`@prisma/adapter-*`) под Postgres.
+- [ ] `npx prisma migrate deploy`.
+- [ ] `npm run import:catalog` — наполнить каталог скинов/стикеров (~30k).
+- [ ] Включить автобэкапы БД (в Neon/Supabase из коробки).
+
+## Rate-limit
+
+- [ ] **Перед горизонтальным масштабированием** заменить in-memory лимитер
+      (`src/lib/rate-limit.ts`) на общее хранилище (таблица в Postgres или Upstash
+      Redis): сейчас счётчики живут в памяти процесса и не разделяются между
+      инстансами serverless.
+
+## Прочее
+
+- [ ] Security-заголовки (`next.config.ts`) — уже настроены (CSP/HSTS/…);
+      проверить, что CSP `img-src` покрывает актуальные домены CDN Steam.
+- [ ] Автообновление каталога: недельный GitHub Action, дёргающий `import:catalog`
+      против прод-БД + сброс кэша индекса (`getSkinFamilies` TTL 1 ч).

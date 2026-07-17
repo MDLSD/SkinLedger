@@ -71,10 +71,9 @@ function dealData(userId: string, d: DealInput) {
     sellPlatformId: isHolding ? null : (d.sellPlatformId ?? null),
     sellPrice: isHolding ? null : (d.sellPrice ?? null),
     sellCurrency: isHolding ? null : (d.sellCurrency ?? d.buyCurrency),
-    // Дефолт курса продажи парен с дефолтом валюты: раз валюта наследуется
-    // от покупки, то и курс — от покупки (иначе валютная сделка без явного
-    // курса продажи считалась бы по курсу 1 и искажала прибыль).
-    sellFxRate: isHolding ? null : (d.sellFxRate ?? d.buyFxRate),
+    // Курс уже нормализован в saveDealAction относительно базовой валюты
+    // (валюта === базовая ⟹ 1; иначе обязателен). Фолбэк на 1 — страховка.
+    sellFxRate: isHolding ? null : (d.sellFxRate ?? 1),
     sellFeePct: isHolding ? null : (d.sellFeePct ?? 0),
     sellDate: isHolding ? null : (d.sellDate ?? null),
     withdrawalDiscountPct,
@@ -131,6 +130,27 @@ export async function saveDealAction(
         parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
       );
       return { error: parsed.error.issues[0].message };
+    }
+
+    // Курсы задаются к базовой валюте пользователя. Сервер авторитетно
+    // нормализует: валюта === базовая ⟹ курс 1; иначе курс обязателен
+    // (иначе крафтовый POST без sellFxRate исказил бы прибыль).
+    const { baseCurrency } = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { baseCurrency: true },
+    });
+    if (parsed.data.buyCurrency === baseCurrency) {
+      parsed.data.buyFxRate = 1;
+    }
+    if (parsed.data.status !== "holding") {
+      const sellCur = parsed.data.sellCurrency ?? parsed.data.buyCurrency;
+      if (sellCur === baseCurrency) {
+        parsed.data.sellFxRate = 1;
+      } else if (
+        !(typeof parsed.data.sellFxRate === "number" && parsed.data.sellFxRate > 0)
+      ) {
+        return { error: "Укажите курс продажи к базовой валюте" };
+      }
     }
 
     await assertPlatformVisible(parsed.data.buyPlatformId, userId);
