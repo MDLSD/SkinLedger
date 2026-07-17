@@ -82,15 +82,23 @@ export function periodRange(f: DealFilters): { gte?: Date; lte?: Date } | null {
   if (f.period === "quarter") return { gte: daysAgo(90) };
   if (f.period === "custom") {
     const range: { gte?: Date; lte?: Date } = {};
-    if (f.from) range.gte = new Date(f.from);
-    if (f.to) {
-      const end = new Date(f.to);
+    const start = validDate(f.from);
+    if (start) range.gte = start;
+    const end = validDate(f.to);
+    if (end) {
       end.setHours(23, 59, 59, 999);
       range.lte = end;
     }
     return Object.keys(range).length ? range : null;
   }
   return null;
+}
+
+// Разбор даты из URL: некорректная строка → undefined (не роняем Prisma).
+function validDate(s: string): Date | undefined {
+  if (!s) return undefined;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 /** Собрать query-строку из фильтров с переопределениями (для клиентских ссылок). */
