@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { checkLimit, clearLimit, recordFailure } from "@/lib/rate-limit";
+import { clientIpFromHeaders } from "@/lib/client-ip";
 import { loginSchema } from "@/lib/validation";
 
 declare module "next-auth" {
@@ -47,9 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
 
         const email = parsed.data.email.toLowerCase();
-        const ip =
-          request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-          "unknown";
+        const ip = clientIpFromHeaders(request?.headers);
         const emailKey = `login:email:${email}`;
         const ipKey = `login:ip:${ip}`;
 

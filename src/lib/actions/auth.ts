@@ -7,6 +7,7 @@ import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkLimit, recordFailure } from "@/lib/rate-limit";
+import { clientIpFromHeaders } from "@/lib/client-ip";
 import { loginSchema, registerSchema } from "@/lib/validation";
 
 export type AuthFormState = { error?: string };
@@ -17,8 +18,7 @@ const REGISTER_LIMIT = 5;
 const REGISTER_WINDOW_MS = 60 * 60_000;
 
 async function clientIp(): Promise<string> {
-  const h = await headers();
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  return clientIpFromHeaders(await headers());
 }
 
 // Ошибка из authorize() может прийти как есть или обёрнутой (cause.err).
