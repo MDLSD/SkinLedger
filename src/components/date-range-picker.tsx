@@ -84,7 +84,7 @@ export function DateRangePicker({ from, to, onChange }: Props) {
           mode="range"
           selected={range}
           onSelect={setRange}
-          numberOfMonths={2}
+          numberOfMonths={1}
           defaultMonth={range?.from ?? new Date()}
           locale={ru}
           autoFocus
