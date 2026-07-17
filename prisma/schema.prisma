@@ -66,17 +66,17 @@ model Deal {
   withdrawalDiscountPct Decimal? @map("withdrawal_discount_pct")
   note                  String?
 
-  // Ссылка на каноничный скин из справочника. Nullable: старые сделки
-  // со свободным текстом остаются без ссылки (миграция — позже).
-  skinId String? @map("skin_id")
+  // Ссылка на предмет из каталога (скин/стикер). Nullable: старые сделки
+  // со свободным текстом остаются без ссылки.
+  itemId String? @map("item_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  buyPlatform  Platform  @relation("BuyPlatform", fields: [buyPlatformId], references: [id])
-  sellPlatform Platform? @relation("SellPlatform", fields: [sellPlatformId], references: [id])
-  skin         Skin?     @relation(fields: [skinId], references: [id], onDelete: SetNull)
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buyPlatform  Platform    @relation("BuyPlatform", fields: [buyPlatformId], references: [id])
+  sellPlatform Platform?   @relation("SellPlatform", fields: [sellPlatformId], references: [id])
+  item         MarketItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   @@index([userId, status])
   @@index([userId, buyDate])
@@ -84,23 +84,34 @@ model Deal {
   @@map("deals")
 }
 
-// Справочник скинов CS2 (источник: ByMykel/CSGO-API).
-// Одна запись = один торгуемый вариант: оружие + скин + износ + StatTrak/Souvenir.
-model Skin {
+// Каталог торгуемых предметов CS2 (источник: ByMykel/CSGO-API).
+// Одна запись = один торгуемый вариант с уникальным market_hash_name.
+// kind разделяет виды: "skin" (оружие+скин+износ+ST/SV) и "sticker" (стикер+финиш).
+model MarketItem {
   id String @id @default(uuid())
 
+  kind String @default("skin") // "skin" | "sticker"
+
   // Идентификаторы из источника для идемпотентного импорта.
-  externalId   String @unique @map("external_id") // id варианта, напр. skin-...._3
-  skinFamilyId String @map("skin_family_id") // общий id семейства (все износы/ST/SV)
+  externalId String @unique @map("external_id") // id варианта, напр. skin-..._3 / sticker-1247
+  familyId   String @map("family_id") // id семейства (варианты одного предмета)
 
-  weapon    String // базовое оружие: AK-47, AWP, Karambit …
-  skinName  String? @map("skin_name") // название скина (pattern); null у ванильных ножей
-  wear      String? // Factory New … Battle-Scarred; null если без износа
-  stattrak  Boolean @default(false)
-  souvenir  Boolean @default(false)
-  star      Boolean @default(false) // ★ у ножей/перчаток (для сборки market_hash_name)
+  // --- Скины ---
+  weapon   String? // базовое оружие: AK-47, AWP, Karambit …
+  skinName String? @map("skin_name") // название скина (pattern); null у ванильных ножей
+  wear     String? // Factory New … Battle-Scarred; null если без износа
+  stattrak Boolean @default(false)
+  souvenir Boolean @default(false)
+  star     Boolean @default(false) // ★ у ножей/перчаток
 
-  // Полное имя в формате Steam, напр. StatTrak™ AWP | Dragon Lore (Field-Tested).
+  // --- Стикеры ---
+  stickerName String? @map("sticker_name") // «s1mple | MLG Columbus 2016»
+  finish      String? // Paper / Holo / Foil / Gold / Glitter / Lenticular / Embroidered
+  stickerType String? @map("sticker_type") // Autograph / Team / Event / Other
+  tournament  String? // турнир/событие
+
+  // Полное имя в формате Steam (уникально), напр.
+  // StatTrak™ AWP | Dragon Lore (Field-Tested) / Sticker | s1mple (Foil) | MLG Columbus 2016.
   marketHashName String @unique @map("market_hash_name")
 
   // Картинка предмета (CDN Steam) — для превью в автокомплите.
@@ -112,8 +123,9 @@ model Skin {
 
   deals Deal[]
 
-  @@index([skinFamilyId])
-  @@index([weapon, skinName])
-  @@index([skinFamilyId, wear, stattrak, souvenir])
-  @@map("skins")
+  @@index([kind])
+  @@index([familyId])
+  @@index([familyId, wear, stattrak, souvenir]) // резолв скина
+  @@index([familyId, finish]) // резолв стикера
+  @@map("market_items")
 }

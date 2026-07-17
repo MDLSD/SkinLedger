@@ -53,21 +53,24 @@ export function DealForm({
     (deal ? deal.status !== "holding" : false) || (initialWithSell ?? false),
   );
 
-  // Выбранный скин из справочника + его варианты.
+  // Выбранный предмет из каталога + его варианты.
   const [skin, setSkin] = useState<SkinFamily | null>(null);
-  const [wear, setWear] = useState(deal?.itemQuality ?? "");
-  const [stattrak, setStattrak] = useState(deal?.skinStattrak ?? false);
-  const [souvenir, setSouvenir] = useState(deal?.skinSouvenir ?? false);
+  const [wear, setWear] = useState(deal?.itemKind === "sticker" ? "" : (deal?.itemQuality ?? ""));
+  const [stattrak, setStattrak] = useState(deal?.itemStattrak ?? false);
+  const [souvenir, setSouvenir] = useState(deal?.itemSouvenir ?? false);
+  const [finish, setFinish] = useState(
+    deal?.itemKind === "sticker" ? (deal?.itemQuality ?? "") : "",
+  );
   // Для legacy-сделок без ссылки на справочник — исходный свободный текст.
-  const legacyName = deal && !deal.skinFamilyId ? deal.itemName : "";
+  const legacyName = deal && !deal.itemFamilyId ? deal.itemName : "";
 
-  // При редактировании: восстановить выбранный скин по индексу.
+  // При редактировании: восстановить выбранный предмет по индексу.
   useEffect(() => {
-    if (deal?.skinFamilyId && families && !skin) {
-      const f = families.find((x) => x.f === deal.skinFamilyId);
+    if (deal?.itemFamilyId && families && !skin) {
+      const f = families.find((x) => x.f === deal.itemFamilyId);
       if (f) setSkin(f);
     }
-  }, [deal?.skinFamilyId, families, skin]);
+  }, [deal?.itemFamilyId, families, skin]);
 
   const [buyPlatformId, setBuyPlatformId] = useState(deal?.buyPlatformId ?? "");
   const [sellPlatformId, setSellPlatformId] = useState(deal?.sellPlatformId ?? "");
@@ -128,6 +131,8 @@ export function DealForm({
     if (p) setSellFeePct(String(p.defaultSellFeePct));
   };
 
+  const isSticker = skin?.kind === "sticker";
+
   // Износы, реально существующие для выбранного режима (normal/ST/Souvenir).
   const availableWears = souvenir
     ? (skin?.svWears ?? [])
@@ -137,7 +142,7 @@ export function DealForm({
 
   // При смене режима/скина держим износ в списке допустимых.
   useEffect(() => {
-    if (!skin) return;
+    if (!skin || isSticker) return;
     if (availableWears.length === 0) {
       if (wear !== "") setWear("");
     } else if (!availableWears.includes(wear)) {
@@ -150,23 +155,29 @@ export function DealForm({
     setSkin(f);
     setStattrak(false);
     setSouvenir(false);
-    setWear(f.wears[0] ?? "");
+    if (f.kind === "sticker") {
+      setWear("");
+      setFinish(f.finishes[0] ?? "");
+    } else {
+      setFinish("");
+      setWear(f.wears[0] ?? "");
+    }
   };
 
-  // Каноничное имя и market_hash_name выбранного варианта (для превью и отправки).
-  const canonicalName = skin
-    ? skin.w + (skin.s ? ` | ${skin.s}` : "")
-    : legacyName;
-  const marketHashName = skin
-    ? buildMarketHashName({
-        star: skin.star,
-        stattrak,
-        souvenir,
-        weapon: skin.w,
-        skinName: skin.s,
-        wear: wear || null,
-      })
-    : null;
+  // Каноничное имя и превью выбранного варианта.
+  const canonicalName = skin ? skin.label : legacyName;
+  const marketHashName = !skin
+    ? null
+    : isSticker
+      ? `${skin.label}${finish ? ` · ${finish}` : ""}`
+      : buildMarketHashName({
+          star: skin.star,
+          stattrak,
+          souvenir,
+          weapon: skin.w ?? "",
+          skinName: skin.s,
+          wear: wear || null,
+        });
 
   return (
     <form action={formAction} className="space-y-4">
@@ -175,10 +186,16 @@ export function DealForm({
       <input type="hidden" name="buyPlatformId" value={buyPlatformId} />
       <input type="hidden" name="sellPlatformId" value={withSell ? sellPlatformId : ""} />
       <input type="hidden" name="itemName" value={canonicalName} />
-      <input type="hidden" name="itemQuality" value={skin ? wear : (deal?.itemQuality ?? "")} />
+      <input
+        type="hidden"
+        name="itemQuality"
+        value={skin ? (isSticker ? finish : wear) : (deal?.itemQuality ?? "")}
+      />
+      <input type="hidden" name="itemKind" value={skin?.kind ?? ""} />
       <input type="hidden" name="skinFamilyId" value={skin?.f ?? ""} />
       <input type="hidden" name="stattrak" value={stattrak ? "true" : "false"} />
       <input type="hidden" name="souvenir" value={souvenir ? "true" : "false"} />
+      <input type="hidden" name="finish" value={isSticker ? finish : ""} />
 
       {!deal && (
         <div className="grid grid-cols-2 gap-2">
@@ -200,7 +217,7 @@ export function DealForm({
       )}
 
       <div className="grid gap-1.5">
-        <Label>Скин</Label>
+        <Label>Скин или стикер</Label>
         <SkinCombobox value={skin} onSelect={onSelectSkin} autoFocus={!deal} />
         {legacyName && !skin && (
           <p className="text-xs text-muted-foreground">
@@ -216,48 +233,67 @@ export function DealForm({
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_80px] sm:items-end">
-        <div className="grid gap-1.5">
-          <Label htmlFor="wear">Износ</Label>
-          <NativeSelect
-            id="wear"
-            value={wear}
-            onChange={(e) => setWear(e.target.value)}
-            disabled={!skin || availableWears.length === 0}
-          >
-            {skin && availableWears.length === 0 && <option value="">—</option>}
-            {availableWears.map((w) => (
-              <option key={w} value={w}>
-                {w}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="flex gap-4 pb-1.5">
-          <label className="flex items-center gap-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={stattrak}
-              disabled={!skin?.st}
-              onChange={(e) => {
-                setStattrak(e.target.checked);
-                if (e.target.checked) setSouvenir(false);
-              }}
-            />
-            StatTrak™
-          </label>
-          <label className="flex items-center gap-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={souvenir}
-              disabled={!skin?.sv}
-              onChange={(e) => {
-                setSouvenir(e.target.checked);
-                if (e.target.checked) setStattrak(false);
-              }}
-            />
-            Souvenir
-          </label>
-        </div>
+        {isSticker ? (
+          <div className="grid gap-1.5">
+            <Label htmlFor="finish">Финиш</Label>
+            <NativeSelect
+              id="finish"
+              value={finish}
+              onChange={(e) => setFinish(e.target.value)}
+            >
+              {(skin?.finishes ?? []).map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-1.5">
+              <Label htmlFor="wear">Износ</Label>
+              <NativeSelect
+                id="wear"
+                value={wear}
+                onChange={(e) => setWear(e.target.value)}
+                disabled={!skin || availableWears.length === 0}
+              >
+                {skin && availableWears.length === 0 && <option value="">—</option>}
+                {availableWears.map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="flex gap-4 pb-1.5">
+              <label className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={stattrak}
+                  disabled={!skin?.st}
+                  onChange={(e) => {
+                    setStattrak(e.target.checked);
+                    if (e.target.checked) setSouvenir(false);
+                  }}
+                />
+                StatTrak™
+              </label>
+              <label className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={souvenir}
+                  disabled={!skin?.sv}
+                  onChange={(e) => {
+                    setSouvenir(e.target.checked);
+                    if (e.target.checked) setStattrak(false);
+                  }}
+                />
+                Souvenir
+              </label>
+            </div>
+          </>
+        )}
         <div className="grid gap-1.5">
           <Label htmlFor="quantity">Кол-во</Label>
           <Input

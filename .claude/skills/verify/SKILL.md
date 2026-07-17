@@ -23,16 +23,17 @@ Test user: `test@example.com` / `password123`.
 Playwright установлен (devDependency + chromium). Скрипты запускать из корня проекта:
 
 ```bash
-SHOT_DIR=/tmp node .claude/skills/verify/e2e-skins.mjs   # автокомплит скинов + резолв skin_id
-# node .claude/skills/verify/e2e-deals.mjs — УСТАРЕЛ: форма больше не имеет
-# свободного #itemName, название скина вводится через combobox ([role=combobox]).
+SHOT_DIR=/tmp node .claude/skills/verify/e2e-catalog.mjs   # автокомплит скинов+стикеров, резолв item_id
 ```
 
-Справочник скинов: `npm run import:skins` (скачивает ByMykel/CSGO-API + русскую
-локализацию из counter-strike-file-tracker, upsert по market_hash_name, идемпотентно).
-Для отладки без сети: `SKINS_JSON=… EN_LANG_JSON=… RU_LANG_JSON=… npx tsx scripts/import-skins.ts`.
-Название скина в форме: `[role=combobox]` → набрать «ak red» → кликнуть `ul li button`;
-износ `#wear` (select), StatTrak/Souvenir — чекбоксы.
+Каталог (скины + стикеры): `npm run import:catalog` (скачивает ByMykel/CSGO-API —
+skins_not_grouped + stickers — и русскую локализацию из counter-strike-file-tracker,
+upsert по market_hash_name, идемпотентно; ~30k предметов).
+Для отладки без сети: `SKINS_JSON=… STICKERS_JSON=… EN_LANG_JSON=… RU_LANG_JSON=… npx tsx scripts/import-catalog.ts`.
+Автокомплит: `[role=combobox]` → «ak red» / «s1mple» → клик `ul li button`. У скина —
+`#wear` + чекбоксы StatTrak/Souvenir; у стикера — `#finish` (селектор финиша).
+Индекс каталога: `GET /api/skins` (отдаётся gzip, ~460КБ; в браузере распаковывается сам).
+БД предметов: модель `prisma.marketItem` (kind: skin|sticker), сделка ссылается через `Deal.itemId`.
 
 Гочи:
 - Селекторы скоупить на `[data-slot=dialog-content]` — `form button[type=submit]` цепляет кнопку «Выйти» в шапке (она тоже в форме).

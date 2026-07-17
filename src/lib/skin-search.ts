@@ -2,18 +2,25 @@
 // Используется и на клиенте (автокомплит, live-превью), и на сервере.
 import fuzzysort from "fuzzysort";
 
+// Семейство каталога (скин или стикер) для автокомплита.
 export type SkinFamily = {
-  f: string; // skinFamilyId
-  w: string; // weapon
-  s: string | null; // skinName (pattern)
-  r: string | null; // ruSkinName
-  star: boolean; // ★ (ножи/перчатки)
+  kind: "skin" | "sticker";
+  f: string; // familyId
+  label: string; // отображаемое имя («AK-47 | Redline» / «s1mple | MLG Columbus 2016»)
+  r: string | null; // русский алиас (у скинов)
   img: string | null; // картинка (CDN Steam)
+  // --- скины ---
+  w: string | null; // weapon
+  s: string | null; // skinName (pattern)
+  star: boolean; // ★ (ножи/перчатки)
   wears: string[]; // износы обычного варианта (FN…BS)
   stWears: string[]; // износы StatTrak-варианта
   svWears: string[]; // износы Souvenir-варианта
-  st: boolean; // существует StatTrak-вариант (в т.ч. без износа)
+  st: boolean; // существует StatTrak-вариант
   sv: boolean; // существует Souvenir-вариант
+  // --- стикеры ---
+  finishes: string[]; // доступные финиши (Paper/Holo/Foil/…)
+  stickerType: string | null; // Autograph / Team / Event / Other
 };
 
 export const WEAR_ORDER = [
@@ -22,6 +29,16 @@ export const WEAR_ORDER = [
   "Field-Tested",
   "Well-Worn",
   "Battle-Scarred",
+] as const;
+
+export const FINISH_ORDER = [
+  "Paper",
+  "Glitter",
+  "Holo",
+  "Foil",
+  "Gold",
+  "Lenticular",
+  "Embroidered",
 ] as const;
 
 /** Собрать market_hash_name в формате Steam из атрибутов. */
@@ -65,12 +82,12 @@ export type IndexedFamily = {
   len: number;
 };
 
-/** Предподготовка семейств (haystack: англ. оружие + скин + рус. скин). */
+/** Предподготовка семейств (haystack: имя + рус. алиас). */
 export function indexFamilies(families: SkinFamily[]): IndexedFamily[] {
   return families.map((f) => ({
     fam: f,
-    _p: fuzzysort.prepare(normalize([f.w, f.s ?? "", f.r ?? ""].join(" "))),
-    len: (f.w + (f.s ?? "")).length,
+    _p: fuzzysort.prepare(normalize([f.label, f.r ?? ""].join(" "))),
+    len: f.label.length,
   }));
 }
 

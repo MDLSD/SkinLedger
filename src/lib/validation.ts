@@ -68,10 +68,12 @@ export const dealSchema = z
 
     note: z.preprocess(emptyToUndef, z.string().trim().max(2000).optional()),
 
-    // Ссылка на справочник (если скин выбран из автокомплита).
+    // Ссылка на каталог (если предмет выбран из автокомплита).
     skinFamilyId: z.preprocess(emptyToUndef, z.string().optional()),
+    itemKind: z.preprocess(emptyToUndef, z.enum(["skin", "sticker"]).optional()),
     stattrak: z.preprocess((v) => v === "true" || v === true, z.boolean()),
     souvenir: z.preprocess((v) => v === "true" || v === true, z.boolean()),
+    finish: z.preprocess(emptyToUndef, z.string().optional()),
   })
   .superRefine((d, ctx) => {
     if (d.status === "holding") return;

@@ -24,7 +24,7 @@ export default async function DealsPage() {
     }),
     prisma.deal.findMany({
       where: { userId },
-      include: { buyPlatform: true, sellPlatform: true, skin: true },
+      include: { buyPlatform: true, sellPlatform: true, item: true },
       orderBy: { createdAt: "desc" },
       take: 200,
     }),
@@ -59,10 +59,11 @@ export default async function DealsPage() {
     sellFeePct: d.sellFeePct != null ? Number(d.sellFeePct) : null,
     sellDate: toDateStr(d.sellDate),
     note: d.note,
-    skinId: d.skinId,
-    skinFamilyId: d.skin?.skinFamilyId ?? null,
-    skinStattrak: d.skin?.stattrak ?? false,
-    skinSouvenir: d.skin?.souvenir ?? false,
+    itemId: d.itemId,
+    itemFamilyId: d.item?.familyId ?? null,
+    itemKind: d.item?.kind ?? null,
+    itemStattrak: d.item?.stattrak ?? false,
+    itemSouvenir: d.item?.souvenir ?? false,
   }));
 
   return (

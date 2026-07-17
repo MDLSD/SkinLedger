@@ -11,7 +11,13 @@ import {
 } from "@/lib/skin-search";
 
 function familyLabel(f: SkinFamily): string {
-  return f.w + (f.s ? ` | ${f.s}` : "");
+  return f.label;
+}
+
+// Подпись под названием: рус. алиас у скинов, тип у стикеров.
+function familySubtitle(f: SkinFamily): string | null {
+  if (f.kind === "sticker") return "Стикер";
+  return f.r && f.r !== f.s ? f.r : null;
 }
 
 type Props = {
@@ -125,9 +131,9 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
                 />
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate">{familyLabel(f)}</span>
-                  {f.r && f.r !== f.s && (
+                  {familySubtitle(f) && (
                     <span className="truncate text-xs text-muted-foreground">
-                      {f.r}
+                      {familySubtitle(f)}
                     </span>
                   )}
                 </span>

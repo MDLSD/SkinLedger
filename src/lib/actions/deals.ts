@@ -59,7 +59,7 @@ function dealData(userId: string, d: DealInput) {
     userId,
     itemName: d.itemName,
     itemQuality: d.itemQuality ?? null,
-    skinId: null as string | null,
+    itemId: null as string | null,
     quantity: d.quantity,
     buyPlatformId: d.buyPlatformId,
     buyPrice: d.buyPrice,
@@ -79,23 +79,37 @@ function dealData(userId: string, d: DealInput) {
   };
 }
 
-// Резолвим ссылку на каноничный скин по семейству + износу + флагам.
-// Каноничные item_name/item_quality берём из справочника, а не из формы.
-async function resolveSkin(d: DealInput) {
+// Резолвим ссылку на каноничный предмет каталога по семейству + варианту
+// (скин: износ+ST/SV; стикер: финиш). item_name/item_quality — из каталога.
+async function resolveItem(d: DealInput) {
   if (!d.skinFamilyId) return null;
-  const skin = await prisma.skin.findFirst({
+
+  if (d.itemKind === "sticker") {
+    const item = await prisma.marketItem.findFirst({
+      where: { familyId: d.skinFamilyId, kind: "sticker", finish: d.finish ?? null },
+    });
+    if (!item) throw new DealError("Выбранный вариант стикера не найден в справочнике");
+    return {
+      itemId: item.id,
+      itemName: item.stickerName ?? item.marketHashName,
+      itemQuality: item.finish,
+    };
+  }
+
+  const item = await prisma.marketItem.findFirst({
     where: {
-      skinFamilyId: d.skinFamilyId,
+      familyId: d.skinFamilyId,
+      kind: "skin",
       wear: d.itemQuality ?? null,
       stattrak: d.stattrak,
       souvenir: d.souvenir,
     },
   });
-  if (!skin) throw new DealError("Выбранный вариант скина не найден в справочнике");
+  if (!item) throw new DealError("Выбранный вариант скина не найден в справочнике");
   return {
-    skinId: skin.id,
-    itemName: skin.skinName ? `${skin.weapon} | ${skin.skinName}` : skin.weapon,
-    itemQuality: skin.wear,
+    itemId: item.id,
+    itemName: item.skinName ? `${item.weapon} | ${item.skinName}` : (item.weapon ?? ""),
+    itemQuality: item.wear,
   };
 }
 
@@ -122,9 +136,9 @@ export async function saveDealAction(
     }
 
     const data = dealData(userId, parsed.data);
-    const resolved = await resolveSkin(parsed.data);
+    const resolved = await resolveItem(parsed.data);
     if (resolved) {
-      data.skinId = resolved.skinId;
+      data.itemId = resolved.itemId;
       data.itemName = resolved.itemName;
       data.itemQuality = resolved.itemQuality;
     }
