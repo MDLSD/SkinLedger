@@ -110,16 +110,16 @@ export function DateRangePicker({ from, to, onChange }: Props) {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 w-56 justify-start font-normal"
+            className="h-8 w-48 justify-start font-normal"
           />
         }
       >
         <CalendarIcon className="size-4 text-muted-foreground" />
-        <span className={fromISO(from) ? "" : "text-muted-foreground"}>
+        <span className={`truncate ${fromISO(from) ? "" : "text-muted-foreground"}`}>
           {label}
         </span>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-3" align="start">
+      <PopoverContent className="w-auto p-2" align="start">
         <Calendar
           mode="range"
           selected={range}
@@ -128,25 +128,33 @@ export function DateRangePicker({ from, to, onChange }: Props) {
           month={month}
           onMonthChange={setMonth}
           locale={ru}
+          className="p-0 [--cell-size:--spacing(6)]"
           autoFocus
         />
-        <div className="mt-3 flex items-center gap-2 border-t pt-3">
-          <Input
-            aria-label="Дата начала"
-            placeholder="дд.мм.гггг"
-            className="h-8 w-32 text-center"
-            value={fromText}
-            onChange={(e) => onText("from")(e.target.value)}
-          />
-          <span className="text-muted-foreground">–</span>
-          <Input
-            aria-label="Дата конца"
-            placeholder="дд.мм.гггг"
-            className="h-8 w-32 text-center"
-            value={toText}
-            onChange={(e) => onText("to")(e.target.value)}
-          />
-          <Button size="sm" className="ml-auto" onClick={apply} disabled={!range?.from}>
+        <div className="mt-2 space-y-2 border-t pt-2">
+          <div className="flex items-center justify-center gap-1.5">
+            <Input
+              aria-label="Дата начала"
+              placeholder="дд.мм.гггг"
+              className="h-7 w-[92px] px-1 text-center text-xs"
+              value={fromText}
+              onChange={(e) => onText("from")(e.target.value)}
+            />
+            <span className="text-muted-foreground">–</span>
+            <Input
+              aria-label="Дата конца"
+              placeholder="дд.мм.гггг"
+              className="h-7 w-[92px] px-1 text-center text-xs"
+              value={toText}
+              onChange={(e) => onText("to")(e.target.value)}
+            />
+          </div>
+          <Button
+            size="sm"
+            className="h-7 w-full"
+            onClick={apply}
+            disabled={!range?.from}
+          >
             Применить
           </Button>
         </div>
