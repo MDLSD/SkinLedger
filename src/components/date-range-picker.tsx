@@ -5,6 +5,7 @@ import type { DateRange } from "react-day-picker";
 import { ru } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -42,9 +43,14 @@ export function DateRangePicker({ from, to, onChange }: Props) {
     from: parse(from),
     to: parse(to),
   });
+  // Отображаемый месяц (чтобы календарь прыгал при ручном вводе даты).
+  const [month, setMonth] = useState<Date>(parse(from) ?? new Date());
 
   const onOpenChange = (o: boolean) => {
-    if (o) setRange({ from: parse(from), to: parse(to) });
+    if (o) {
+      setRange({ from: parse(from), to: parse(to) });
+      setMonth(parse(from) ?? new Date());
+    }
     setOpen(o);
   };
 
@@ -57,10 +63,20 @@ export function DateRangePicker({ from, to, onChange }: Props) {
         : "Выберите даты";
 
   const apply = () => {
-    if (range?.from) {
-      onChange(fmtISO(range.from), fmtISO(range.to ?? range.from));
-      setOpen(false);
-    }
+    if (!range?.from) return;
+    let a = range.from;
+    let z = range.to ?? range.from;
+    if (a > z) [a, z] = [z, a]; // на случай from > to при ручном вводе
+    onChange(fmtISO(a), fmtISO(z));
+    setOpen(false);
+  };
+
+  const onInput = (key: "from" | "to") => (v: string) => {
+    const d = parse(v);
+    setRange((r) =>
+      key === "from" ? { from: d, to: r?.to } : { from: r?.from, to: d },
+    );
+    if (d) setMonth(d);
   };
 
   return (
@@ -85,19 +101,33 @@ export function DateRangePicker({ from, to, onChange }: Props) {
           selected={range}
           onSelect={setRange}
           numberOfMonths={1}
-          defaultMonth={range?.from ?? new Date()}
+          month={month}
+          onMonthChange={setMonth}
           locale={ru}
           autoFocus
         />
-        <div className="flex items-center justify-between gap-2 border-t p-3">
-          <span className="text-sm text-muted-foreground">
-            {range?.from && range?.to
-              ? `${fmtRu(range.from)} – ${fmtRu(range.to)}`
-              : range?.from
-                ? "Выберите конец периода"
-                : "Выберите начало периода"}
-          </span>
-          <Button size="sm" onClick={apply} disabled={!range?.from}>
+        <div className="flex flex-wrap items-center gap-2 border-t p-3">
+          <Input
+            type="date"
+            aria-label="Дата начала"
+            className="h-8 w-[140px]"
+            value={range?.from ? fmtISO(range.from) : ""}
+            onChange={(e) => onInput("from")(e.target.value)}
+          />
+          <span className="text-muted-foreground">–</span>
+          <Input
+            type="date"
+            aria-label="Дата конца"
+            className="h-8 w-[140px]"
+            value={range?.to ? fmtISO(range.to) : ""}
+            onChange={(e) => onInput("to")(e.target.value)}
+          />
+          <Button
+            size="sm"
+            onClick={apply}
+            disabled={!range?.from}
+            className="ml-auto"
+          >
             Применить
           </Button>
         </div>
