@@ -132,6 +132,8 @@ export function DealForm({
   };
 
   const isSticker = skin?.kind === "sticker";
+  const isAgent = skin?.kind === "agent";
+  const isSkin = skin?.kind === "skin";
 
   // Износы, реально существующие для выбранного режима (normal/ST/Souvenir).
   const availableWears = souvenir
@@ -142,7 +144,7 @@ export function DealForm({
 
   // При смене режима/скина держим износ в списке допустимых.
   useEffect(() => {
-    if (!skin || isSticker) return;
+    if (!skin || !isSkin) return;
     if (availableWears.length === 0) {
       if (wear !== "") setWear("");
     } else if (!availableWears.includes(wear)) {
@@ -158,6 +160,9 @@ export function DealForm({
     if (f.kind === "sticker") {
       setWear("");
       setFinish(f.finishes[0] ?? "");
+    } else if (f.kind === "agent") {
+      setWear("");
+      setFinish("");
     } else {
       setFinish("");
       setWear(f.wears[0] ?? "");
@@ -168,7 +173,9 @@ export function DealForm({
   const canonicalName = skin ? skin.label : legacyName;
   const marketHashName = !skin
     ? null
-    : isSticker
+    : isAgent
+      ? skin.label
+      : isSticker
       ? `${skin.label}${finish ? ` · ${finish}` : ""}`
       : buildMarketHashName({
           star: skin.star,
@@ -248,7 +255,7 @@ export function DealForm({
               ))}
             </NativeSelect>
           </div>
-        ) : (
+        ) : isSkin ? (
           <>
             <div className="grid gap-1.5">
               <Label htmlFor="wear">Износ</Label>
@@ -293,7 +300,7 @@ export function DealForm({
               </label>
             </div>
           </>
-        )}
+        ) : null}
         <div className="grid gap-1.5">
           <Label htmlFor="quantity">Кол-во</Label>
           <Input

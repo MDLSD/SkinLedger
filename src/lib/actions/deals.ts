@@ -98,6 +98,18 @@ async function resolveItem(d: DealInput) {
     };
   }
 
+  if (d.itemKind === "agent") {
+    const item = await prisma.marketItem.findFirst({
+      where: { familyId: d.skinFamilyId, kind: "agent" },
+    });
+    if (!item) throw new DealError("Выбранный агент не найден в справочнике");
+    return {
+      itemId: item.id,
+      itemName: item.skinName ?? item.marketHashName,
+      itemQuality: null,
+    };
+  }
+
   const item = await prisma.marketItem.findFirst({
     where: {
       familyId: d.skinFamilyId,

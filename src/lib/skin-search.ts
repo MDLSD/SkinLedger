@@ -4,7 +4,7 @@ import fuzzysort from "fuzzysort";
 
 // Семейство каталога (скин или стикер) для автокомплита.
 export type SkinFamily = {
-  kind: "skin" | "sticker";
+  kind: "skin" | "sticker" | "agent";
   f: string; // familyId
   label: string; // отображаемое имя («AK-47 | Redline» / «s1mple | MLG Columbus 2016»)
   r: string | null; // русский алиас (у скинов)

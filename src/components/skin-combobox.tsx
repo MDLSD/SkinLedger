@@ -28,9 +28,10 @@ const PLACEHOLDER_SKINS = [
   "M4A1-S | Hyper Beast",
 ];
 
-// Подпись под названием: рус. алиас у скинов, тип у стикеров.
+// Подпись под названием: рус. алиас у скинов, тип у стикеров/агентов.
 function familySubtitle(f: SkinFamily): string | null {
   if (f.kind === "sticker") return "Стикер";
+  if (f.kind === "agent") return "Агент";
   return f.r && f.r !== f.s ? f.r : null;
 }
 

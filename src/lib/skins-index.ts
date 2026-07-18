@@ -46,13 +46,18 @@ export async function getSkinFamilies(): Promise<SkinFamily[]> {
   for (const r of rows) {
     let f = byFamily.get(r.familyId);
     if (!f) {
-      const isSkin = r.kind === "skin";
-      f = {
-        kind: isSkin ? "skin" : "sticker",
-        f: r.familyId,
-        label: isSkin
+      const kind =
+        r.kind === "sticker" ? "sticker" : r.kind === "agent" ? "agent" : "skin";
+      const label =
+        kind === "skin"
           ? r.weapon + (r.skinName ? ` | ${r.skinName}` : "")
-          : (r.stickerName ?? ""),
+          : kind === "sticker"
+            ? (r.stickerName ?? "")
+            : (r.skinName ?? ""); // agent: имя в skinName
+      f = {
+        kind,
+        f: r.familyId,
+        label,
         r: r.ruSkinName,
         img: r.image,
         w: r.weapon,
@@ -79,6 +84,7 @@ export async function getSkinFamilies(): Promise<SkinFamily[]> {
       if (r.finish) f._finishes.add(r.finish);
       continue;
     }
+    if (r.kind === "agent") continue; // без вариантов
 
     // skin: картинку — с обычного варианта (без плашки).
     if (!r.stattrak && !r.souvenir && r.image) f.img = r.image;

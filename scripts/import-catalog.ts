@@ -21,6 +21,8 @@ const NG_URL =
   "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json";
 const STICKERS_URL =
   "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/stickers.json";
+const AGENTS_URL =
+  "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/agents.json";
 const EN_LANG_URL =
   "https://raw.githubusercontent.com/ByMykel/counter-strike-file-tracker/main/static/csgo_english.json";
 const RU_LANG_URL =
@@ -44,6 +46,13 @@ type Sticker = {
   type?: string | null;
   effect?: string | null;
   tournament?: Named;
+  image?: string | null;
+};
+type Agent = {
+  id: string;
+  name?: string | null;
+  market_hash_name: string | null;
+  team?: string | { name?: string } | null;
   image?: string | null;
 };
 
@@ -160,18 +169,46 @@ function stickerRow(s: Sticker): ItemRow | null {
   };
 }
 
+function agentRow(a: Agent): ItemRow | null {
+  const mhn = a.market_hash_name ?? a.name;
+  if (!mhn) return null;
+  // Агент — один торгуемый предмет без вариантов (нет износа/финиша/ST/SV).
+  return {
+    kind: "agent",
+    externalId: a.id,
+    familyId: `agent:${a.id}`,
+    weapon: null,
+    skinName: mhn, // имя агента храним как основное имя (для label/поиска)
+    wear: null,
+    stattrak: false,
+    souvenir: false,
+    star: false,
+    stickerName: null,
+    finish: null,
+    stickerType: null,
+    tournament: null,
+    marketHashName: mhn,
+    image: a.image ?? null,
+    ruWeapon: null,
+    ruSkinName: null,
+  };
+}
+
 async function main() {
   const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
   const prisma = new PrismaClient({ adapter });
 
   console.log("Загрузка данных…");
-  const [skins, stickers, enLang, ruLang] = await Promise.all([
+  const [skins, stickers, agents, enLang, ruLang] = await Promise.all([
     loadJson<NgSkin[]>(NG_URL, "SKINS_JSON"),
     loadJson<Sticker[]>(STICKERS_URL, "STICKERS_JSON"),
+    loadJson<Agent[]>(AGENTS_URL, "AGENTS_JSON"),
     loadJson<{ lang: { Tokens: Record<string, unknown> } }>(EN_LANG_URL, "EN_LANG_JSON"),
     loadJson<{ lang: { Tokens: Record<string, unknown> } }>(RU_LANG_URL, "RU_LANG_JSON"),
   ]);
-  console.log(`  вариантов скинов: ${skins.length}, стикеров: ${stickers.length}`);
+  console.log(
+    `  вариантов скинов: ${skins.length}, стикеров: ${stickers.length}, агентов: ${agents.length}`,
+  );
 
   const patternRu = buildPatternRuMap(enLang.lang.Tokens, ruLang.lang.Tokens);
   console.log(`  русских названий скинов: ${patternRu.size}`);
@@ -195,6 +232,7 @@ async function main() {
   };
   for (const s of skins) push(skinRow(s, patternRu));
   for (const s of stickers) push(stickerRow(s));
+  for (const a of agents) push(agentRow(a));
 
   const existing = new Set(
     (await prisma.marketItem.findMany({ select: { marketHashName: true } })).map(
@@ -222,15 +260,18 @@ async function main() {
   }
   process.stdout.write("\n");
 
-  const [total, skinCount, stickerCount] = await Promise.all([
+  const [total, skinCount, stickerCount, agentCount] = await Promise.all([
     prisma.marketItem.count(),
     prisma.marketItem.count({ where: { kind: "skin" } }),
     prisma.marketItem.count({ where: { kind: "sticker" } }),
+    prisma.marketItem.count({ where: { kind: "agent" } }),
   ]);
   console.log(
     `Готово. Создано: ${created}, обновлено: ${updated}, пропущено (дубли: ${skippedDup}, без имени: ${skippedNoMhn}).`,
   );
-  console.log(`  В каталоге: ${total} (скинов: ${skinCount}, стикеров: ${stickerCount}).`);
+  console.log(
+    `  В каталоге: ${total} (скинов: ${skinCount}, стикеров: ${stickerCount}, агентов: ${agentCount}).`,
+  );
   await prisma.$disconnect();
 }
 

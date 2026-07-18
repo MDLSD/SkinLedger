@@ -70,7 +70,7 @@ export const dealSchema = z
 
     // Ссылка на каталог (если предмет выбран из автокомплита).
     skinFamilyId: z.preprocess(emptyToUndef, z.string().optional()),
-    itemKind: z.preprocess(emptyToUndef, z.enum(["skin", "sticker"]).optional()),
+    itemKind: z.preprocess(emptyToUndef, z.enum(["skin", "sticker", "agent"]).optional()),
     stattrak: z.preprocess((v) => v === "true" || v === true, z.boolean()),
     souvenir: z.preprocess((v) => v === "true" || v === true, z.boolean()),
     finish: z.preprocess(emptyToUndef, z.string().optional()),
