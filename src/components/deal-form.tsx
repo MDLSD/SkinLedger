@@ -82,12 +82,16 @@ export function DealForm({
   const [quantity, setQuantity] = useState(String(deal?.quantity ?? 1));
   const [buyPrice, setBuyPrice] = useState(deal ? String(deal.buyPrice) : "");
   const [buyFeePct, setBuyFeePct] = useState(String(deal?.buyFeePct ?? 0));
-  const [buyFxRate, setBuyFxRate] = useState(String(deal?.buyFxRate ?? 1));
+  // Курс для иностранной валюты вводится вручную; по умолчанию пусто (не «1»),
+  // чтобы 20 $ не считались как 20 ₽.
+  const [buyFxRate, setBuyFxRate] = useState(deal ? String(deal.buyFxRate) : "");
   const [sellPrice, setSellPrice] = useState(
     deal?.sellPrice != null ? String(deal.sellPrice) : "",
   );
   const [sellFeePct, setSellFeePct] = useState(String(deal?.sellFeePct ?? 0));
-  const [sellFxRate, setSellFxRate] = useState(String(deal?.sellFxRate ?? 1));
+  const [sellFxRate, setSellFxRate] = useState(
+    deal?.sellFxRate != null ? String(deal.sellFxRate) : "",
+  );
 
   useEffect(() => {
     if (state.success) {
@@ -119,6 +123,16 @@ export function DealForm({
     }
     return { cost, profit: profit(d), margin: marginPct(d) };
   }, [quantity, buyPrice, buyFeePct, buyFxRate, sellPrice, sellFeePct, sellFxRate, buyCurrency, sellCurrency, baseCurrency, withSell]);
+
+  // Для иностранной валюты нужен курс к базовой — иначе прибыль не в одной валюте.
+  const buyNeedsRate = buyCurrency !== baseCurrency && !(num(buyFxRate) > 0);
+  const sellNeedsRate =
+    withSell && sellCurrency !== baseCurrency && !(num(sellFxRate) > 0);
+  const rateHint = buyNeedsRate
+    ? `Укажите курс ${buyCurrency} → ${baseCurrency}`
+    : sellNeedsRate
+      ? `Укажите курс ${sellCurrency} → ${baseCurrency}`
+      : null;
 
   const onBuyPlatformChange = (id: string) => {
     setBuyPlatformId(id);
@@ -379,7 +393,11 @@ export function DealForm({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="buyFxRate">Курс к {baseCurrency}</Label>
+            <Label htmlFor="buyFxRate">
+              {buyCurrency === baseCurrency
+                ? `Курс к ${baseCurrency}`
+                : `Курс ${buyCurrency} → ${baseCurrency}`}
+            </Label>
             <Input
               id="buyFxRate"
               name="buyFxRate"
@@ -387,6 +405,8 @@ export function DealForm({
               min={0}
               step="any"
               inputMode="decimal"
+              placeholder={buyCurrency === baseCurrency ? undefined : "напр. 90"}
+              aria-invalid={buyNeedsRate || undefined}
               value={buyCurrency === baseCurrency ? "1" : buyFxRate}
               onChange={(e) => setBuyFxRate(e.target.value)}
               disabled={buyCurrency === baseCurrency}
@@ -485,7 +505,11 @@ export function DealForm({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="sellFxRate">Курс к {baseCurrency}</Label>
+              <Label htmlFor="sellFxRate">
+                {sellCurrency === baseCurrency
+                  ? `Курс к ${baseCurrency}`
+                  : `Курс ${sellCurrency} → ${baseCurrency}`}
+              </Label>
               <Input
                 id="sellFxRate"
                 name="sellFxRate"
@@ -493,6 +517,8 @@ export function DealForm({
                 min={0}
                 step="any"
                 inputMode="decimal"
+                placeholder={sellCurrency === baseCurrency ? undefined : "напр. 90"}
+                aria-invalid={sellNeedsRate || undefined}
                 value={sellCurrency === baseCurrency ? "1" : sellFxRate}
                 onChange={(e) => setSellFxRate(e.target.value)}
                 disabled={sellCurrency === baseCurrency}
@@ -529,7 +555,9 @@ export function DealForm({
       </div>
 
       <div className="rounded-lg bg-muted px-3 py-2 text-sm">
-        {calc == null ? (
+        {rateHint ? (
+          <span className="text-amber-600">{rateHint}</span>
+        ) : calc == null ? (
           <span className="text-muted-foreground">
             Заполните цену покупки — расчёт появится здесь
           </span>
