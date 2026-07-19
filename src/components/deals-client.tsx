@@ -47,6 +47,7 @@ import {
   type DealFilters,
   type SortKey,
 } from "@/lib/deal-list";
+import type { Rates } from "@/lib/currency";
 import type { DealDTO, PlatformDTO } from "@/lib/types";
 
 function formatDate(d: string | null) {
@@ -149,6 +150,7 @@ type Props = {
   deals: DealDTO[];
   platforms: PlatformDTO[];
   baseCurrency: string;
+  rates: Rates;
   filters: DealFilters;
   total: number;
   pageCount: number;
@@ -158,6 +160,7 @@ export function DealsClient({
   deals,
   platforms,
   baseCurrency,
+  rates,
   filters,
   total,
   pageCount,
@@ -247,7 +250,15 @@ export function DealsClient({
                       )}
                     </TableCell>
                     <TableCell>
-                      <div>{formatMoney(deal.buyPrice, deal.buyCurrency)}</div>
+                      <div>
+                        {formatMoney(deal.buyPrice * deal.buyFxRate, baseCurrency)}
+                        {deal.buyCurrency !== baseCurrency && (
+                          <span className="text-xs text-muted-foreground">
+                            {" "}
+                            ({formatMoney(deal.buyPrice, deal.buyCurrency)})
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         {deal.buyPlatformName} · {formatDate(deal.buyDate)}
                       </div>
@@ -256,7 +267,17 @@ export function DealsClient({
                       {deal.sellPrice != null ? (
                         <>
                           <div>
-                            {formatMoney(deal.sellPrice, deal.sellCurrency ?? "RUB")}
+                            {formatMoney(
+                              deal.sellPrice * (deal.sellFxRate ?? 1),
+                              baseCurrency,
+                            )}
+                            {deal.sellCurrency &&
+                              deal.sellCurrency !== baseCurrency && (
+                                <span className="text-xs text-muted-foreground">
+                                  {" "}
+                                  ({formatMoney(deal.sellPrice, deal.sellCurrency)})
+                                </span>
+                              )}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {deal.sellPlatformName} · {formatDate(deal.sellDate)}
@@ -369,6 +390,7 @@ export function DealsClient({
             <DealForm
               platforms={platforms}
               baseCurrency={baseCurrency}
+              rates={rates}
               deal={dialog.deal}
               initialWithSell={dialog.withSell}
               onDone={close}

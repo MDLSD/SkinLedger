@@ -53,7 +53,8 @@ export const dealSchema = z
     buyPlatformId: z.string().min(1, "Выберите площадку покупки"),
     buyPrice: requiredPrice("Цена покупки должна быть больше 0"),
     buyCurrency: z.enum(CURRENCIES),
-    buyFxRate: fxRate,
+    // Курс к базовой валюте вычисляет сервер из парсера; форма его не шлёт.
+    buyFxRate: optionalNumber(fxRate),
     buyFeePct: feePct,
     buyDate: z.coerce.date({ error: "Укажите дату покупки" }),
 

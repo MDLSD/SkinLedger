@@ -19,6 +19,7 @@ import {
 import { CURRENCIES } from "@/lib/validation";
 import { useSkinsIndex } from "@/lib/skins-client";
 import { buildMarketHashName, type SkinFamily } from "@/lib/skin-search";
+import { fxFactor, type Rates } from "@/lib/currency";
 import type { DealDTO, PlatformDTO } from "@/lib/types";
 
 function today() {
@@ -33,6 +34,7 @@ const num = (s: string) => {
 type Props = {
   platforms: PlatformDTO[];
   baseCurrency: string;
+  rates: Rates;
   deal?: DealDTO | null;
   initialWithSell?: boolean;
   onDone: () => void;
@@ -41,6 +43,7 @@ type Props = {
 export function DealForm({
   platforms,
   baseCurrency,
+  rates,
   deal,
   initialWithSell,
   onDone,
@@ -82,16 +85,14 @@ export function DealForm({
   const [quantity, setQuantity] = useState(String(deal?.quantity ?? 1));
   const [buyPrice, setBuyPrice] = useState(deal ? String(deal.buyPrice) : "");
   const [buyFeePct, setBuyFeePct] = useState(String(deal?.buyFeePct ?? 0));
-  // Курс для иностранной валюты вводится вручную; по умолчанию пусто (не «1»),
-  // чтобы 20 $ не считались как 20 ₽.
-  const [buyFxRate, setBuyFxRate] = useState(deal ? String(deal.buyFxRate) : "");
   const [sellPrice, setSellPrice] = useState(
     deal?.sellPrice != null ? String(deal.sellPrice) : "",
   );
   const [sellFeePct, setSellFeePct] = useState(String(deal?.sellFeePct ?? 0));
-  const [sellFxRate, setSellFxRate] = useState(
-    deal?.sellFxRate != null ? String(deal.sellFxRate) : "",
-  );
+
+  // Курсы к базовой валюте берём из парсера (авто-конвертация, без ручного ввода).
+  const buyFactor = fxFactor(buyCurrency, baseCurrency, rates);
+  const sellFactor = fxFactor(sellCurrency, baseCurrency, rates);
 
   useEffect(() => {
     if (state.success) {
@@ -111,10 +112,10 @@ export function DealForm({
       quantity: num(quantity),
       buyPrice: num(buyPrice),
       buyFeePct: num(buyFeePct) || 0,
-      buyFxRate: buyCurrency === baseCurrency ? 1 : num(buyFxRate),
+      buyFxRate: buyFactor,
       sellPrice: withSell ? num(sellPrice) : null,
       sellFeePct: num(sellFeePct) || 0,
-      sellFxRate: sellCurrency === baseCurrency ? 1 : num(sellFxRate),
+      sellFxRate: sellFactor,
     };
     if (!(d.quantity > 0) || !(d.buyPrice > 0) || !(d.buyFxRate > 0)) return null;
     const cost = buyCostBase(d);
@@ -122,17 +123,7 @@ export function DealForm({
       return { cost, profit: null as number | null, margin: null as number | null };
     }
     return { cost, profit: profit(d), margin: marginPct(d) };
-  }, [quantity, buyPrice, buyFeePct, buyFxRate, sellPrice, sellFeePct, sellFxRate, buyCurrency, sellCurrency, baseCurrency, withSell]);
-
-  // Для иностранной валюты нужен курс к базовой — иначе прибыль не в одной валюте.
-  const buyNeedsRate = buyCurrency !== baseCurrency && !(num(buyFxRate) > 0);
-  const sellNeedsRate =
-    withSell && sellCurrency !== baseCurrency && !(num(sellFxRate) > 0);
-  const rateHint = buyNeedsRate
-    ? `Укажите курс ${buyCurrency} → ${baseCurrency}`
-    : sellNeedsRate
-      ? `Укажите курс ${sellCurrency} → ${baseCurrency}`
-      : null;
+  }, [quantity, buyPrice, buyFeePct, buyFactor, sellPrice, sellFeePct, sellFactor, withSell]);
 
   const onBuyPlatformChange = (id: string) => {
     setBuyPlatformId(id);
@@ -393,27 +384,12 @@ export function DealForm({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="buyFxRate">
+            <Label>Курс</Label>
+            <div className="flex h-8 items-center text-sm text-muted-foreground">
               {buyCurrency === baseCurrency
-                ? `Курс к ${baseCurrency}`
-                : `Курс ${buyCurrency} → ${baseCurrency}`}
-            </Label>
-            <Input
-              id="buyFxRate"
-              name="buyFxRate"
-              type="number"
-              min={0}
-              step="any"
-              inputMode="decimal"
-              placeholder={buyCurrency === baseCurrency ? undefined : "напр. 90"}
-              aria-invalid={buyNeedsRate || undefined}
-              value={buyCurrency === baseCurrency ? "1" : buyFxRate}
-              onChange={(e) => setBuyFxRate(e.target.value)}
-              disabled={buyCurrency === baseCurrency}
-            />
-            {buyCurrency === baseCurrency && (
-              <input type="hidden" name="buyFxRate" value="1" />
-            )}
+                ? "1:1"
+                : `1 ${buyCurrency} = ${buyFactor.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${baseCurrency}`}
+            </div>
           </div>
           <div className="col-span-2 grid gap-1.5">
             <Label htmlFor="buyDate">Дата покупки</Label>
@@ -505,27 +481,12 @@ export function DealForm({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="sellFxRate">
+              <Label>Курс</Label>
+              <div className="flex h-8 items-center text-sm text-muted-foreground">
                 {sellCurrency === baseCurrency
-                  ? `Курс к ${baseCurrency}`
-                  : `Курс ${sellCurrency} → ${baseCurrency}`}
-              </Label>
-              <Input
-                id="sellFxRate"
-                name="sellFxRate"
-                type="number"
-                min={0}
-                step="any"
-                inputMode="decimal"
-                placeholder={sellCurrency === baseCurrency ? undefined : "напр. 90"}
-                aria-invalid={sellNeedsRate || undefined}
-                value={sellCurrency === baseCurrency ? "1" : sellFxRate}
-                onChange={(e) => setSellFxRate(e.target.value)}
-                disabled={sellCurrency === baseCurrency}
-              />
-              {sellCurrency === baseCurrency && (
-                <input type="hidden" name="sellFxRate" value="1" />
-              )}
+                  ? "1:1"
+                  : `1 ${sellCurrency} = ${sellFactor.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${baseCurrency}`}
+              </div>
             </div>
             <div className="col-span-2 grid gap-1.5">
               <Label htmlFor="sellDate">
@@ -555,9 +516,7 @@ export function DealForm({
       </div>
 
       <div className="rounded-lg bg-muted px-3 py-2 text-sm">
-        {rateHint ? (
-          <span className="text-amber-600">{rateHint}</span>
-        ) : calc == null ? (
+        {calc == null ? (
           <span className="text-muted-foreground">
             Заполните цену покупки — расчёт появится здесь
           </span>

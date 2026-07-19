@@ -5,6 +5,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buyCostBase, sellRevenueBase } from "@/lib/deal-math";
 import { dealSchema, type DealInput } from "@/lib/validation";
+import { fxFactor } from "@/lib/currency";
+import { getRates } from "@/lib/rates";
 
 export type DealFormState = { error?: string; success?: boolean };
 
@@ -39,13 +41,13 @@ function dealData(userId: string, d: DealInput) {
       quantity: d.quantity,
       buyPrice: d.buyPrice,
       buyFeePct: d.buyFeePct,
-      buyFxRate: d.buyFxRate,
+      buyFxRate: d.buyFxRate ?? 1,
     });
     const revenue = sellRevenueBase({
       quantity: d.quantity,
       buyPrice: d.buyPrice,
       buyFeePct: d.buyFeePct,
-      buyFxRate: d.buyFxRate,
+      buyFxRate: d.buyFxRate ?? 1,
       sellPrice: d.sellPrice,
       sellFeePct: d.sellFeePct,
       sellFxRate: d.sellFxRate,
@@ -64,7 +66,7 @@ function dealData(userId: string, d: DealInput) {
     buyPlatformId: d.buyPlatformId,
     buyPrice: d.buyPrice,
     buyCurrency: d.buyCurrency,
-    buyFxRate: d.buyFxRate,
+    buyFxRate: d.buyFxRate ?? 1,
     buyFeePct: d.buyFeePct,
     buyDate: d.buyDate,
     status: d.status,
@@ -144,26 +146,19 @@ export async function saveDealAction(
       return { error: parsed.error.issues[0].message };
     }
 
-    // Курсы задаются к базовой валюте пользователя. Сервер авторитетно
-    // нормализует: валюта === базовая ⟹ курс 1; иначе курс обязателен
-    // (иначе крафтовый POST без sellFxRate исказил бы прибыль).
-    const { baseCurrency } = await prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { baseCurrency: true },
-    });
-    if (parsed.data.buyCurrency === baseCurrency) {
-      parsed.data.buyFxRate = 1;
-    }
-    if (parsed.data.status !== "holding") {
-      const sellCur = parsed.data.sellCurrency ?? parsed.data.buyCurrency;
-      if (sellCur === baseCurrency) {
-        parsed.data.sellFxRate = 1;
-      } else if (
-        !(typeof parsed.data.sellFxRate === "number" && parsed.data.sellFxRate > 0)
-      ) {
-        return { error: "Укажите курс продажи к базовой валюте" };
-      }
-    }
+    // Курс к базовой валюте вычисляет сервер из парсера курсов (авто-
+    // конвертация). Форма ручной ввод не шлёт — сохраняем снимок курса
+    // на момент сделки; отображение всё равно пересчитывается по текущим.
+    const [{ baseCurrency }, { rates }] = await Promise.all([
+      prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { baseCurrency: true },
+      }),
+      getRates(),
+    ]);
+    parsed.data.buyFxRate = fxFactor(parsed.data.buyCurrency, baseCurrency, rates);
+    const sellCur = parsed.data.sellCurrency ?? parsed.data.buyCurrency;
+    parsed.data.sellFxRate = fxFactor(sellCur, baseCurrency, rates);
 
     await assertPlatformVisible(parsed.data.buyPlatformId, userId);
     if (parsed.data.status !== "holding" && parsed.data.sellPlatformId) {

@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatMoney, formatPct } from "@/lib/deal-math";
+import { fxFactor } from "@/lib/currency";
+import { getRates } from "@/lib/rates";
 import { parseDealFilters, periodRange } from "@/lib/deal-list";
 import { computeDashboard, type DashDeal, type DealBrief } from "@/lib/dashboard";
 import { DashboardCharts } from "@/components/dashboard-charts";
@@ -21,13 +23,14 @@ export default async function DashboardPage({
   const f = parseDealFilters(await searchParams);
   const range = periodRange(f);
 
-  const [user, dealRows] = await Promise.all([
+  const [user, dealRows, { rates }] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     prisma.deal.findMany({
       where: { userId },
       include: { sellPlatform: true },
       take: MAX_ROWS,
     }),
+    getRates(),
   ]);
   const cur = user.baseCurrency;
 
@@ -41,10 +44,11 @@ export default async function DashboardPage({
     quantity: d.quantity,
     buyPrice: Number(d.buyPrice),
     buyFeePct: Number(d.buyFeePct),
-    buyFxRate: Number(d.buyFxRate),
+    // Курс к базовой валюте — из парсера (авто-конвертация всех сумм).
+    buyFxRate: fxFactor(d.buyCurrency, cur, rates),
     sellPrice: d.sellPrice != null ? Number(d.sellPrice) : null,
     sellFeePct: d.sellFeePct != null ? Number(d.sellFeePct) : null,
-    sellFxRate: d.sellFxRate != null ? Number(d.sellFxRate) : null,
+    sellFxRate: d.sellCurrency ? fxFactor(d.sellCurrency, cur, rates) : null,
     sellPlatformName: d.sellPlatform?.name ?? null,
   }));
 

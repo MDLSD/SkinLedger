@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DealsClient } from "@/components/deals-client";
 import { holdingDays, marginPct, profit } from "@/lib/deal-math";
+import { fxFactor } from "@/lib/currency";
+import { getRates } from "@/lib/rates";
 import {
   PAGE_SIZE,
   parseDealFilters,
@@ -45,7 +47,7 @@ export default async function DealsPage({
   const range = periodRange(filters);
   if (range) where.buyDate = range;
 
-  const [user, platformRows, dealRows] = await Promise.all([
+  const [user, platformRows, dealRows, { rates }] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     prisma.platform.findMany({
       where: { OR: [{ isCustom: false }, { userId }] },
@@ -56,7 +58,9 @@ export default async function DealsPage({
       include: { buyPlatform: true, sellPlatform: true, item: true },
       take: MAX_ROWS,
     }),
+    getRates(),
   ]);
+  const base = user.baseCurrency;
 
   const platforms: PlatformDTO[] = platformRows.map((p) => ({
     id: p.id,
@@ -75,7 +79,8 @@ export default async function DealsPage({
     buyPlatformName: d.buyPlatform.name,
     buyPrice: Number(d.buyPrice),
     buyCurrency: d.buyCurrency,
-    buyFxRate: Number(d.buyFxRate),
+    // Курс к базовой валюте — из текущих курсов парсера (авто-конвертация).
+    buyFxRate: fxFactor(d.buyCurrency, base, rates),
     buyFeePct: Number(d.buyFeePct),
     buyDate: toDateStr(d.buyDate)!,
     status: d.status,
@@ -83,7 +88,7 @@ export default async function DealsPage({
     sellPlatformName: d.sellPlatform?.name ?? null,
     sellPrice: d.sellPrice != null ? Number(d.sellPrice) : null,
     sellCurrency: d.sellCurrency,
-    sellFxRate: d.sellFxRate != null ? Number(d.sellFxRate) : null,
+    sellFxRate: d.sellCurrency ? fxFactor(d.sellCurrency, base, rates) : null,
     sellFeePct: d.sellFeePct != null ? Number(d.sellFeePct) : null,
     sellDate: toDateStr(d.sellDate),
     note: d.note,
@@ -106,8 +111,11 @@ export default async function DealsPage({
   const sortDir = filters.dir === "asc" ? 1 : -1;
   const comparators: Record<SortKey, (a: DealDTO, b: DealDTO) => number> = {
     item: (a, b) => a.itemName.localeCompare(b.itemName, "ru"),
-    buyPrice: (a, b) => a.buyPrice - b.buyPrice,
-    sellPrice: (a, b) => num(a.sellPrice, -sortDir) - num(b.sellPrice, -sortDir),
+    // Цены сравниваем в базовой валюте (цена × курс к базовой).
+    buyPrice: (a, b) => a.buyPrice * a.buyFxRate - b.buyPrice * b.buyFxRate,
+    sellPrice: (a, b) =>
+      num(a.sellPrice == null ? null : a.sellPrice * (a.sellFxRate ?? 1), -sortDir) -
+      num(b.sellPrice == null ? null : b.sellPrice * (b.sellFxRate ?? 1), -sortDir),
     profit: (a, b) =>
       num(profit(a), -sortDir) - num(profit(b), -sortDir),
     margin: (a, b) =>
@@ -129,6 +137,7 @@ export default async function DealsPage({
       deals={deals}
       platforms={platforms}
       baseCurrency={user.baseCurrency}
+      rates={rates}
       filters={{ ...filters, page }}
       total={total}
       pageCount={pageCount}
