@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/table";
 import { DealForm } from "@/components/deal-form";
 import { DealsToolbar } from "@/components/deals-toolbar";
-import { deleteDealAction } from "@/lib/actions/deals";
+import { deleteAllDealsAction, deleteDealAction } from "@/lib/actions/deals";
 import {
   formatMoney,
   formatPct,
@@ -146,6 +146,43 @@ function DeleteButton({ deal }: { deal: DealDTO }) {
   );
 }
 
+function DeleteAllButton({ total }: { total: number }) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState(deleteAllDealsAction, {});
+
+  useEffect(() => {
+    if (state.success) router.refresh();
+  }, [state.success, router]);
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={<Button variant="outline" className="text-destructive" />}
+      >
+        Удалить все
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Удалить все сделки?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Будут безвозвратно удалены все ваши сделки ({total}). Это действие
+            нельзя отменить.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <form action={formAction}>
+            <input type="hidden" name="confirm" value="yes" />
+            <AlertDialogAction variant="destructive" type="submit" disabled={pending}>
+              Удалить все
+            </AlertDialogAction>
+          </form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 type Props = {
   deals: DealDTO[];
   platforms: PlatformDTO[];
@@ -153,6 +190,7 @@ type Props = {
   rates: Rates;
   filters: DealFilters;
   total: number;
+  totalAll: number;
   pageCount: number;
 };
 
@@ -163,6 +201,7 @@ export function DealsClient({
   rates,
   filters,
   total,
+  totalAll,
   pageCount,
 }: Props) {
   const router = useRouter();
@@ -189,6 +228,7 @@ export function DealsClient({
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Сделки</h1>
         <div className="flex items-center gap-2">
+          {totalAll > 0 && <DeleteAllButton total={totalAll} />}
           {total > 0 && (
             <Button
               variant="outline"

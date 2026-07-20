@@ -143,6 +143,27 @@ export async function saveDealAction(
   }
 }
 
+export async function deleteAllDealsAction(
+  _prev: DealFormState,
+  formData: FormData,
+): Promise<DealFormState> {
+  try {
+    const userId = await requireUserId();
+    // Явное подтверждение из формы — защита от случайного сабмита.
+    if (formData.get("confirm")?.toString() !== "yes") {
+      return { error: "Удаление не подтверждено" };
+    }
+    await prisma.deal.deleteMany({ where: { userId } });
+
+    revalidatePath("/app/deals");
+    revalidatePath("/app");
+    return { success: true };
+  } catch (e) {
+    console.error("deleteAllDealsAction", e);
+    return { error: "Не удалось удалить сделки" };
+  }
+}
+
 export async function deleteDealAction(
   _prev: DealFormState,
   formData: FormData,

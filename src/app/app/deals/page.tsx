@@ -21,13 +21,15 @@ export default async function DealsPage({
   const userId = session.user.id;
   const filters = parseDealFilters(await searchParams);
 
-  const [{ deals: all, base, rates }, platformRows] = await Promise.all([
-    loadUserDeals(userId, filters),
-    prisma.platform.findMany({
-      where: { OR: [{ isCustom: false }, { userId }] },
-      orderBy: [{ isCustom: "asc" }, { name: "asc" }],
-    }),
-  ]);
+  const [{ deals: all, base, rates }, platformRows, totalAll] =
+    await Promise.all([
+      loadUserDeals(userId, filters),
+      prisma.platform.findMany({
+        where: { OR: [{ isCustom: false }, { userId }] },
+        orderBy: [{ isCustom: "asc" }, { name: "asc" }],
+      }),
+      prisma.deal.count({ where: { userId } }),
+    ]);
 
   const platforms: PlatformDTO[] = platformRows.map((p) => ({
     id: p.id,
@@ -50,6 +52,7 @@ export default async function DealsPage({
       rates={rates}
       filters={{ ...filters, page }}
       total={total}
+      totalAll={totalAll}
       pageCount={pageCount}
     />
   );
