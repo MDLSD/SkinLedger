@@ -10,8 +10,6 @@ import {
   undoImportAction,
 } from "@/lib/actions/import";
 import {
-  FIELD_LABELS,
-  FIELD_ORDER,
   rowToFields,
   type AnalyzeState,
   type CommitState,
@@ -61,16 +59,6 @@ export function ImportDeals() {
   }, [done, undoneCount, router]);
 
   const rows = analyze.rows ?? [];
-  const headers = analyze.headers ?? [];
-
-  // Пример значения по столбцу (для подписи в headerless-режиме).
-  const sampleFor = (col: number) => {
-    for (const r of rows) {
-      const v = (r[col] ?? "").trim();
-      if (v) return v;
-    }
-    return "";
-  };
 
   const payload = useMemo(
     () => JSON.stringify({ rows, mapping, options }),
@@ -190,18 +178,9 @@ export function ImportDeals() {
         {analyze.error && <p className="text-sm text-red-600">{analyze.error}</p>}
       </form>
 
-      {/* ---------- Шаг 2: превью и правка ---------- */}
+      {/* ---------- Шаг 2: превью ---------- */}
       {analyze.ok && (
         <div className="space-y-4 rounded-lg border p-4">
-          <div className="space-y-1 text-sm">
-            <h3 className="font-medium">Проверьте перед импортом</h3>
-            {analyze.notes?.map((n, i) => (
-              <p key={i} className="text-xs text-muted-foreground">
-                {n}
-              </p>
-            ))}
-          </div>
-
           {/* Опции: валюта по умолчанию + формат даты */}
           <div className="flex flex-wrap gap-4">
             <label className="grid gap-1 text-sm">
@@ -238,56 +217,10 @@ export function ImportDeals() {
             </label>
           </div>
 
-          {/* Сопоставление колонок */}
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Сопоставление колонок</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {FIELD_ORDER.map((field) => (
-                <label key={field} className="flex items-center gap-2 text-sm">
-                  <span className="w-40 shrink-0 text-muted-foreground">
-                    {FIELD_LABELS[field]}
-                    {REQUIRED.includes(field) && (
-                      <span className="text-red-600"> *</span>
-                    )}
-                  </span>
-                  <NativeSelect
-                    value={mapping[field] ?? ""}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setMapping((m) => {
-                        const next = { ...m };
-                        if (v === "") delete next[field];
-                        else next[field] = Number(v);
-                        return next;
-                      });
-                    }}
-                    className="min-w-0 flex-1"
-                  >
-                    <option value="">— не импортировать —</option>
-                    {headers.map((h, i) => (
-                      <option key={i} value={i}>
-                        {h}
-                        {!analyze.headerFound && sampleFor(i)
-                          ? `: ${sampleFor(i).slice(0, 24)}`
-                          : ""}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </label>
-              ))}
-            </div>
-          </div>
-
           {/* Превью первых строк */}
           <PreviewTable rows={rows} mapping={mapping} options={options} />
 
           {commit.error && <p className="text-sm text-red-600">{commit.error}</p>}
-          {missingRequired.length > 0 && (
-            <p className="text-sm text-amber-600">
-              Укажите обязательные колонки:{" "}
-              {missingRequired.map((k) => FIELD_LABELS[k]).join(", ")}
-            </p>
-          )}
 
           <form action={commitAction}>
             <input type="hidden" name="payload" value={payload} />
