@@ -22,15 +22,29 @@ export function ImportDeals() {
     <form ref={formRef} action={action} className="space-y-4">
       <div className="grid gap-1.5">
         <label htmlFor="file" className="text-sm text-muted-foreground">
-          CSV-файл со сделками
+          Ваш файл: Excel (.xlsx), CSV — как есть
         </label>
         <input
           id="file"
           name="file"
           type="file"
-          accept=".csv,text/csv"
-          required
+          accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm"
+        />
+      </div>
+
+      <div className="grid gap-1.5">
+        <label htmlFor="text" className="text-sm text-muted-foreground">
+          …или вставьте строки из заметок / таблицы (первая строка — заголовки)
+        </label>
+        <textarea
+          id="text"
+          name="text"
+          rows={5}
+          placeholder={
+            "Название\tКачество\tЦена покупки\tДата покупки\nAWP | Corticera (Minimal Wear)\t\t2500\t2026-06-01"
+          }
+          className="rounded-md border border-input bg-background px-3 py-2 font-mono text-xs"
         />
       </div>
       <Button type="submit" disabled={pending}>

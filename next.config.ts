@@ -34,6 +34,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // xlsx — тяжёлый CJS-пакет, читается только в серверном экшене импорта.
+  serverExternalPackages: ["xlsx"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

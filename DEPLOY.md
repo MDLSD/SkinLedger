@@ -26,6 +26,13 @@
       Redis): сейчас счётчики живут в памяти процесса и не разделяются между
       инстансами serverless.
 
+## Зависимости
+
+- [ ] `xlsx` подключён из официального CDN SheetJS (`https://cdn.sheetjs.com/...tgz`,
+      см. `package.json`), а не из npm — там `xlsx` завис на 0.18.5 с непофикшенной
+      high-severity prototype-pollution. На сборке нужен доступ к `cdn.sheetjs.com`
+      при `npm install`. При обновлении — брать новую версию тоже с CDN SheetJS.
+
 ## Прочее
 
 - [ ] Security-заголовки (`next.config.ts`) — уже настроены (CSP/HSTS/…);

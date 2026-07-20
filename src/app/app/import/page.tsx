@@ -15,32 +15,38 @@ export default async function ImportPage() {
       <h1 className="text-2xl font-semibold">Импорт из CSV</h1>
 
       <section className="space-y-3 rounded-lg border p-4 text-sm">
-        <h2 className="font-medium">Как перенести таблицу за 5 минут</h2>
-        <ol className="list-decimal space-y-1 pl-5 text-muted-foreground">
+        <h2 className="font-medium">Загрузите свою таблицу как есть</h2>
+        <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
           <li>
-            Скачайте шаблон и откройте его в Excel или Google Sheets —
-            заголовки уже расставлены.
+            Подойдёт файл <b>Excel (.xlsx)</b> или <b>CSV</b> — можно ничего не
+            переименовывать, колонки распознаются по заголовкам автоматически.
           </li>
           <li>
-            Впишите свои сделки. Обязательны только{" "}
-            <b>Название</b>, <b>Цена покупки</b> и <b>Дата покупки</b>.
+            Качество можно писать прямо в названии:{" "}
+            <b>AWP | Corticera (Minimal Wear)</b> — износ извлечём сам.
           </li>
           <li>
-            Сохраните как CSV и загрузите файл ниже. Курс к вашей основной
-            валюте подставится автоматически.
+            Обязательны только <b>название</b> и <b>цена покупки</b>. Нет даты —
+            подставим сегодняшнюю, нет площадки — «{`Не указана`}». Курс к вашей
+            основной валюте считается автоматически.
           </li>
-        </ol>
+        </ul>
         <a
           href="/api/deals/template"
           download
           className="inline-block font-medium text-primary underline underline-offset-4"
         >
-          Скачать шаблон-пример (CSV)
+          Не с чего начать? Скачать шаблон-пример (CSV)
         </a>
       </section>
 
       <section className="space-y-3 rounded-lg border p-4">
-        <h2 className="text-sm font-medium">Колонки файла</h2>
+        <h2 className="text-sm font-medium">Какие колонки понимаем</h2>
+        <p className="text-xs text-muted-foreground">
+          Заголовки можно называть по-своему — распознаём синонимы (например
+          «Скин», «Предмет», «Item» → название; «Куплено за», «Закуп», «Buy» →
+          цена покупки).
+        </p>
         <div className="overflow-x-auto">
           <table className="text-sm">
             <tbody>
@@ -56,9 +62,9 @@ export default async function ImportPage() {
           </table>
         </div>
         <p className="text-xs text-muted-foreground">
-          Разделитель — «;» или «,» (определяется автоматически). Дробные —
-          через запятую или точку. Даты в формате ГГГГ-ММ-ДД. Площадки,
-          которых ещё нет, создадутся автоматически.
+          Разделитель CSV/текста — таб, «;» или «,» (определяется автоматически).
+          Дробные — через запятую или точку, валютные знаки можно оставить. Даты:
+          ГГГГ-ММ-ДД или ДД.ММ.ГГГГ. Площадки, которых ещё нет, создадутся сами.
         </p>
       </section>
 

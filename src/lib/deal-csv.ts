@@ -140,9 +140,16 @@ export function exampleCsv(): string {
 export function parseCsv(text: string): { delimiter: string; rows: string[][] } {
   let src = text;
   if (src.charCodeAt(0) === 0xfeff) src = src.slice(1); // срезать BOM
-  // Определяем разделитель по первой строке: `;` или `,`.
+  // Определяем разделитель по первой строке: таб (вставка из таблиц), `;` или `,`.
   const firstLine = src.split(/\r?\n/, 1)[0] ?? "";
-  const delimiter = firstLine.split(";").length >= firstLine.split(",").length ? ";" : ",";
+  const counts: Record<string, number> = {
+    "\t": firstLine.split("\t").length,
+    ";": firstLine.split(";").length,
+    ",": firstLine.split(",").length,
+  };
+  const delimiter = (Object.keys(counts) as string[]).reduce((best, d) =>
+    counts[d] > counts[best] ? d : best,
+  ",");
 
   const rows: string[][] = [];
   let field = "";

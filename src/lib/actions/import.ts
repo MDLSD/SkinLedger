@@ -1,5 +1,6 @@
 "use server";
 
+import * as XLSX from "xlsx";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,36 +8,64 @@ import { dealData } from "@/lib/deal-data";
 import { dealSchema } from "@/lib/validation";
 import { fxFactor } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
+import { parseCsv, parseStatus, type CsvKey } from "@/lib/deal-csv";
 import {
-  CSV_COLUMNS,
-  parseCsv,
-  parseStatus,
-  type CsvKey,
-} from "@/lib/deal-csv";
+  looksLikeHeader,
+  mapHeaders,
+  parseDate,
+  splitNameQuality,
+} from "@/lib/deal-import";
 
 export type ImportState = {
   error?: string;
   imported?: number;
   skipped?: number;
-  // Ошибки построчно: номер строки в файле (с учётом заголовка) + причина.
   rowErrors?: { row: number; message: string }[];
 };
 
-// Ограничения на импорт (защита от больших/битых файлов).
-const MAX_BYTES = 2_000_000;
-const MAX_ROWS = 2000;
-
-// Нормализация заголовка: без регистра, пробелов и хвостовых знаков.
-function normHeader(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-const HEADER_TO_KEY = new Map<string, CsvKey>(
-  CSV_COLUMNS.map((c) => [normHeader(c.header), c.key]),
-);
+const MAX_BYTES = 5_000_000;
+const MAX_ROWS = 5000;
+const DEFAULT_PLATFORM = "Не указана";
+const TODAY = () => new Date().toISOString().slice(0, 10);
 
 function toNumberStr(raw: string): string {
-  return raw.trim().replace(/\s/g, "").replace(",", ".");
+  // Убираем валютные символы/пробелы; десятичная запятая → точка.
+  return raw
+    .replace(/[₽$€¥\s ]/g, "")
+    .replace(",", ".")
+    .replace(/[^0-9.\-]/g, "")
+    .trim();
+}
+
+// Приводим таблицу (файл или текст) к матрице строк.
+async function readRows(
+  file: File | null,
+  text: string,
+): Promise<string[][]> {
+  if (file && file.size > 0) {
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+      const buf = Buffer.from(await file.arrayBuffer());
+      const wb = XLSX.read(buf, { type: "buffer" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      if (!sheet) return [];
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+        header: 1,
+        raw: false,
+        defval: "",
+        blankrows: false,
+      });
+      return rows.map((r) => (r as unknown[]).map((c) => String(c ?? "").trim()));
+    }
+    // Всё остальное считаем текстом (CSV и пр.).
+    const { rows } = parseCsv(await file.text());
+    return rows;
+  }
+  if (text.trim()) {
+    const { rows } = parseCsv(text);
+    return rows;
+  }
+  return [];
 }
 
 export async function importDealsAction(
@@ -47,31 +76,40 @@ export async function importDealsAction(
   if (!session?.user?.id) return { error: "Не авторизован" };
   const userId = session.user.id;
 
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "Выберите CSV-файл" };
+  const fileEntry = formData.get("file");
+  const file = fileEntry instanceof File ? fileEntry : null;
+  const text = formData.get("text")?.toString() ?? "";
+
+  if ((!file || file.size === 0) && !text.trim()) {
+    return { error: "Загрузите файл или вставьте текст таблицы" };
   }
-  if (file.size > MAX_BYTES) {
-    return { error: "Файл слишком большой (максимум 2 МБ)" };
+  if (file && file.size > MAX_BYTES) {
+    return { error: "Файл слишком большой (максимум 5 МБ)" };
   }
 
-  const text = await file.text();
-  const { rows } = parseCsv(text);
+  let rows: string[][];
+  try {
+    rows = await readRows(file, text);
+  } catch {
+    return { error: "Не удалось прочитать файл. Поддерживаются .xlsx, .csv и текст." };
+  }
   if (rows.length < 2) {
-    return { error: "В файле нет строк с данными (нужен заголовок + строки)" };
+    return { error: "Нужны заголовок и хотя бы одна строка данных" };
   }
 
-  // Сопоставляем колонки файла с ключами по заголовку.
+  // Первая непустая строка — заголовок. Проверяем, что она распознаётся.
   const headerRow = rows[0];
-  const colIndex = new Map<CsvKey, number>();
-  headerRow.forEach((h, i) => {
-    const key = HEADER_TO_KEY.get(normHeader(h));
-    if (key && !colIndex.has(key)) colIndex.set(key, i);
-  });
+  if (!looksLikeHeader(headerRow)) {
+    return {
+      error:
+        "Не удалось распознать колонки. Добавьте строку заголовков (например «Название», «Цена покупки», «Дата покупки») — можно скачать шаблон.",
+    };
+  }
+  const colIndex = mapHeaders(headerRow);
   if (!colIndex.has("itemName") || !colIndex.has("buyPrice")) {
     return {
       error:
-        "Не найдены обязательные колонки «Название» и «Цена покупки». Скачайте шаблон и заполните его.",
+        "Не найдены обязательные колонки с названием и ценой покупки. Проверьте заголовки или скачайте шаблон.",
     };
   }
 
@@ -85,7 +123,6 @@ export async function importDealsAction(
     return i == null ? "" : (row[i] ?? "").trim();
   };
 
-  // Курсы и базовая валюта — один раз на весь импорт.
   const [{ baseCurrency }, { rates }] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { id: userId },
@@ -94,21 +131,22 @@ export async function importDealsAction(
     getRates(),
   ]);
 
-  // Резолв площадок по имени с кэшем (создаём пользовательские при отсутствии).
+  // Резолв площадок по имени с кэшем (недостающие создаём как пользовательские).
   const visible = await prisma.platform.findMany({
     where: { OR: [{ isCustom: false }, { userId }] },
   });
   const platformByName = new Map<string, string>();
   for (const p of visible) platformByName.set(p.name.trim().toLowerCase(), p.id);
 
-  async function resolvePlatform(name: string): Promise<string> {
-    const key = name.trim().toLowerCase();
+  async function resolvePlatform(rawName: string): Promise<string> {
+    const name = rawName.trim() || DEFAULT_PLATFORM;
+    const key = name.toLowerCase();
     const existing = platformByName.get(key);
     if (existing) return existing;
     const created = await prisma.platform.create({
       data: {
         userId,
-        name: name.trim(),
+        name,
         isCustom: true,
         defaultBuyFeePct: 0,
         defaultSellFeePct: 0,
@@ -123,36 +161,40 @@ export async function importDealsAction(
 
   for (let idx = 0; idx < dataRows.length; idx++) {
     const row = dataRows[idx];
-    const fileRow = idx + 2; // +1 заголовок, +1 к 1-индексации
+    const fileRow = idx + 2; // +заголовок, +1-индексация
     try {
-      const buyPlatformName = cell(row, "buyPlatform");
-      if (!buyPlatformName) {
-        rowErrors.push({ row: fileRow, message: "Не указана площадка покупки" });
+      // Название + качество: качество может быть в скобках прямо в названии.
+      const { name, quality: nameQuality } = splitNameQuality(cell(row, "itemName"));
+      if (!name) {
+        rowErrors.push({ row: fileRow, message: "Пустое название" });
         continue;
       }
-      const buyPlatformId = await resolvePlatform(buyPlatformName);
+      const quality = cell(row, "itemQuality") || nameQuality || "";
 
-      // Статус: явный из файла либо вывод из наличия цены продажи.
+      const buyPlatformId = await resolvePlatform(cell(row, "buyPlatform"));
+
       const sellPriceRaw = cell(row, "sellPrice");
       const status =
-        parseStatus(cell(row, "status")) ??
-        (sellPriceRaw ? "sold" : "holding");
+        parseStatus(cell(row, "status")) ?? (sellPriceRaw ? "sold" : "holding");
 
       let sellPlatformId = "";
       if (status !== "holding") {
-        const sellPlatformName = cell(row, "sellPlatform");
-        if (sellPlatformName) sellPlatformId = await resolvePlatform(sellPlatformName);
+        sellPlatformId = await resolvePlatform(cell(row, "sellPlatform"));
       }
 
+      // Дата покупки: разные форматы; при отсутствии — сегодня.
+      const buyDate = parseDate(cell(row, "buyDate")) ?? TODAY();
+      const sellDate = parseDate(cell(row, "sellDate")) ?? "";
+
       const obj: Record<string, string> = {
-        itemName: cell(row, "itemName"),
-        itemQuality: cell(row, "itemQuality"),
+        itemName: name,
+        itemQuality: quality,
         quantity: cell(row, "quantity") || "1",
         buyPlatformId,
         buyPrice: toNumberStr(cell(row, "buyPrice")),
         buyCurrency: (cell(row, "buyCurrency") || "RUB").toUpperCase(),
         buyFeePct: toNumberStr(cell(row, "buyFeePct")) || "0",
-        buyDate: cell(row, "buyDate"),
+        buyDate,
         status,
         sellPlatformId,
         sellPrice: toNumberStr(sellPriceRaw),
@@ -160,7 +202,7 @@ export async function importDealsAction(
           cell(row, "sellCurrency") || cell(row, "buyCurrency") || "RUB"
         ).toUpperCase(),
         sellFeePct: toNumberStr(cell(row, "sellFeePct")) || "0",
-        sellDate: cell(row, "sellDate"),
+        sellDate: status !== "holding" ? sellDate || buyDate : "",
         note: cell(row, "note"),
         stattrak: "false",
         souvenir: "false",
@@ -172,7 +214,6 @@ export async function importDealsAction(
         continue;
       }
 
-      // Курс к базовой валюте — из парсера (как в форме).
       parsed.data.buyFxRate = fxFactor(parsed.data.buyCurrency, baseCurrency, rates);
       const sellCur = parsed.data.sellCurrency ?? parsed.data.buyCurrency;
       parsed.data.sellFxRate = fxFactor(sellCur, baseCurrency, rates);
