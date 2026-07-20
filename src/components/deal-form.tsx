@@ -52,9 +52,18 @@ export function DealForm({
   const [state, formAction, pending] = useActionState(saveDealAction, {});
   const families = useSkinsIndex();
 
-  const [withSell, setWithSell] = useState(
-    (deal ? deal.status !== "holding" : false) || (initialWithSell ?? false),
-  );
+  // Режим сделки: покупка (holding) / продажа (sold) / вывод скином.
+  type Mode = "buy" | "sold" | "withdrawn";
+  const initialMode: Mode =
+    deal && deal.status !== "holding"
+      ? deal.status === "withdrawn_via_skin"
+        ? "withdrawn"
+        : "sold"
+      : initialWithSell
+        ? "sold"
+        : "buy";
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const withSell = mode !== "buy";
 
   // Выбранный предмет из каталога + его варианты.
   const [skin, setSkin] = useState<SkinFamily | null>(null);
@@ -101,11 +110,12 @@ export function DealForm({
     }
   }, [state.success, onDone, router]);
 
-  const status = !withSell
-    ? "holding"
-    : deal?.status === "withdrawn_via_skin"
-      ? "withdrawn_via_skin"
-      : "sold";
+  const status =
+    mode === "buy"
+      ? "holding"
+      : mode === "withdrawn"
+        ? "withdrawn_via_skin"
+        : "sold";
 
   const calc = useMemo(() => {
     const d = {
@@ -209,24 +219,29 @@ export function DealForm({
       <input type="hidden" name="souvenir" value={souvenir ? "true" : "false"} />
       <input type="hidden" name="finish" value={isSticker ? finish : ""} />
 
-      {!deal && (
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant={withSell ? "outline" : "default"}
-            onClick={() => setWithSell(false)}
-          >
-            Купил
-          </Button>
-          <Button
-            type="button"
-            variant={withSell ? "default" : "outline"}
-            onClick={() => setWithSell(true)}
-          >
-            Купил и продал
-          </Button>
-        </div>
-      )}
+      <div className="grid grid-cols-3 gap-2">
+        <Button
+          type="button"
+          variant={mode === "buy" ? "default" : "outline"}
+          onClick={() => setMode("buy")}
+        >
+          Купил
+        </Button>
+        <Button
+          type="button"
+          variant={mode === "sold" ? "default" : "outline"}
+          onClick={() => setMode("sold")}
+        >
+          Купил и продал
+        </Button>
+        <Button
+          type="button"
+          variant={mode === "withdrawn" ? "default" : "outline"}
+          onClick={() => setMode("withdrawn")}
+        >
+          Вывел скином
+        </Button>
+      </div>
 
       <div className="grid gap-1.5">
         <Label>Название скина</Label>
@@ -404,22 +419,18 @@ export function DealForm({
         </div>
       </fieldset>
 
-      {deal && (
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={withSell}
-            onChange={(e) => setWithSell(e.target.checked)}
-          />
-          Продано (заполнить блок продажи)
-        </label>
-      )}
-
       {withSell && (
         <fieldset className="rounded-lg border p-3">
           <legend className="px-1 text-sm font-medium">
             {status === "withdrawn_via_skin" ? "Вывод" : "Продажа"}
           </legend>
+          {status === "withdrawn_via_skin" && (
+            <p className="mb-3 text-xs text-muted-foreground">
+              Цена покупки — сколько потрачено балансом Steam, цена ниже — сколько
+              фактически получено на внешней площадке. Разница пойдёт в «Потери на
+              выводе», а не в торговую прибыль.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="col-span-2 grid gap-1.5">
               <Label>Площадка</Label>

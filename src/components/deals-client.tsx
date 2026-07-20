@@ -186,9 +186,25 @@ export function DealsClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Сделки</h1>
-        <Button onClick={openCreate}>Добавить сделку</Button>
+        <div className="flex items-center gap-2">
+          {total > 0 && (
+            <Button
+              variant="outline"
+              render={
+                <a
+                  href={`/api/deals/export${buildDealQuery(filters)}`}
+                  // Скачивание файла, не переход по маршруту.
+                  download
+                />
+              }
+            >
+              Экспорт CSV
+            </Button>
+          )}
+          <Button onClick={openCreate}>Добавить сделку</Button>
+        </div>
       </div>
 
       <DealsToolbar filters={filters} platforms={platforms} />
