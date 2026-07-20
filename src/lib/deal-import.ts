@@ -133,15 +133,55 @@ export function looksLikeHeader(row: string[]): boolean {
   return m.has("itemName") || m.has("buyPrice") || m.size >= 3;
 }
 
-/** Разбор даты в yyyy-mm-dd из распространённых форматов (ISO, DD.MM.YYYY, DD/MM/YYYY). */
+/**
+ * Нормализует число из «человеческой» записи в строку с точкой-десятичной.
+ * Понимает оба разделителя тысяч/дробей: «2,835.00» (US) и «1.600,50» (EU),
+ * «2 500», валютные знаки. Возвращает "" если чисел нет.
+ */
+export function normalizeNumber(raw: string): string {
+  let s = raw.replace(/[^\d.,-]/g, ""); // оставляем цифры, разделители, минус
+  if (!s) return "";
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+  if (hasComma && hasDot) {
+    // Десятичный — тот разделитель, что стоит правее; другой — тысячи.
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      s = s.replace(/\./g, "").replace(",", "."); // EU: 1.600,50 → 1600.50
+    } else {
+      s = s.replace(/,/g, ""); // US: 2,835.00 → 2835.00
+    }
+  } else if (hasComma) {
+    // Только запятая: группы по 3 цифры → тысячи, иначе десятичная.
+    if (/^-?\d{1,3}(,\d{3})+$/.test(s)) s = s.replace(/,/g, "");
+    else s = s.replace(",", ".");
+  } else if (hasDot) {
+    // Только точка: «2.500» (группы по 3) → тысячи, иначе десятичная.
+    if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  }
+  return s;
+}
+
+// Перевод серийного номера даты Excel (дней от 1899-12-30) в yyyy-mm-dd.
+function excelSerialToDate(serial: number): string | null {
+  if (serial <= 20000 || serial >= 80000) return null; // ~2024…2119, вне — не дата
+  const d = new Date(Math.round((serial - 25569) * 86_400_000));
+  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+/** Разбор даты в yyyy-mm-dd: ISO, серийник Excel, DD.MM.YYYY / DD/MM/YYYY. */
 export function parseDate(raw: string): string | null {
   const s = raw.trim();
   if (!s) return null;
   // ISO: 2026-06-01 (возможно с временем)
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  // DD.MM.YYYY / DD/MM/YYYY / DD-MM-YYYY (по умолчанию день первым).
-  m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
+  // Серийный номер даты Excel (голое число, напр. 45704 или 46190.63).
+  if (/^\d{4,6}(\.\d+)?$/.test(s)) {
+    const iso = excelSerialToDate(parseFloat(s));
+    if (iso) return iso;
+  }
+  // DD.MM.YYYY / DD/MM/YYYY / DD-MM-YYYY (по умолчанию день первым, с опц. временем).
+  m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})(?:[ T].*)?$/);
   if (m) {
     let day = parseInt(m[1], 10);
     let mo = parseInt(m[2], 10);

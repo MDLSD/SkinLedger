@@ -12,6 +12,7 @@ import { parseCsv, parseStatus, type CsvKey } from "@/lib/deal-csv";
 import {
   looksLikeHeader,
   mapHeaders,
+  normalizeNumber,
   parseDate,
   splitNameQuality,
 } from "@/lib/deal-import";
@@ -27,15 +28,6 @@ const MAX_BYTES = 5_000_000;
 const MAX_ROWS = 5000;
 const DEFAULT_PLATFORM = "Не указана";
 const TODAY = () => new Date().toISOString().slice(0, 10);
-
-function toNumberStr(raw: string): string {
-  // Убираем валютные символы/пробелы; десятичная запятая → точка.
-  return raw
-    .replace(/[₽$€¥\s ]/g, "")
-    .replace(",", ".")
-    .replace(/[^0-9.\-]/g, "")
-    .trim();
-}
 
 // Приводим таблицу (файл или текст) к матрице строк.
 async function readRows(
@@ -191,17 +183,17 @@ export async function importDealsAction(
         itemQuality: quality,
         quantity: cell(row, "quantity") || "1",
         buyPlatformId,
-        buyPrice: toNumberStr(cell(row, "buyPrice")),
+        buyPrice: normalizeNumber(cell(row, "buyPrice")),
         buyCurrency: (cell(row, "buyCurrency") || "RUB").toUpperCase(),
-        buyFeePct: toNumberStr(cell(row, "buyFeePct")) || "0",
+        buyFeePct: normalizeNumber(cell(row, "buyFeePct")) || "0",
         buyDate,
         status,
         sellPlatformId,
-        sellPrice: toNumberStr(sellPriceRaw),
+        sellPrice: normalizeNumber(sellPriceRaw),
         sellCurrency: (
           cell(row, "sellCurrency") || cell(row, "buyCurrency") || "RUB"
         ).toUpperCase(),
-        sellFeePct: toNumberStr(cell(row, "sellFeePct")) || "0",
+        sellFeePct: normalizeNumber(cell(row, "sellFeePct")) || "0",
         sellDate: status !== "holding" ? sellDate || buyDate : "",
         note: cell(row, "note"),
         stattrak: "false",
