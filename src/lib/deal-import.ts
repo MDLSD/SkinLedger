@@ -56,34 +56,79 @@ function norm(s: string): string {
 // выигрывает самый длинный (специфичный) синоним, поэтому «цена продажи»
 // уходит в sellPrice, а не в buyPrice по подстроке «цена».
 const ALIASES: Record<CsvKey, string[]> = {
-  itemName: ["название", "наименование", "скин", "предмет", "товар", "item", "name", "skin"],
-  itemQuality: ["качество", "износ", "состояние", "quality", "wear", "exterior"],
-  quantity: ["количество", "кол-во", "колво", "шт", "штук", "qty", "count", "amount"],
+  itemName: [
+    "название", "наименование", "назв", "имя", "скин", "предмет", "товар",
+    "айтем", "вещь", "лот", "позиция", "модель", "оружие", "item", "item name",
+    "name", "skin", "skin name", "title", "product", "asset", "gun", "weapon",
+  ],
+  itemQuality: [
+    "качество", "износ", "состояние", "экстерьер", "внешний вид", "флоат",
+    "quality", "wear", "exterior", "condition", "float", "grade",
+  ],
+  quantity: [
+    "количество", "кол-во", "колво", "штук", "штуки", "штука", "шт",
+    "куплено шт", "объем", "объём", "объем ордера", "quantity", "qty", "count",
+    "amount", "units", "pcs", "pieces", "stock",
+  ],
   buyPlatform: [
     "площадка покупки", "площадка покупка", "куплено на", "где куплено",
-    "маркет покупки", "buy platform", "buyplatform", "откуда", "площадка", "platform",
+    "откуда куплено", "маркет покупки", "магазин покупки", "биржа покупки",
+    "сайт покупки", "источник покупки", "источник", "откуда", "площадка",
+    "маркет", "магазин", "биржа", "сайт", "площадка 1", "buy platform",
+    "buyplatform", "buy market", "buy site", "source", "platform", "market",
+    "marketplace", "store", "shop", "exchange", "venue",
   ],
   buyPrice: [
-    "цена покупки", "цена закупа", "закуп", "куплено за", "купил за", "купил",
-    "куплено", "покупка", "buy price", "buyprice", "buy", "bought", "цена",
-    "price", "cost",
+    "цена покупки", "покупная цена", "цена закупа", "закупочная цена", "закуп",
+    "закупка", "куплено за", "купил за", "купил", "куплено", "покупка",
+    "стоимость покупки", "себестоимость", "цена входа", "вход", "цена",
+    "стоимость", "buy price", "buyprice", "purchase price", "purchase", "buy",
+    "bought", "cost", "cost price", "price", "entry", "spent",
   ],
-  buyCurrency: ["валюта покупки", "валюта", "currency", "cur"],
-  buyFeePct: ["комиссия покупки", "комиссия покупка", "buy fee", "buyfee", "комиссия"],
-  buyDate: ["дата покупки", "дата покупка", "куплено дата", "buy date", "buydate", "дата", "date"],
-  status: ["статус", "status", "состояние сделки"],
+  buyCurrency: [
+    "валюта покупки", "валюта покупка", "валюта", "buy currency",
+    "currency", "ccy", "cur",
+  ],
+  buyFeePct: [
+    "комиссия покупки", "комиссия покупка", "комиссия при покупке", "сбор покупки",
+    "комиссия", "комис", "сбор", "buy fee", "buyfee", "buy commission",
+    "purchase fee", "fee", "commission",
+  ],
+  buyDate: [
+    "дата покупки", "дата покупка", "дата закупа", "куплено дата", "когда куплено",
+    "число покупки", "дата", "buy date", "buydate", "purchase date", "date bought",
+    "bought date", "date",
+  ],
+  status: ["статус", "состояние сделки", "стадия", "этап", "status", "state", "stage"],
   sellPlatform: [
-    "площадка продажи", "продано на", "где продано", "маркет продажи",
-    "sell platform", "sellplatform",
+    "площадка продажи", "продано на", "где продано", "куда продано",
+    "маркет продажи", "магазин продажи", "биржа продажи", "сайт продажи",
+    "площадка вывода", "площадка 2", "sell platform", "sellplatform",
+    "sell market", "sell site", "sold on", "destination",
   ],
   sellPrice: [
-    "цена продажи", "цена прод", "продано за", "продал за", "продал", "продано",
-    "продажа", "sell price", "sellprice", "sell", "sold",
+    "цена продажи", "продажная цена", "цена прод", "продано за", "продал за",
+    "продал", "продано", "продажа", "стоимость продажи", "цена выхода", "выход",
+    "выручка", "получено", "реализация", "sell price", "sellprice", "sale price",
+    "sale", "sell", "sold", "revenue", "exit", "received", "proceeds",
   ],
-  sellCurrency: ["валюта продажи", "sell currency", "sellcurrency"],
-  sellFeePct: ["комиссия продажи", "комиссия продажа", "sell fee", "sellfee"],
-  sellDate: ["дата продажи", "дата продажа", "продано дата", "sell date", "selldate"],
-  note: ["комментарий", "коммент", "заметка", "примечание", "note", "comment"],
+  sellCurrency: [
+    "валюта продажи", "валюта продажа", "sell currency", "sellcurrency",
+  ],
+  sellFeePct: [
+    "комиссия продажи", "комиссия продажа", "комиссия при продаже", "сбор продажи",
+    "sell fee", "sellfee", "sell commission", "sale fee",
+  ],
+  sellDate: [
+    "дата продажи", "дата продажа", "продано дата", "когда продано",
+    "дата выхода", "дата реализации", "sell date", "selldate", "sale date",
+    "date sold", "sold date",
+  ],
+  note: [
+    "комментарий", "коммент", "заметка", "заметки", "примечание", "описание",
+    "пометка", "инфо", "note", "notes", "comment", "comments", "remark",
+    "description", "info", "memo",
+  ],
 };
 
 // Точные RU-заголовки шаблона тоже должны совпадать (на случай экспорта→импорта).
@@ -98,35 +143,36 @@ for (const c of CSV_COLUMNS) {
  * вхождению синонима; выигрывает самый длинный синоним (специфичность).
  */
 export function mapHeaders(headerRow: string[]): Map<CsvKey, number> {
-  const result = new Map<CsvKey, number>();
-  const takenKeys = new Set<CsvKey>();
-
-  // Для каждой колонки выбираем лучший ключ; затем разрешаем конфликты.
-  const candidates: { col: number; key: CsvKey; score: number }[] = [];
+  // Для каждой колонки определяем ЕДИНСТВЕННЫЙ лучший ключ (по специфичности
+  // синонима). Колонку нельзя «понизить» до менее подходящего ключа — иначе,
+  // например, «куплено на» (площадка) при занятой площадке утекло бы в цену.
+  const best: { col: number; key: CsvKey; score: number }[] = [];
   headerRow.forEach((h, col) => {
     const hn = norm(h);
     if (!hn) return;
+    let bestKey: CsvKey | null = null;
+    let bestScore = 0;
     for (const key of Object.keys(ALIASES) as CsvKey[]) {
       for (const alias of ALIASES[key]) {
         let score = 0;
         if (hn === alias) score = alias.length + 100; // точное совпадение важнее
         else if (hn.includes(alias)) score = alias.length;
-        if (score > 0) {
-          candidates.push({ col, key, score });
+        if (score > bestScore) {
+          bestScore = score;
+          bestKey = key;
         }
       }
     }
+    if (bestKey) best.push({ col, key: bestKey, score: bestScore });
   });
 
-  // Жадно: сначала самые уверенные совпадения; один ключ и одна колонка —
-  // не более чем к одному сопоставлению.
-  candidates.sort((a, b) => b.score - a.score);
-  const takenCols = new Set<number>();
-  for (const c of candidates) {
-    if (takenKeys.has(c.key) || takenCols.has(c.col)) continue;
+  // Сначала самые уверенные; если лучший ключ уже занят — колонку пропускаем
+  // (а не переносим в другой ключ).
+  best.sort((a, b) => b.score - a.score);
+  const result = new Map<CsvKey, number>();
+  for (const c of best) {
+    if (result.has(c.key)) continue;
     result.set(c.key, c.col);
-    takenKeys.add(c.key);
-    takenCols.add(c.col);
   }
   return result;
 }
