@@ -64,8 +64,9 @@ const ALIASES: Record<CsvKey, string[]> = {
     "маркет покупки", "buy platform", "buyplatform", "откуда", "площадка", "platform",
   ],
   buyPrice: [
-    "цена покупки", "цена закупа", "закуп", "куплено за", "покупка", "buy price",
-    "buyprice", "buy", "цена", "price", "cost",
+    "цена покупки", "цена закупа", "закуп", "куплено за", "купил за", "купил",
+    "куплено", "покупка", "buy price", "buyprice", "buy", "bought", "цена",
+    "price", "cost",
   ],
   buyCurrency: ["валюта покупки", "валюта", "currency", "cur"],
   buyFeePct: ["комиссия покупки", "комиссия покупка", "buy fee", "buyfee", "комиссия"],
@@ -75,7 +76,10 @@ const ALIASES: Record<CsvKey, string[]> = {
     "площадка продажи", "продано на", "где продано", "маркет продажи",
     "sell platform", "sellplatform",
   ],
-  sellPrice: ["цена продажи", "цена прод", "продано за", "продажа", "продано", "sell price", "sellprice", "sell"],
+  sellPrice: [
+    "цена продажи", "цена прод", "продано за", "продал за", "продал", "продано",
+    "продажа", "sell price", "sellprice", "sell", "sold",
+  ],
   sellCurrency: ["валюта продажи", "sell currency", "sellcurrency"],
   sellFeePct: ["комиссия продажи", "комиссия продажа", "sell fee", "sellfee"],
   sellDate: ["дата продажи", "дата продажа", "продано дата", "sell date", "selldate"],

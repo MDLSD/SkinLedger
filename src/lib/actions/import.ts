@@ -99,9 +99,21 @@ export async function importDealsAction(
   }
   const colIndex = mapHeaders(headerRow);
   if (!colIndex.has("itemName") || !colIndex.has("buyPrice")) {
+    // Показываем, что удалось распознать, и чего не хватает — так понятнее, что править.
+    const recognized = [...colIndex.keys()]
+      .map((k) => headerRow[colIndex.get(k)!])
+      .filter(Boolean)
+      .map((h) => `«${h}»`);
+    const missing: string[] = [];
+    if (!colIndex.has("itemName")) missing.push("название");
+    if (!colIndex.has("buyPrice")) missing.push("цена покупки");
+    const recPart = recognized.length
+      ? `Распознаны: ${recognized.join(", ")}. `
+      : "";
     return {
-      error:
-        "Не найдены обязательные колонки с названием и ценой покупки. Проверьте заголовки или скачайте шаблон.",
+      error: `${recPart}Не хватает обязательных колонок: ${missing.join(
+        ", ",
+      )}. Переименуйте заголовок или скачайте шаблон.`,
     };
   }
 
