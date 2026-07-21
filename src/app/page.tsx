@@ -12,10 +12,15 @@ export default function LandingPage() {
         прибыль с учётом комиссий, курсов и выводных скинов.
       </p>
       <div className="flex gap-3">
-        <Button size="lg" render={<Link href="/register" />}>
+        <Button size="lg" nativeButton={false} render={<Link href="/register" />}>
           Начать бесплатно
         </Button>
-        <Button variant="outline" size="lg" render={<Link href="/login" />}>
+        <Button
+          variant="outline"
+          size="lg"
+          nativeButton={false}
+          render={<Link href="/login" />}
+        >
           Войти
         </Button>
       </div>

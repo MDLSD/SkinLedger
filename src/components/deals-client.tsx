@@ -232,10 +232,11 @@ export function DealsClient({
           {total > 0 && (
             <Button
               variant="outline"
+              // Рендерится как <a> (скачивание файла), а не нативный <button>.
+              nativeButton={false}
               render={
                 <a
                   href={`/api/deals/export${buildDealQuery(filters)}`}
-                  // Скачивание файла, не переход по маршруту.
                   download
                 />
               }
