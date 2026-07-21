@@ -3,6 +3,10 @@ import { z } from "zod";
 export const CURRENCIES = ["RUB", "USD", "EUR", "CNY"] as const;
 export const BASE_CURRENCIES = ["RUB", "USD", "EUR"] as const;
 export const DEAL_STATUSES = ["holding", "sold", "withdrawn_via_skin"] as const;
+export const ITEM_KINDS = [
+  "skin", "sticker", "agent", "case", "capsule", "container",
+  "keychain", "patch", "graffiti", "music_kit", "collectible",
+] as const;
 
 export type Currency = (typeof CURRENCIES)[number];
 export type BaseCurrency = (typeof BASE_CURRENCIES)[number];
@@ -71,7 +75,7 @@ export const dealSchema = z
 
     // Ссылка на каталог (если предмет выбран из автокомплита).
     skinFamilyId: z.preprocess(emptyToUndef, z.string().optional()),
-    itemKind: z.preprocess(emptyToUndef, z.enum(["skin", "sticker", "agent"]).optional()),
+    itemKind: z.preprocess(emptyToUndef, z.enum(ITEM_KINDS).optional()),
     stattrak: z.preprocess((v) => v === "true" || v === true, z.boolean()),
     souvenir: z.preprocess((v) => v === "true" || v === true, z.boolean()),
     finish: z.preprocess(emptyToUndef, z.string().optional()),

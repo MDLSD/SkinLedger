@@ -2,9 +2,30 @@
 // Используется и на клиенте (автокомплит, live-превью), и на сервере.
 import fuzzysort from "fuzzysort";
 
+// Виды предметов каталога. skin/sticker имеют варианты (износ/финиш),
+// остальные — одиночные (как агент): один market_hash_name без вариантов.
+export type ItemKind =
+  | "skin"
+  | "sticker"
+  | "agent"
+  | "case"
+  | "capsule"
+  | "container"
+  | "keychain"
+  | "patch"
+  | "graffiti"
+  | "music_kit"
+  | "collectible";
+
+// Одиночные виды (без вариантов) — ведут себя как агент.
+export const SINGLE_VARIANT_KINDS: ItemKind[] = [
+  "agent", "case", "capsule", "container", "keychain",
+  "patch", "graffiti", "music_kit", "collectible",
+];
+
 // Семейство каталога (скин или стикер) для автокомплита.
 export type SkinFamily = {
-  kind: "skin" | "sticker" | "agent";
+  kind: ItemKind;
   f: string; // familyId
   label: string; // отображаемое имя («AK-47 | Redline» / «s1mple | MLG Columbus 2016»)
   r: string | null; // русский алиас (у скинов)

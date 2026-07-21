@@ -28,10 +28,23 @@ const PLACEHOLDER_SKINS = [
   "M4A1-S | Hyper Beast",
 ];
 
-// Подпись под названием: рус. алиас у скинов, тип у стикеров/агентов.
+// Подпись вида предмета (для не-скинов).
+const KIND_LABELS: Record<string, string> = {
+  sticker: "Стикер",
+  agent: "Агент",
+  case: "Кейс",
+  capsule: "Капсула",
+  container: "Контейнер",
+  keychain: "Брелок",
+  patch: "Нашивка",
+  graffiti: "Граффити",
+  music_kit: "Музыкальный набор",
+  collectible: "Коллекционный предмет",
+};
+
+// Подпись под названием: тип у не-скинов, рус. алиас у скинов.
 function familySubtitle(f: SkinFamily): string | null {
-  if (f.kind === "sticker") return "Стикер";
-  if (f.kind === "agent") return "Агент";
+  if (f.kind !== "skin") return KIND_LABELS[f.kind] ?? null;
   return f.r && f.r !== f.s ? f.r : null;
 }
 

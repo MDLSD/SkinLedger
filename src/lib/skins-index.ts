@@ -1,6 +1,11 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { FINISH_ORDER, WEAR_ORDER, type SkinFamily } from "@/lib/skin-search";
+import {
+  FINISH_ORDER,
+  WEAR_ORDER,
+  type ItemKind,
+  type SkinFamily,
+} from "@/lib/skin-search";
 
 // Индекс семейств каталога кэшируется в памяти процесса: справочник
 // меняется только при импорте, а не в рантайме.
@@ -46,14 +51,13 @@ export async function getSkinFamilies(): Promise<SkinFamily[]> {
   for (const r of rows) {
     let f = byFamily.get(r.familyId);
     if (!f) {
-      const kind =
-        r.kind === "sticker" ? "sticker" : r.kind === "agent" ? "agent" : "skin";
+      const kind = r.kind as ItemKind;
       const label =
         kind === "skin"
           ? r.weapon + (r.skinName ? ` | ${r.skinName}` : "")
           : kind === "sticker"
             ? (r.stickerName ?? "")
-            : (r.skinName ?? ""); // agent: имя в skinName
+            : (r.skinName ?? ""); // одиночные (агент/кейс/брелок/…): имя в skinName
       f = {
         kind,
         f: r.familyId,
@@ -84,7 +88,7 @@ export async function getSkinFamilies(): Promise<SkinFamily[]> {
       if (r.finish) f._finishes.add(r.finish);
       continue;
     }
-    if (r.kind === "agent") continue; // без вариантов
+    if (r.kind !== "skin") continue; // одиночные (агент/кейс/брелок/…) без вариантов
 
     // skin: картинку — с обычного варианта (без плашки).
     if (!r.stattrak && !r.souvenir && r.image) f.img = r.image;

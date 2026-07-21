@@ -147,8 +147,9 @@ export function DealForm({
   };
 
   const isSticker = skin?.kind === "sticker";
-  const isAgent = skin?.kind === "agent";
   const isSkin = skin?.kind === "skin";
+  // Одиночный предмет (агент/кейс/капсула/брелок/…): без вариантов.
+  const isSingle = !!skin && !isSticker && !isSkin;
 
   // Износы, реально существующие для выбранного режима (normal/ST/Souvenir).
   const availableWears = souvenir
@@ -175,12 +176,13 @@ export function DealForm({
     if (f.kind === "sticker") {
       setWear("");
       setFinish(f.finishes[0] ?? "");
-    } else if (f.kind === "agent") {
-      setWear("");
-      setFinish("");
-    } else {
+    } else if (f.kind === "skin") {
       setFinish("");
       setWear(f.wears[0] ?? "");
+    } else {
+      // одиночный предмет — без вариантов
+      setWear("");
+      setFinish("");
     }
   };
 
@@ -188,7 +190,7 @@ export function DealForm({
   const canonicalName = skin ? skin.label : legacyName;
   const marketHashName = !skin
     ? null
-    : isAgent
+    : isSingle
       ? skin.label
       : isSticker
       ? `${skin.label}${finish ? ` · ${finish}` : ""}`

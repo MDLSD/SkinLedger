@@ -23,6 +23,18 @@ const STICKERS_URL =
   "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/stickers.json";
 const AGENTS_URL =
   "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/agents.json";
+const CRATES_URL =
+  "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/crates.json";
+const KEYCHAINS_URL =
+  "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/keychains.json";
+const PATCHES_URL =
+  "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/patches.json";
+const GRAFFITI_URL =
+  "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/graffiti.json";
+const MUSIC_KITS_URL =
+  "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/music_kits.json";
+const COLLECTIBLES_URL =
+  "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/collectibles.json";
 const EN_LANG_URL =
   "https://raw.githubusercontent.com/ByMykel/counter-strike-file-tracker/main/static/csgo_english.json";
 const RU_LANG_URL =
@@ -53,6 +65,14 @@ type Agent = {
   name?: string | null;
   market_hash_name: string | null;
   team?: string | { name?: string } | null;
+  image?: string | null;
+};
+// Кейсы/капсулы, брелки, патчи, граффити, музкиты, коллекционные — единый
+// шейп ByMykel: одиночные торгуемые предметы без вариантов.
+type SimpleItem = {
+  id: string;
+  name?: string | null;
+  market_hash_name?: string | null;
   image?: string | null;
 };
 
@@ -194,20 +214,72 @@ function agentRow(a: Agent): ItemRow | null {
   };
 }
 
+// Одиночный предмет (без вариантов): имя храним в skinName для label/поиска.
+function simpleRow(kind: string, it: SimpleItem): ItemRow | null {
+  const mhn = it.market_hash_name;
+  if (!mhn) return null; // не торгуется
+  return {
+    kind,
+    externalId: it.id,
+    familyId: `${kind}:${it.id}`,
+    weapon: null,
+    skinName: it.name ?? mhn,
+    wear: null,
+    stattrak: false,
+    souvenir: false,
+    star: false,
+    stickerName: null,
+    finish: null,
+    stickerType: null,
+    tournament: null,
+    marketHashName: mhn,
+    image: it.image ?? null,
+    ruWeapon: null,
+    ruSkinName: null,
+  };
+}
+
+// Контейнеры делим по имени: капсула / кейс / прочее (наборы, пакеты).
+function crateKind(name: string): string {
+  if (/capsule/i.test(name)) return "capsule";
+  if (/\bcase\b/i.test(name)) return "case";
+  return "container";
+}
+
 async function main() {
   const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
   const prisma = new PrismaClient({ adapter });
 
   console.log("Загрузка данных…");
-  const [skins, stickers, agents, enLang, ruLang] = await Promise.all([
+  const [
+    skins,
+    stickers,
+    agents,
+    crates,
+    keychains,
+    patches,
+    graffiti,
+    musicKits,
+    collectibles,
+    enLang,
+    ruLang,
+  ] = await Promise.all([
     loadJson<NgSkin[]>(NG_URL, "SKINS_JSON"),
     loadJson<Sticker[]>(STICKERS_URL, "STICKERS_JSON"),
     loadJson<Agent[]>(AGENTS_URL, "AGENTS_JSON"),
+    loadJson<SimpleItem[]>(CRATES_URL, "CRATES_JSON"),
+    loadJson<SimpleItem[]>(KEYCHAINS_URL, "KEYCHAINS_JSON"),
+    loadJson<SimpleItem[]>(PATCHES_URL, "PATCHES_JSON"),
+    loadJson<SimpleItem[]>(GRAFFITI_URL, "GRAFFITI_JSON"),
+    loadJson<SimpleItem[]>(MUSIC_KITS_URL, "MUSIC_KITS_JSON"),
+    loadJson<SimpleItem[]>(COLLECTIBLES_URL, "COLLECTIBLES_JSON"),
     loadJson<{ lang: { Tokens: Record<string, unknown> } }>(EN_LANG_URL, "EN_LANG_JSON"),
     loadJson<{ lang: { Tokens: Record<string, unknown> } }>(RU_LANG_URL, "RU_LANG_JSON"),
   ]);
   console.log(
-    `  вариантов скинов: ${skins.length}, стикеров: ${stickers.length}, агентов: ${agents.length}`,
+    `  скинов: ${skins.length}, стикеров: ${stickers.length}, агентов: ${agents.length}, ` +
+      `контейнеров: ${crates.length}, брелков: ${keychains.length}, патчей: ${patches.length}, ` +
+      `граффити: ${graffiti.length}, музкитов: ${musicKits.length}, коллекц.: ${collectibles.length}`,
   );
 
   const patternRu = buildPatternRuMap(enLang.lang.Tokens, ruLang.lang.Tokens);
@@ -233,6 +305,12 @@ async function main() {
   for (const s of skins) push(skinRow(s, patternRu));
   for (const s of stickers) push(stickerRow(s));
   for (const a of agents) push(agentRow(a));
+  for (const c of crates) push(simpleRow(crateKind(c.name ?? c.market_hash_name ?? ""), c));
+  for (const k of keychains) push(simpleRow("keychain", k));
+  for (const p of patches) push(simpleRow("patch", p));
+  for (const g of graffiti) push(simpleRow("graffiti", g));
+  for (const mk of musicKits) push(simpleRow("music_kit", mk));
+  for (const cl of collectibles) push(simpleRow("collectible", cl));
 
   const existing = new Set(
     (await prisma.marketItem.findMany({ select: { marketHashName: true } })).map(
@@ -260,18 +338,17 @@ async function main() {
   }
   process.stdout.write("\n");
 
-  const [total, skinCount, stickerCount, agentCount] = await Promise.all([
-    prisma.marketItem.count(),
-    prisma.marketItem.count({ where: { kind: "skin" } }),
-    prisma.marketItem.count({ where: { kind: "sticker" } }),
-    prisma.marketItem.count({ where: { kind: "agent" } }),
-  ]);
+  const total = await prisma.marketItem.count();
+  const byKind = await prisma.marketItem.groupBy({
+    by: ["kind"],
+    _count: { _all: true },
+    orderBy: { _count: { kind: "desc" } },
+  });
   console.log(
     `Готово. Создано: ${created}, обновлено: ${updated}, пропущено (дубли: ${skippedDup}, без имени: ${skippedNoMhn}).`,
   );
-  console.log(
-    `  В каталоге: ${total} (скинов: ${skinCount}, стикеров: ${stickerCount}, агентов: ${agentCount}).`,
-  );
+  console.log(`  В каталоге: ${total}`);
+  for (const g of byKind) console.log(`    ${g.kind}: ${g._count._all}`);
   await prisma.$disconnect();
 }
 

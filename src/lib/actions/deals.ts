@@ -49,11 +49,13 @@ async function resolveItem(d: DealInput) {
     };
   }
 
-  if (d.itemKind === "agent") {
+  // Одиночные предметы (агент/кейс/капсула/брелок/патч/граффити/музкит/…):
+  // без вариантов, ищем по семейству и виду.
+  if (d.itemKind && d.itemKind !== "skin") {
     const item = await prisma.marketItem.findFirst({
-      where: { familyId: d.skinFamilyId, kind: "agent" },
+      where: { familyId: d.skinFamilyId, kind: d.itemKind },
     });
-    if (!item) throw new DealError("Выбранный агент не найден в справочнике");
+    if (!item) throw new DealError("Выбранный предмет не найден в справочнике");
     return {
       itemId: item.id,
       itemName: item.skinName ?? item.marketHashName,

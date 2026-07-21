@@ -16,7 +16,8 @@
 - [ ] Сменить `provider` в `prisma/schema.prisma` на `postgresql`, поправить адаптер
       (`@prisma/adapter-*`) под Postgres.
 - [ ] `npx prisma migrate deploy`.
-- [ ] `npm run import:catalog` — наполнить каталог скинов/стикеров (~30k).
+- [ ] `npm run import:catalog` — наполнить каталог (~33k): скины, стикеры, агенты,
+      кейсы/капсулы/контейнеры, брелки, патчи, граффити, музкиты, коллекционные.
 - [ ] Включить автобэкапы БД (в Neon/Supabase из коробки).
 
 ## Rate-limit
