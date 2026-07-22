@@ -75,7 +75,10 @@ export function parseDealFilters(sp: RawParams): DealFilters {
   };
 }
 
-/** Диапазон дат для выбранного периода (null — без ограничения). */
+/**
+ * Диапазон дат для выбранного периода (null — без ограничения).
+ * Применяется к дате ЗАКРЫТИЯ сделки — одинаково в списке и на дашборде.
+ */
 export function periodRange(
   f: Pick<DealFilters, "period" | "from" | "to">,
 ): { gte?: Date; lte?: Date } | null {

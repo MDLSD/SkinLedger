@@ -47,6 +47,7 @@ export function DealsToolbar({ filters, platforms }: Props) {
     !filters.q;
 
   return (
+    <div className="space-y-2">
     <div className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1 text-xs text-muted-foreground">
         Поиск
@@ -125,6 +126,14 @@ export function DealsToolbar({ filters, platforms }: Props) {
         >
           Сбросить
         </Button>
+      )}
+    </div>
+
+      {filters.period !== "all" && filters.status !== "holding" && (
+        <p className="text-xs text-muted-foreground">
+          Период отбирает сделки по дате продажи — так же, как дашборд. Сделки
+          в холде показаны независимо от периода: у них нет даты закрытия.
+        </p>
       )}
     </div>
   );

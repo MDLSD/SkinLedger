@@ -29,17 +29,26 @@ export async function loadUserDeals(
   userId: string,
   filters: DealFilters,
 ): Promise<LoadedDeals> {
-  // Фильтры, сводимые к SQL: статус, площадка, период (по дате покупки).
+  // Фильтры, сводимые к SQL: статус, площадка, период.
+  // Период — по дате ЗАКРЫТИЯ, как на дашборде: раньше список брал buyDate,
+  // и одна и та же сделка попадала в разные множества на двух страницах.
+  // Холд под период не подпадает вообще — у него нет даты закрытия, и
+  // «заморожено в холде» на дашборде тоже считается по всем открытым.
+  // Оба условия — через AND, потому что OR здесь уже занят площадкой.
   const where: Record<string, unknown> = { userId };
+  const and: Record<string, unknown>[] = [];
   if (filters.status !== "all") where.status = filters.status;
   if (filters.platform !== "all") {
-    where.OR = [
-      { buyPlatformId: filters.platform },
-      { sellPlatformId: filters.platform },
-    ];
+    and.push({
+      OR: [
+        { buyPlatformId: filters.platform },
+        { sellPlatformId: filters.platform },
+      ],
+    });
   }
   const range = periodRange(filters);
-  if (range) where.buyDate = range;
+  if (range) and.push({ OR: [{ status: "holding" }, { sellDate: range }] });
+  if (and.length) where.AND = and;
 
   const [user, dealRows, { rates, source: ratesSource }] = await Promise.all([
     prisma.user.findUniqueOrThrow({
