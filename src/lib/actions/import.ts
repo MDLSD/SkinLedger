@@ -1,6 +1,7 @@
 "use server";
 
 import * as XLSX from "xlsx";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -339,6 +340,11 @@ export async function commitImportAction(
 
 // ---------- Откат последнего импорта ----------
 
+// SQLite ограничивает число переменных в запросе: `in` на ~999 элементов уже
+// падает с P2029, а импорт разрешает до MAX_ROWS строк.
+const UNDO_CHUNK = 500;
+const undoIdsSchema = z.array(z.uuid()).min(1).max(MAX_ROWS);
+
 export async function undoImportAction(
   _prev: UndoState,
   formData: FormData,
@@ -347,16 +353,27 @@ export async function undoImportAction(
   if (!session?.user?.id) return { error: "Не авторизован" };
   let ids: string[];
   try {
-    ids = JSON.parse(formData.get("ids")?.toString() ?? "[]");
+    const parsed = undoIdsSchema.safeParse(JSON.parse(formData.get("ids")?.toString() ?? "[]"));
+    if (!parsed.success) return { error: "Нечего откатывать" };
+    ids = parsed.data;
   } catch {
     return { error: "Нет данных для отката" };
   }
-  if (!Array.isArray(ids) || ids.length === 0) return { error: "Нечего откатывать" };
 
-  const res = await prisma.deal.deleteMany({
-    where: { userId: session.user.id, id: { in: ids } },
-  });
+  let undone = 0;
+  try {
+    for (let i = 0; i < ids.length; i += UNDO_CHUNK) {
+      const res = await prisma.deal.deleteMany({
+        where: { userId: session.user.id, id: { in: ids.slice(i, i + UNDO_CHUNK) } },
+      });
+      undone += res.count;
+    }
+  } catch (e) {
+    console.error("undoImportAction", e);
+    return { error: "Не удалось откатить импорт" };
+  }
+
   revalidatePath("/app/deals");
   revalidatePath("/app");
-  return { undone: res.count };
+  return { undone };
 }

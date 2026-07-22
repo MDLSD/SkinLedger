@@ -89,7 +89,7 @@ export function periodRange(
     const end = validDate(f.to);
     if (end) {
       end.setHours(23, 59, 59, 999);
-      range.lte = end;
+      if (!Number.isNaN(end.getTime())) range.lte = end;
     }
     return Object.keys(range).length ? range : null;
   }
@@ -97,10 +97,14 @@ export function periodRange(
 }
 
 // Разбор даты из URL: некорректная строка → undefined (не роняем Prisma).
+// Формат строго yyyy-MM-dd, год в разумных границах: иначе граничные значения
+// вроде 275760-09-13 проходят isNaN, но становятся Invalid Date после setHours.
 function validDate(s: string): Date | undefined {
-  if (!s) return undefined;
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? undefined : d;
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return undefined;
+  const d = new Date(`${s}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return undefined;
+  const y = d.getUTCFullYear();
+  return y >= 2000 && y <= 2100 ? d : undefined;
 }
 
 /** Собрать query-строку из фильтров с переопределениями (для клиентских ссылок). */
