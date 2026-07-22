@@ -66,7 +66,9 @@ export function parseDealFilters(sp: RawParams): DealFilters {
     to: str(sp.to),
     status,
     platform: str(sp.platform) || "all",
-    q: str(sp.q),
+    // Строка поиска гоняется через .includes() по каждой сделке и складывается
+    // обратно в URL — длину ограничиваем при разборе.
+    q: str(sp.q).slice(0, 100),
     sort,
     dir,
     page,

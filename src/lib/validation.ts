@@ -30,8 +30,21 @@ const emptyToUndef = (v: unknown) =>
 const optionalNumber = (schema: z.ZodType<number>) =>
   z.preprocess(emptyToUndef, schema.optional());
 
+// Верхние границы: без них 1e308 проходит как цена, а дальше buyCostBase даёт
+// Infinity и все агрегаты дашборда становятся ∞/NaN — необратимо, данные уже в БД.
+export const MAX_PRICE = 1e9;
+export const MAX_QUANTITY = 100_000;
+
+// z.coerce.number() принимает литералы с префиксом ("0x10" → 16). Для денежных
+// полей это не ввод пользователя, а мусор из подделанного запроса.
+const decimalOnly = (v: unknown) =>
+  typeof v === "string" && /^\s*[+-]?0[xXoObB]/.test(v) ? NaN : v;
+
 const requiredPrice = (msg: string) =>
-  z.coerce.number({ error: msg }).positive(msg);
+  z.preprocess(
+    decimalOnly,
+    z.coerce.number({ error: msg }).positive(msg).max(MAX_PRICE, "Слишком большая сумма"),
+  );
 
 const feePct = z.coerce
   .number({ error: "Комиссия — число от 0 до 100" })
@@ -41,6 +54,16 @@ const feePct = z.coerce
 const fxRate = z.coerce
   .number({ error: "Курс должен быть числом" })
   .positive("Курс должен быть больше 0");
+
+// Границы даты сделки. Верхняя проверяется в refine, а не через .max(): значение
+// в .max() зафиксировалось бы на момент старта процесса, и на долгоживущем
+// сервере «сегодня» со временем стало бы «датой в будущем».
+const MIN_DEAL_DATE = new Date("2010-01-01T00:00:00.000Z");
+const dealDate = (msg: string) =>
+  z.coerce
+    .date({ error: msg })
+    .min(MIN_DEAL_DATE, "Дата раньше 2010 года")
+    .refine((d) => d.getTime() <= Date.now() + 86_400_000, "Дата в будущем");
 
 export const dealSchema = z
   .object({
@@ -52,7 +75,8 @@ export const dealSchema = z
     quantity: z.coerce
       .number({ error: "Количество — целое число от 1" })
       .int("Количество — целое число")
-      .min(1, "Количество — минимум 1"),
+      .min(1, "Количество — минимум 1")
+      .max(MAX_QUANTITY, "Слишком большое количество"),
 
     buyPlatformId: z.string().min(1, "Выберите площадку покупки"),
     buyPrice: requiredPrice("Цена покупки должна быть больше 0"),
@@ -60,7 +84,7 @@ export const dealSchema = z
     // Курс к базовой валюте вычисляет сервер из парсера; форма его не шлёт.
     buyFxRate: optionalNumber(fxRate),
     buyFeePct: feePct,
-    buyDate: z.coerce.date({ error: "Укажите дату покупки" }),
+    buyDate: dealDate("Укажите дату покупки"),
 
     status: z.enum(DEAL_STATUSES),
 
@@ -69,7 +93,10 @@ export const dealSchema = z
     sellCurrency: z.preprocess(emptyToUndef, z.enum(CURRENCIES).optional()),
     sellFxRate: optionalNumber(fxRate),
     sellFeePct: optionalNumber(feePct),
-    sellDate: z.preprocess(emptyToUndef, z.coerce.date().optional()),
+    sellDate: z.preprocess(
+      emptyToUndef,
+      dealDate("Укажите дату продажи").optional(),
+    ),
 
     note: z.preprocess(emptyToUndef, z.string().trim().max(2000).optional()),
 

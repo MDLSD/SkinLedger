@@ -29,6 +29,13 @@ import {
 const MAX_BYTES = 5_000_000;
 const MAX_ROWS = 5000;
 const DEFAULT_PLATFORM = "Не указана";
+// Импорт создаёт площадки по названиям из файла. Без потолка одна ошибка
+// в сопоставлении колонок (например, площадка указывает на колонку заметок)
+// заводит по площадке на строку — до 10 000 записей за запрос, повторяемо.
+const MAX_PLATFORMS = 100;
+const platformNameSchema = z.string().trim().min(1).max(80);
+// Строки приходят из клиентского payload, а не из разобранного сервером файла.
+const rowsSchema = z.array(z.array(z.string())).min(1).max(MAX_ROWS);
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
 // UTF-8, а при невалидных последовательностях — windows-1251 (частый результат
@@ -209,17 +216,17 @@ export async function commitImportAction(
   } catch {
     return { error: "Некорректные данные импорта" };
   }
-  const rows = payload.rows ?? [];
   const mapping = payload.mapping ?? {};
   const options = payload.options ?? { currency: "RUB", dateOrder: "dmy" };
 
   if (mapping.itemName == null || mapping.buyPrice == null) {
     return { error: "Укажите колонки «Название» и «Цена покупки»" };
   }
-  if (!rows.length) return { error: "Нет строк для импорта" };
-  if (rows.length > MAX_ROWS) {
-    return { error: `Слишком много строк (максимум ${MAX_ROWS})` };
+  const parsedRows = rowsSchema.safeParse(payload.rows ?? []);
+  if (!parsedRows.success) {
+    return { error: `Нет строк для импорта или их больше ${MAX_ROWS}` };
   }
+  const rows = parsedRows.data;
 
   const [{ baseCurrency }, { rates }] = await Promise.all([
     prisma.user.findUniqueOrThrow({
@@ -233,13 +240,24 @@ export async function commitImportAction(
     where: { OR: [{ isCustom: false }, { userId }] },
   });
   const platformByName = new Map<string, string>();
-  for (const p of visible) platformByName.set(p.name.trim().toLowerCase(), p.id);
+  let ownCount = 0;
+  for (const p of visible) {
+    platformByName.set(p.name.trim().toLowerCase(), p.id);
+    if (p.userId === userId) ownCount++;
+  }
 
-  async function resolvePlatform(rawName: string): Promise<string> {
-    const name = rawName.trim() || DEFAULT_PLATFORM;
+  type Resolved = { id: string } | { error: string };
+
+  async function resolvePlatform(rawName: string): Promise<Resolved> {
+    const parsed = platformNameSchema.safeParse(rawName.trim() || DEFAULT_PLATFORM);
+    if (!parsed.success) return { error: "Некорректное название площадки" };
+    const name = parsed.data;
     const key = name.toLowerCase();
     const existing = platformByName.get(key);
-    if (existing) return existing;
+    if (existing) return { id: existing };
+    if (ownCount >= MAX_PLATFORMS) {
+      return { error: `Достигнут лимит площадок (${MAX_PLATFORMS})` };
+    }
     const created = await prisma.platform.create({
       data: {
         userId,
@@ -249,8 +267,9 @@ export async function commitImportAction(
         defaultSellFeePct: 0,
       },
     });
+    ownCount++;
     platformByName.set(key, created.id);
-    return created.id;
+    return { id: created.id };
   }
 
   let imported = 0;
@@ -267,23 +286,20 @@ export async function commitImportAction(
         rowErrors.push({ row: fileRow, message: "Пустое название" });
         continue;
       }
-      const buyPlatformId = await resolvePlatform(f.buyPlatform);
-      let sellPlatformId = "";
-      if (f.status !== "holding") sellPlatformId = await resolvePlatform(f.sellPlatform);
-      if (f.buyDateMissing) datesDefaulted++;
-      if (f.currencyDefaulted) curDefaulted++;
-
+      // Площадки резолвятся ПОСЛЕ валидации строки: иначе битая строка всё
+      // равно оставляла после себя созданную площадку. Здесь — заглушки,
+      // чтобы схема не ругалась на пустой id.
       const obj: Record<string, string> = {
         itemName: f.itemName,
         itemQuality: f.itemQuality,
         quantity: f.quantity || "1",
-        buyPlatformId,
+        buyPlatformId: "-",
         buyPrice: f.buyPrice,
         buyCurrency: f.buyCurrency,
         buyFeePct: f.buyFeePct || "0",
         buyDate: f.buyDate || TODAY(),
         status: f.status,
-        sellPlatformId,
+        sellPlatformId: f.status !== "holding" ? "-" : "",
         sellPrice: f.sellPrice,
         sellCurrency: f.sellCurrency,
         sellFeePct: f.sellFeePct || "0",
@@ -301,6 +317,23 @@ export async function commitImportAction(
         rowErrors.push({ row: fileRow, message: msg });
         continue;
       }
+
+      const buy = await resolvePlatform(f.buyPlatform);
+      if ("error" in buy) {
+        rowErrors.push({ row: fileRow, message: buy.error });
+        continue;
+      }
+      parsed.data.buyPlatformId = buy.id;
+      if (f.status !== "holding") {
+        const sell = await resolvePlatform(f.sellPlatform);
+        if ("error" in sell) {
+          rowErrors.push({ row: fileRow, message: sell.error });
+          continue;
+        }
+        parsed.data.sellPlatformId = sell.id;
+      }
+      if (f.buyDateMissing) datesDefaulted++;
+      if (f.currencyDefaulted) curDefaulted++;
 
       parsed.data.buyFxRate = fxFactor(parsed.data.buyCurrency, baseCurrency, rates);
       const sellCur = parsed.data.sellCurrency ?? parsed.data.buyCurrency;
