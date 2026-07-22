@@ -11,21 +11,40 @@ export type DealNumbers = {
   sellFxRate?: number | null;
 };
 
+/**
+ * Округление денег до копеек — ЕДИНСТВЕННАЯ точка округления в проекте.
+ *
+ * Раньше округление происходило только при выводе, а агрегаты складывали
+ * неокруглённые значения. Из-за этого «сумма показанных» не сходилась
+ * с «показанной суммой»: три сделки по 10,005 ₽ показывались как «10 ₽»
+ * каждая, а их сумма — как «30,01 ₽».
+ *
+ * На точных половинах копейки результат может отличаться от того, что дал бы
+ * Intl на сыром числе (умножение на 100 смещает двоичную границу). Это
+ * безразлично: округляем ДО вывода, поэтому показывается ровно то значение,
+ * которое участвует в суммах.
+ */
+export function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export function buyCostBase(d: DealNumbers): number {
-  return d.buyPrice * d.quantity * (1 + d.buyFeePct / 100) * d.buyFxRate;
+  return roundMoney(d.buyPrice * d.quantity * (1 + d.buyFeePct / 100) * d.buyFxRate);
 }
 
 export function sellRevenueBase(d: DealNumbers): number | null {
   if (d.sellPrice == null) return null;
-  return (
-    d.sellPrice * d.quantity * (1 - (d.sellFeePct ?? 0) / 100) * (d.sellFxRate ?? 1)
+  return roundMoney(
+    d.sellPrice * d.quantity * (1 - (d.sellFeePct ?? 0) / 100) * (d.sellFxRate ?? 1),
   );
 }
 
 export function profit(d: DealNumbers): number | null {
   const revenue = sellRevenueBase(d);
   if (revenue == null) return null;
-  return revenue - buyCostBase(d);
+  // Обе части уже в копейках; повторное округление снимает двоичный шум
+  // вычитания, чтобы прибыль в точности равнялась «выручка − затраты».
+  return roundMoney(revenue - buyCostBase(d));
 }
 
 export function marginPct(d: DealNumbers): number | null {

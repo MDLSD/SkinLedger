@@ -1,7 +1,13 @@
 // Агрегаты дашборда. Чистая функция (без Prisma) — считает по уже
 // загруженным сделкам. Прибыль/оборот/маржа — по закрытым (sold) сделкам,
 // потери на выводе — отдельно, заморожено в холде — снимок (без периода).
-import { buyCostBase, marginPct, profit, sellRevenueBase } from "@/lib/deal-math";
+import {
+  buyCostBase,
+  marginPct,
+  profit,
+  roundMoney,
+  sellRevenueBase,
+} from "@/lib/deal-math";
 
 export type DashDeal = {
   id: string;
@@ -81,16 +87,20 @@ export function computeDashboard(
   );
   const holding = deals.filter((d) => d.status === "holding");
 
-  const netProfit = sold.reduce((s, d) => s + dealProfit(d), 0);
-  const turnover = sold.reduce((s, d) => s + revenue(d), 0);
-  const totalCost = sold.reduce((s, d) => s + cost(d), 0);
+  // Слагаемые уже в копейках (округляет deal-math), но сумма многих таких
+  // значений накапливает двоичный шум — снимаем его той же функцией.
+  const netProfit = roundMoney(sold.reduce((s, d) => s + dealProfit(d), 0));
+  const turnover = roundMoney(sold.reduce((s, d) => s + revenue(d), 0));
+  const totalCost = roundMoney(sold.reduce((s, d) => s + cost(d), 0));
   // Прибыль ко всей себестоимости — это ROI портфеля, а не среднее по сделкам:
   // сделка на 100 000 ₽ влияет на него в сто раз сильнее сделки на 1 000 ₽.
   // Подпись на карточке говорит именно про рентабельность, чтобы значение
   // не сверяли с колонкой «Маржа» в списке.
   const roiPct = totalCost > 0 ? (netProfit / totalCost) * 100 : null;
-  const withdrawalLoss = withdrawn.reduce((s, d) => s + (cost(d) - revenue(d)), 0);
-  const frozenInHolding = holding.reduce((s, d) => s + cost(d), 0);
+  const withdrawalLoss = roundMoney(
+    withdrawn.reduce((s, d) => s + (cost(d) - revenue(d)), 0),
+  );
+  const frozenInHolding = roundMoney(holding.reduce((s, d) => s + cost(d), 0));
 
   // Помесячная торговая прибыль (по дате продажи) + кумулятивная.
   const byMonth = new Map<string, number>();
@@ -103,12 +113,16 @@ export function computeDashboard(
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([key, p]) => {
       const [y, m] = key.split("-").map(Number);
-      return { key, label: `${MONTHS_RU[m - 1]} ${String(y).slice(2)}`, profit: p };
+      return {
+        key,
+        label: `${MONTHS_RU[m - 1]} ${String(y).slice(2)}`,
+        profit: roundMoney(p),
+      };
     });
   let run = 0;
   const cumulative = monthly.map((m) => {
     run += m.profit;
-    return { label: m.label, value: run };
+    return { label: m.label, value: roundMoney(run) };
   });
 
   const briefs = (arr: DashDeal[]): DealBrief[] =>
@@ -136,7 +150,7 @@ export function computeDashboard(
     byPlatform.set(name, cur);
   }
   const platforms = [...byPlatform.entries()]
-    .map(([name, v]) => ({ name, ...v }))
+    .map(([name, v]) => ({ ...v, name, profit: roundMoney(v.profit) }))
     .sort((a, b) => b.profit - a.profit);
 
   return {
