@@ -22,7 +22,7 @@ export default async function DealsPage({
   const userId = session.user.id;
   const filters = parseDealFilters(await searchParams);
 
-  const [{ deals: all, base, rates, ratesSource, unresolvedFx }, platformRows, totalAll] =
+  const [{ deals: all, base, rates, ratesSource, unresolvedFx, truncated }, platformRows, totalAll] =
     await Promise.all([
       loadUserDeals(userId, filters),
       prisma.platform.findMany({
@@ -50,6 +50,7 @@ export default async function DealsPage({
       <RatesNotice
         source={ratesSource}
         unresolvedFx={unresolvedFx}
+        truncated={truncated}
         excludedLabel="сделок скрыто"
       />
       <DealsClient

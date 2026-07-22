@@ -9,9 +9,29 @@ import { computeDashboard, type DashDeal, type DealBrief } from "@/lib/dashboard
 import { DashboardCharts } from "@/components/dashboard-charts";
 import { DashboardPeriod } from "@/components/dashboard-period";
 import { RatesNotice } from "@/components/rates-notice";
+import { loadAllByCursor } from "@/lib/db-batch";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-const MAX_ROWS = 5000;
+
+// Только поля, которые реально участвуют в агрегатах.
+const DASH_SELECT = {
+  id: true,
+  itemName: true,
+  itemQuality: true,
+  status: true,
+  buyDate: true,
+  sellDate: true,
+  quantity: true,
+  buyPrice: true,
+  buyFeePct: true,
+  buyCurrency: true,
+  buyFxRate: true,
+  sellPrice: true,
+  sellFeePct: true,
+  sellCurrency: true,
+  sellFxRate: true,
+  sellPlatform: { select: { name: true } },
+} as const;
 
 export default async function DashboardPage({
   searchParams,
@@ -24,15 +44,22 @@ export default async function DashboardPage({
   const f = parseDealFilters(await searchParams);
   const range = periodRange(f);
 
-  const [user, dealRows, { rates, source: ratesSource }] = await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-    prisma.deal.findMany({
-      where: { userId },
-      include: { sellPlatform: true },
-      take: MAX_ROWS,
-    }),
-    getRates(),
-  ]);
+  const [user, { rows: dealRows, truncated }, { rates, source: ratesSource }] =
+    await Promise.all([
+      prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      // Агрегаты должны покрывать все сделки: `take: 5000` без `orderBy` считал
+      // прибыль по произвольному подмножеству и никак об этом не сообщал.
+      loadAllByCursor((cursor, take) =>
+        prisma.deal.findMany({
+          where: { userId },
+          select: DASH_SELECT,
+          orderBy: { id: "asc" },
+          take,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        }),
+      ),
+      getRates(),
+    ]);
   const cur = user.baseCurrency;
 
   let unresolvedFx = 0;
@@ -85,6 +112,7 @@ export default async function DashboardPage({
       <RatesNotice
         source={ratesSource}
         unresolvedFx={unresolvedFx}
+        truncated={truncated}
         excludedLabel="сделок не учтено"
       />
 

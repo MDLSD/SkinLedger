@@ -12,10 +12,35 @@ import {
 import { dealFxRate, type Rates } from "@/lib/currency";
 import { getRates, type RatesSource } from "@/lib/rates";
 import { periodRange, type DealFilters, type SortKey } from "@/lib/deal-list";
+import { loadAllByCursor } from "@/lib/db-batch";
 import type { DealDTO } from "@/lib/types";
 
-// Верхняя граница выборки в память (NFR: < 1 с при 5000 сделок).
-const MAX_ROWS = 5000;
+// Ровно те поля, что нужны DTO. Связанные таблицы — тоже по select.
+const DEAL_SELECT = {
+  id: true,
+  itemName: true,
+  itemQuality: true,
+  quantity: true,
+  buyPlatformId: true,
+  buyPrice: true,
+  buyCurrency: true,
+  buyFxRate: true,
+  buyFeePct: true,
+  buyDate: true,
+  status: true,
+  sellPlatformId: true,
+  sellPrice: true,
+  sellCurrency: true,
+  sellFxRate: true,
+  sellFeePct: true,
+  sellDate: true,
+  withdrawalDiscountPct: true,
+  note: true,
+  itemId: true,
+  buyPlatform: { select: { name: true } },
+  sellPlatform: { select: { name: true } },
+  item: { select: { familyId: true, kind: true, stattrak: true, souvenir: true } },
+} as const;
 
 function toDateStr(d: Date | null): string | null {
   return d ? d.toISOString().slice(0, 10) : null;
@@ -29,6 +54,8 @@ export type LoadedDeals = {
   ratesSource: RatesSource;
   // Сколько сделок выпало из выборки из-за отсутствующего курса валюты.
   unresolvedFx: number;
+  // Упёрлись в потолок выборки — часть сделок не попала в расчёт.
+  truncated: boolean;
 };
 
 export async function loadUserDeals(
@@ -56,18 +83,26 @@ export async function loadUserDeals(
   if (range) and.push({ OR: [{ status: "holding" }, { sellDate: range }] });
   if (and.length) where.AND = and;
 
-  const [user, dealRows, { rates, source: ratesSource }] = await Promise.all([
-    prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { baseCurrency: true },
-    }),
-    prisma.deal.findMany({
-      where,
-      include: { buyPlatform: true, sellPlatform: true, item: true },
-      take: MAX_ROWS,
-    }),
-    getRates(),
-  ]);
+  const [user, { rows: dealRows, truncated }, { rates, source: ratesSource }] =
+    await Promise.all([
+      prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { baseCurrency: true },
+      }),
+      // Постранично по курсору: полный охват вместо молчаливого `take: 5000`.
+      // Из связанных таблиц берём только нужные поля — `include: { item: true }`
+      // тянул все 19 колонок MarketItem ради четырёх.
+      loadAllByCursor((cursor, take) =>
+        prisma.deal.findMany({
+          where,
+          select: DEAL_SELECT,
+          orderBy: { id: "asc" },
+          take,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        }),
+      ),
+      getRates(),
+    ]);
   const base = user.baseCurrency;
 
   let unresolvedFx = 0;
@@ -147,5 +182,5 @@ export async function loadUserDeals(
   };
   all.sort((a, b) => sortDir * comparators[filters.sort](a, b));
 
-  return { deals: all, base, rates, ratesSource, unresolvedFx };
+  return { deals: all, base, rates, ratesSource, unresolvedFx, truncated };
 }

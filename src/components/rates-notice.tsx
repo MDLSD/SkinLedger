@@ -1,14 +1,18 @@
 // Предупреждение о состоянии курсов валют. Раньше о запасных курсах знала
 // только страница настроек, хотя по ним считается весь дашборд и список.
 import type { RatesSource } from "@/lib/rates";
+import { MAX_DEAL_ROWS } from "@/lib/db-batch";
 
 export function RatesNotice({
   source,
   unresolvedFx = 0,
+  truncated = false,
   excludedLabel,
 }: {
   source: RatesSource;
   unresolvedFx?: number;
+  /** Выборка упёрлась в потолок — часть сделок не попала в расчёт. */
+  truncated?: boolean;
   /** Что именно произошло со сделками без курса на этой странице. */
   excludedLabel: string;
 }) {
@@ -20,6 +24,11 @@ export function RatesNotice({
   }
   if (unresolvedFx > 0) {
     lines.push(`${unresolvedFx} ${excludedLabel}: нет курса валюты.`);
+  }
+  if (truncated) {
+    lines.push(
+      `Сделок больше ${MAX_DEAL_ROWS.toLocaleString("ru-RU")} — в расчёт вошли не все.`,
+    );
   }
   if (lines.length === 0) return null;
 
