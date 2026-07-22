@@ -103,6 +103,13 @@ export function DealForm({
   const buyFactor = fxFactor(buyCurrency, baseCurrency, rates);
   const sellFactor = fxFactor(sellCurrency, baseCurrency, rates);
 
+  const rateLabel = (factor: number | null, currency: string) => {
+    if (currency === baseCurrency) return "1:1";
+    if (factor == null) return "курс недоступен";
+    const v = factor.toLocaleString("ru-RU", { maximumFractionDigits: 2 });
+    return `1 ${currency} = ${v} ${baseCurrency}`;
+  };
+
   useEffect(() => {
     if (state.success) {
       onDone();
@@ -122,7 +129,9 @@ export function DealForm({
       quantity: num(quantity),
       buyPrice: num(buyPrice),
       buyFeePct: num(buyFeePct) || 0,
-      buyFxRate: buyFactor,
+      // Курса нет → 0, и проверка ниже гасит предпросчёт: показывать суммы
+      // по курсу 1:1 нельзя, лучше не показывать ничего.
+      buyFxRate: buyFactor ?? 0,
       sellPrice: withSell ? num(sellPrice) : null,
       sellFeePct: num(sellFeePct) || 0,
       sellFxRate: sellFactor,
@@ -403,9 +412,7 @@ export function DealForm({
           <div className="grid gap-1.5">
             <Label>Курс</Label>
             <div className="flex h-8 items-center text-sm text-muted-foreground">
-              {buyCurrency === baseCurrency
-                ? "1:1"
-                : `1 ${buyCurrency} = ${buyFactor.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${baseCurrency}`}
+              {rateLabel(buyFactor, buyCurrency)}
             </div>
           </div>
           <div className="col-span-2 grid gap-1.5">
@@ -496,9 +503,7 @@ export function DealForm({
             <div className="grid gap-1.5">
               <Label>Курс</Label>
               <div className="flex h-8 items-center text-sm text-muted-foreground">
-                {sellCurrency === baseCurrency
-                  ? "1:1"
-                  : `1 ${sellCurrency} = ${sellFactor.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${baseCurrency}`}
+                {rateLabel(sellFactor, sellCurrency)}
               </div>
             </div>
             <div className="col-span-2 grid gap-1.5">

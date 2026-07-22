@@ -13,7 +13,7 @@ export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [user, { rates, updatedAt, live }] = await Promise.all([
+  const [user, { rates, updatedAt, source }] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: session.user.id } }),
     getRates(),
   ]);
@@ -37,9 +37,11 @@ export default async function SettingsPage() {
           Курсы к {base} {CURRENCY_SYMBOL[base] ?? ""}
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          {live && updatedAt
+          {source === "live"
             ? `Обновлено: ${new Date(updatedAt).toLocaleString("ru-RU")}`
-            : "Используются запасные курсы (парсер недоступен)"}
+            : source === "cache"
+              ? `Обновить не удалось, курсы от ${new Date(updatedAt).toLocaleString("ru-RU")}`
+              : "Используются запасные курсы (парсер недоступен)"}
         </p>
         <table className="text-sm">
           <tbody>
@@ -50,9 +52,9 @@ export default async function SettingsPage() {
                     1 {c} {CURRENCY_SYMBOL[c] ?? ""}
                   </td>
                   <td className="py-1 font-medium">
-                    {fxFactor(c, base, rates).toLocaleString("ru-RU", {
+                    {fxFactor(c, base, rates)?.toLocaleString("ru-RU", {
                       maximumFractionDigits: 3,
-                    })}{" "}
+                    }) ?? "—"}{" "}
                     {CURRENCY_SYMBOL[base] ?? base}
                   </td>
                 </tr>

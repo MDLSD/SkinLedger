@@ -107,9 +107,15 @@ export async function saveDealAction(
       }),
       getRates(),
     ]);
-    parsed.data.buyFxRate = fxFactor(parsed.data.buyCurrency, baseCurrency, rates);
+    const buyFx = fxFactor(parsed.data.buyCurrency, baseCurrency, rates);
     const sellCur = parsed.data.sellCurrency ?? parsed.data.buyCurrency;
-    parsed.data.sellFxRate = fxFactor(sellCur, baseCurrency, rates);
+    const sellFx = fxFactor(sellCur, baseCurrency, rates);
+    // Без курса сохранять нельзя: 1:1 занизил бы сумму в разы и осел бы в БД.
+    if (buyFx == null || sellFx == null) {
+      return { error: "Курс валюты недоступен — попробуйте позже" };
+    }
+    parsed.data.buyFxRate = buyFx;
+    parsed.data.sellFxRate = sellFx;
 
     await assertPlatformVisible(parsed.data.buyPlatformId, userId);
     if (parsed.data.status !== "holding" && parsed.data.sellPlatformId) {

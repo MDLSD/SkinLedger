@@ -335,9 +335,15 @@ export async function commitImportAction(
       if (f.buyDateMissing) datesDefaulted++;
       if (f.currencyDefaulted) curDefaulted++;
 
-      parsed.data.buyFxRate = fxFactor(parsed.data.buyCurrency, baseCurrency, rates);
+      const buyFx = fxFactor(parsed.data.buyCurrency, baseCurrency, rates);
       const sellCur = parsed.data.sellCurrency ?? parsed.data.buyCurrency;
-      parsed.data.sellFxRate = fxFactor(sellCur, baseCurrency, rates);
+      const sellFx = fxFactor(sellCur, baseCurrency, rates);
+      if (buyFx == null || sellFx == null) {
+        rowErrors.push({ row: fileRow, message: "Нет курса валюты сделки" });
+        continue;
+      }
+      parsed.data.buyFxRate = buyFx;
+      parsed.data.sellFxRate = sellFx;
 
       const created = await prisma.deal.create({ data: dealData(userId, parsed.data) });
       createdIds.push(created.id);

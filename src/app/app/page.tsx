@@ -8,6 +8,7 @@ import { parseDealFilters, periodRange } from "@/lib/deal-list";
 import { computeDashboard, type DashDeal, type DealBrief } from "@/lib/dashboard";
 import { DashboardCharts } from "@/components/dashboard-charts";
 import { DashboardPeriod } from "@/components/dashboard-period";
+import { RatesNotice } from "@/components/rates-notice";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const MAX_ROWS = 5000;
@@ -23,7 +24,7 @@ export default async function DashboardPage({
   const f = parseDealFilters(await searchParams);
   const range = periodRange(f);
 
-  const [user, dealRows, { rates }] = await Promise.all([
+  const [user, dealRows, { rates, source: ratesSource }] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     prisma.deal.findMany({
       where: { userId },
@@ -34,23 +35,35 @@ export default async function DashboardPage({
   ]);
   const cur = user.baseCurrency;
 
-  const deals: DashDeal[] = dealRows.map((d) => ({
-    id: d.id,
-    itemName: d.itemName,
-    itemQuality: d.itemQuality,
-    status: d.status,
-    buyDate: d.buyDate,
-    sellDate: d.sellDate,
-    quantity: d.quantity,
-    buyPrice: Number(d.buyPrice),
-    buyFeePct: Number(d.buyFeePct),
+  let unresolvedFx = 0;
+  const deals: DashDeal[] = dealRows.flatMap((d) => {
     // Курс к базовой валюте — из парсера (авто-конвертация всех сумм).
-    buyFxRate: fxFactor(d.buyCurrency, cur, rates),
-    sellPrice: d.sellPrice != null ? Number(d.sellPrice) : null,
-    sellFeePct: d.sellFeePct != null ? Number(d.sellFeePct) : null,
-    sellFxRate: d.sellCurrency ? fxFactor(d.sellCurrency, cur, rates) : null,
-    sellPlatformName: d.sellPlatform?.name ?? null,
-  }));
+    const buyFxRate = fxFactor(d.buyCurrency, cur, rates);
+    const sellFxRate = d.sellCurrency ? fxFactor(d.sellCurrency, cur, rates) : null;
+    // Без курса сделка не участвует в агрегатах: 1:1 исказил бы их молча.
+    if (buyFxRate == null || (d.sellCurrency != null && sellFxRate == null)) {
+      unresolvedFx++;
+      return [];
+    }
+    return [
+      {
+        id: d.id,
+        itemName: d.itemName,
+        itemQuality: d.itemQuality,
+        status: d.status,
+        buyDate: d.buyDate,
+        sellDate: d.sellDate,
+        quantity: d.quantity,
+        buyPrice: Number(d.buyPrice),
+        buyFeePct: Number(d.buyFeePct),
+        buyFxRate,
+        sellPrice: d.sellPrice != null ? Number(d.sellPrice) : null,
+        sellFeePct: d.sellFeePct != null ? Number(d.sellFeePct) : null,
+        sellFxRate,
+        sellPlatformName: d.sellPlatform?.name ?? null,
+      },
+    ];
+  });
 
   const dash = computeDashboard(deals, range);
   const c = dash.cards;
@@ -61,6 +74,12 @@ export default async function DashboardPage({
         <h1 className="text-2xl font-semibold">Дашборд</h1>
         <DashboardPeriod period={f.period} from={f.from} to={f.to} />
       </div>
+
+      <RatesNotice
+        source={ratesSource}
+        unresolvedFx={unresolvedFx}
+        excludedLabel="сделок не учтено"
+      />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat label="Чистая прибыль" value={formatMoney(c.netProfit, cur, true)} tone={c.netProfit >= 0 ? "pos" : "neg"} />

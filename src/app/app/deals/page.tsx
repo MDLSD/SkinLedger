@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { DealsClient } from "@/components/deals-client";
+import { RatesNotice } from "@/components/rates-notice";
 import { loadUserDeals } from "@/lib/deal-query";
 import { PAGE_SIZE, parseDealFilters } from "@/lib/deal-list";
 import type { PlatformDTO } from "@/lib/types";
@@ -21,7 +22,7 @@ export default async function DealsPage({
   const userId = session.user.id;
   const filters = parseDealFilters(await searchParams);
 
-  const [{ deals: all, base, rates }, platformRows, totalAll] =
+  const [{ deals: all, base, rates, ratesSource, unresolvedFx }, platformRows, totalAll] =
     await Promise.all([
       loadUserDeals(userId, filters),
       prisma.platform.findMany({
@@ -45,15 +46,22 @@ export default async function DealsPage({
   const deals = all.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <DealsClient
-      deals={deals}
-      platforms={platforms}
-      baseCurrency={base}
-      rates={rates}
-      filters={{ ...filters, page }}
-      total={total}
-      totalAll={totalAll}
-      pageCount={pageCount}
-    />
+    <div className="space-y-4">
+      <RatesNotice
+        source={ratesSource}
+        unresolvedFx={unresolvedFx}
+        excludedLabel="сделок скрыто"
+      />
+      <DealsClient
+        deals={deals}
+        platforms={platforms}
+        baseCurrency={base}
+        rates={rates}
+        filters={{ ...filters, page }}
+        total={total}
+        totalAll={totalAll}
+        pageCount={pageCount}
+      />
+    </div>
   );
 }
