@@ -43,18 +43,28 @@ export function parseStatus(raw: string): string | null {
   return null;
 }
 
+const NUMERIC_CELL = /^-?\d+([.,]\d+)?$/;
+
 function csvCell(value: string, delimiter: string): string {
   if (value === "") return "";
+  // Название и заметка — свободный ввод. Ячейка, начинающаяся с =, +, -, @,
+  // TAB или CR, в Excel и LibreOffice трактуется как формула: строка
+  // `=cmd|'/c calc'!A1` выполнится при открытии выгруженного файла.
+  // Ведущий апостроф заставляет считать содержимое текстом. Числа при этом
+  // не трогаем: суммы выгружаются с минусом и запятой («-400,5»), и апостроф
+  // превратил бы числовую колонку в текстовую.
+  const v =
+    !NUMERIC_CELL.test(value) && /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
   // Экранируем, если есть разделитель, кавычка или перенос строки.
   if (
-    value.includes(delimiter) ||
-    value.includes('"') ||
-    value.includes("\n") ||
-    value.includes("\r")
+    v.includes(delimiter) ||
+    v.includes('"') ||
+    v.includes("\n") ||
+    v.includes("\r")
   ) {
-    return `"${value.replace(/"/g, '""')}"`;
+    return `"${v.replace(/"/g, '""')}"`;
   }
-  return value;
+  return v;
 }
 
 function dealToRow(d: DealDTO): Record<CsvKey, string> {

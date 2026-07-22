@@ -46,7 +46,11 @@ export default async function DashboardPage({
 
   const [user, { rows: dealRows, truncated }, { rates, source: ratesSource }] =
     await Promise.all([
-      prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        // Только нужное поле: без select сюда приезжал и passwordHash.
+        select: { baseCurrency: true },
+      }),
       // Агрегаты должны покрывать все сделки: `take: 5000` без `orderBy` считал
       // прибыль по произвольному подмножеству и никак об этом не сообщал.
       loadAllByCursor((cursor, take) =>

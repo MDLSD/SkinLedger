@@ -15,7 +15,11 @@ export default async function SettingsPage() {
   if (!session?.user?.id) redirect("/login");
 
   const [user, { rates, updatedAt, source }] = await Promise.all([
-    prisma.user.findUniqueOrThrow({ where: { id: session.user.id } }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: session.user.id },
+      // Только нужное поле: без select сюда приезжал и passwordHash.
+      select: { baseCurrency: true },
+    }),
     getRates(),
   ]);
   const base = user.baseCurrency;

@@ -15,6 +15,18 @@ export type DealFormState = { error?: string; success?: boolean };
 // не уходит — только генерик-сообщение.
 class DealError extends Error {}
 
+/**
+ * Ошибка Prisma тянет за собой аргументы упавшего запроса — для deal.create
+ * это весь payload: название, цены, даты и заметка (свободный текст до 2000
+ * символов). В логи, а оттуда во внешний сборщик, приватные заметки уезжать
+ * не должны — оставляем только тип и начало сообщения.
+ */
+function logSafe(where: string, e: unknown): void {
+  const detail =
+    e instanceof Error ? `${e.name}: ${e.message.slice(0, 200)}` : "unknown error";
+  console.error(where, detail);
+}
+
 async function requireUserId(): Promise<string> {
   const session = await auth();
   if (!session?.user?.id) throw new DealError("Не авторизован");
@@ -90,9 +102,10 @@ export async function saveDealAction(
 
     const parsed = dealSchema.safeParse(formToObject(formData));
     if (!parsed.success) {
+      // Только пути полей: сами значения в лог не пишем.
       console.error(
         "saveDealAction validation:",
-        parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+        parsed.error.issues.map((i) => i.path.join(".")).join(", "),
       );
       return { error: parsed.error.issues[0].message };
     }
@@ -131,11 +144,13 @@ export async function saveDealAction(
     }
 
     if (dealId) {
-      const existing = await prisma.deal.findFirst({
+      // Владение проверяется тем же запросом, что и пишет: раздельные
+      // findFirst + update оставляли зазор между охранником и записью.
+      const { count } = await prisma.deal.updateMany({
         where: { id: dealId, userId },
+        data,
       });
-      if (!existing) return { error: "Сделка не найдена" };
-      await prisma.deal.update({ where: { id: dealId }, data });
+      if (count !== 1) return { error: "Сделка не найдена" };
     } else {
       await prisma.deal.create({ data });
     }
@@ -144,7 +159,7 @@ export async function saveDealAction(
     revalidatePath("/app");
     return { success: true };
   } catch (e) {
-    console.error("saveDealAction", e);
+    logSafe("saveDealAction", e);
     return {
       error: e instanceof DealError ? e.message : "Не удалось сохранить сделку",
     };
@@ -167,7 +182,7 @@ export async function deleteAllDealsAction(
     revalidatePath("/app");
     return { success: true };
   } catch (e) {
-    console.error("deleteAllDealsAction", e);
+    logSafe("deleteAllDealsAction", e);
     return { error: "Не удалось удалить сделки" };
   }
 }
@@ -181,18 +196,17 @@ export async function deleteDealAction(
     const dealId = formData.get("dealId")?.toString();
     if (!dealId) return { error: "Сделка не указана" };
 
-    const existing = await prisma.deal.findFirst({
+    // Проверка владения и удаление — один запрос, без зазора между ними.
+    const { count } = await prisma.deal.deleteMany({
       where: { id: dealId, userId },
     });
-    if (!existing) return { error: "Сделка не найдена" };
-
-    await prisma.deal.delete({ where: { id: dealId } });
+    if (count !== 1) return { error: "Сделка не найдена" };
 
     revalidatePath("/app/deals");
     revalidatePath("/app");
     return { success: true };
   } catch (e) {
-    console.error("deleteDealAction", e);
+    logSafe("deleteDealAction", e);
     return { error: "Не удалось удалить сделку" };
   }
 }

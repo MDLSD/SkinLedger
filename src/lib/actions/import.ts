@@ -5,6 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { checkLimit, recordFailure } from "@/lib/rate-limit";
 import { dealData } from "@/lib/deal-data";
 import { dealSchema } from "@/lib/validation";
 import { fxFactor } from "@/lib/currency";
@@ -25,6 +26,21 @@ import {
   type ImportOptions,
   type UndoState,
 } from "@/lib/deal-import";
+
+// Разбор xlsx в память и до 5000 INSERT'ов — самые дорогие операции
+// приложения, а лимитера на них не было вовсе.
+const IMPORT_LIMIT = 20;
+const IMPORT_WINDOW_MS = 10 * 60_000;
+
+async function importLimit(userId: string): Promise<string | null> {
+  const key = `import:user:${userId}`;
+  const limit = checkLimit(key, IMPORT_LIMIT);
+  if (limit.limited) {
+    return `Слишком много импортов. Повторите через ${Math.ceil(limit.retryAfterSec / 60)} мин.`;
+  }
+  recordFailure(key, IMPORT_WINDOW_MS);
+  return null;
+}
 
 const MAX_BYTES = 5_000_000;
 const MAX_ROWS = 5000;
@@ -109,6 +125,8 @@ export async function analyzeImportAction(
 ): Promise<AnalyzeState> {
   const session = await auth();
   if (!session?.user?.id) return { error: "Не авторизован" };
+  const limited = await importLimit(session.user.id);
+  if (limited) return { error: limited };
 
   const fileEntry = formData.get("file");
   const file = fileEntry instanceof File ? fileEntry : null;
@@ -209,6 +227,8 @@ export async function commitImportAction(
   const session = await auth();
   if (!session?.user?.id) return { error: "Не авторизован" };
   const userId = session.user.id;
+  const limited = await importLimit(userId);
+  if (limited) return { error: limited };
 
   let payload: { rows: string[][]; mapping: FieldMapping; options: ImportOptions };
   try {

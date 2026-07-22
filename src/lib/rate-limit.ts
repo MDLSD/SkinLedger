@@ -5,10 +5,35 @@
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
+// Протухшие бакеты раньше не удалялись: liveBucket возвращал null, но запись
+// оставалась, а recordFailure перезаписывал только тот же ключ. Перебор
+// с уникальными email'ами оставлял по записи на каждый — рост без границ.
+let lastSweep = 0;
+const SWEEP_INTERVAL_MS = 60_000;
+
+function sweep(now: number): void {
+  if (now - lastSweep < SWEEP_INTERVAL_MS) return;
+  lastSweep = now;
+  for (const [key, bucket] of buckets) {
+    if (bucket.resetAt <= now) buckets.delete(key);
+  }
+}
+
 function liveBucket(key: string) {
+  const now = Date.now();
+  sweep(now);
   const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= Date.now()) return null;
+  if (!bucket || bucket.resetAt <= now) {
+    // Ключ, у которого окно истекло, дальше не нужен.
+    if (bucket) buckets.delete(key);
+    return null;
+  }
   return bucket;
+}
+
+/** Размер таблицы счётчиков — для проверок и диагностики. */
+export function bucketCount(): number {
+  return buckets.size;
 }
 
 /** Проверка без инкремента: не превышен ли лимит по ключу. */
