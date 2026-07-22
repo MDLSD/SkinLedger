@@ -26,6 +26,8 @@ export type DealDTO = {
   sellFxRate: number | null;
   sellFeePct: number | null;
   sellDate: string | null; // yyyy-MM-dd
+  // Потеря на выводе в %, зафиксированная при сохранении (только для вывода).
+  withdrawalDiscountPct: number | null;
   note: string | null;
   // Ссылка на каталог (для восстановления выбора при редактировании).
   itemId: string | null;

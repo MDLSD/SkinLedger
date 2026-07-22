@@ -361,7 +361,17 @@ export function DealsClient({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {m == null || isWithdrawal ? (
+                      {/* У вывода маржа не имеет смысла — вместо неё показываем
+                          зафиксированную при сохранении потерю на выводе. */}
+                      {isWithdrawal ? (
+                        deal.withdrawalDiscountPct == null ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <span className="text-amber-600" title="Потеря на выводе">
+                            {formatPct(-deal.withdrawalDiscountPct)}
+                          </span>
+                        )
+                      ) : m == null ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
                         formatPct(m)

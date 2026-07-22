@@ -9,7 +9,7 @@ import {
   profit,
   sellRevenueBase,
 } from "@/lib/deal-math";
-import { fxFactor, type Rates } from "@/lib/currency";
+import { dealFxRate, type Rates } from "@/lib/currency";
 import { getRates, type RatesSource } from "@/lib/rates";
 import { periodRange, type DealFilters, type SortKey } from "@/lib/deal-list";
 import type { DealDTO } from "@/lib/types";
@@ -72,9 +72,16 @@ export async function loadUserDeals(
 
   let unresolvedFx = 0;
   let all: DealDTO[] = dealRows.flatMap((d) => {
-    // Курс к базовой валюте — из текущих курсов парсера (авто-конвертация).
-    const buyFxRate = fxFactor(d.buyCurrency, base, rates);
-    const sellFxRate = d.sellCurrency ? fxFactor(d.sellCurrency, base, rates) : null;
+    // Закрытая сделка считается по зафиксированным курсам, холд — по текущим.
+    const closed = d.status !== "holding";
+    const buyFxRate = dealFxRate(closed, Number(d.buyFxRate), d.buyCurrency, base, rates);
+    const sellFxRate = dealFxRate(
+      closed,
+      d.sellFxRate != null ? Number(d.sellFxRate) : null,
+      d.sellCurrency,
+      base,
+      rates,
+    );
     // Курса нет — считать по 1:1 нельзя (расхождение в разы), поэтому сделку
     // исключаем из выборки и сообщаем о ней отдельно, а не показываем число.
     if (buyFxRate == null || (d.sellCurrency != null && sellFxRate == null)) {
@@ -102,6 +109,8 @@ export async function loadUserDeals(
         sellFxRate,
         sellFeePct: d.sellFeePct != null ? Number(d.sellFeePct) : null,
         sellDate: toDateStr(d.sellDate),
+        withdrawalDiscountPct:
+          d.withdrawalDiscountPct != null ? Number(d.withdrawalDiscountPct) : null,
         note: d.note,
         itemId: d.itemId,
         itemFamilyId: d.item?.familyId ?? null,

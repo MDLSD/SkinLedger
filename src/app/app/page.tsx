@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { formatMoney, formatPct } from "@/lib/deal-math";
-import { fxFactor } from "@/lib/currency";
+import { dealFxRate } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
 import { parseDealFilters, periodRange } from "@/lib/deal-list";
 import { computeDashboard, type DashDeal, type DealBrief } from "@/lib/dashboard";
@@ -37,9 +37,16 @@ export default async function DashboardPage({
 
   let unresolvedFx = 0;
   const deals: DashDeal[] = dealRows.flatMap((d) => {
-    // Курс к базовой валюте — из парсера (авто-конвертация всех сумм).
-    const buyFxRate = fxFactor(d.buyCurrency, cur, rates);
-    const sellFxRate = d.sellCurrency ? fxFactor(d.sellCurrency, cur, rates) : null;
+    // Закрытая сделка считается по зафиксированным курсам, холд — по текущим.
+    const closed = d.status !== "holding";
+    const buyFxRate = dealFxRate(closed, Number(d.buyFxRate), d.buyCurrency, cur, rates);
+    const sellFxRate = dealFxRate(
+      closed,
+      d.sellFxRate != null ? Number(d.sellFxRate) : null,
+      d.sellCurrency,
+      cur,
+      rates,
+    );
     // Без курса сделка не участвует в агрегатах: 1:1 исказил бы их молча.
     if (buyFxRate == null || (d.sellCurrency != null && sellFxRate == null)) {
       unresolvedFx++;
