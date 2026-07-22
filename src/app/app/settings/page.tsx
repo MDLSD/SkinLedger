@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getRates } from "@/lib/rates";
 import { CURRENCY_SYMBOL, fxFactor } from "@/lib/currency";
 import { CurrencySettings } from "@/components/currency-settings";
+import { PasswordSettings } from "@/components/password-settings";
 import { CURRENCIES } from "@/lib/validation";
 
 export const metadata: Metadata = { title: "Настройки — SkinLedger" };
@@ -30,6 +31,15 @@ export default async function SettingsPage() {
           текущему курсу. При смене валюты все сделки отобразятся в новой валюте.
         </p>
         <CurrencySettings current={base} />
+      </section>
+
+      <section className="rounded-lg border p-4">
+        <h2 className="text-sm font-medium">Пароль</h2>
+        <p className="mt-1 mb-3 text-sm text-muted-foreground">
+          После смены пароля все входы на всех устройствах перестают
+          действовать — войдите заново с новым паролем.
+        </p>
+        <PasswordSettings />
       </section>
 
       <section className="rounded-lg border p-4">

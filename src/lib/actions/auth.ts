@@ -4,11 +4,12 @@ import bcrypt from "bcryptjs";
 import { AuthError, CredentialsSignin } from "next-auth";
 import { headers } from "next/headers";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
-import { signIn, signOut } from "@/auth";
+import { auth, signIn, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkLimit, recordFailure } from "@/lib/rate-limit";
 import { clientIpFromHeaders } from "@/lib/client-ip";
-import { loginSchema, registerSchema } from "@/lib/validation";
+import { changePasswordSchema, loginSchema, registerSchema } from "@/lib/validation";
+import { hashPassword } from "@/lib/password";
 
 export type AuthFormState = { error?: string };
 
@@ -68,7 +69,7 @@ export async function registerAction(
     return { error: "Пользователь с таким email уже зарегистрирован" };
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await hashPassword(password);
   await prisma.user.create({ data: { email, passwordHash } });
 
   try {
@@ -116,4 +117,56 @@ export async function loginAction(
 
 export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
+}
+
+// Лимит на подбор ТЕКУЩЕГО пароля через форму смены: сессия у атакующего
+// уже есть, но пароль мог бы утечь для переиспользования на других сайтах.
+const CHANGE_PW_LIMIT = 10;
+const CHANGE_PW_WINDOW_MS = 15 * 60_000;
+
+export async function changePasswordAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Не авторизован" };
+  const userId = session.user.id;
+
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
+    newPassword: formData.get("newPassword"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const key = `changepw:user:${userId}`;
+  const limit = checkLimit(key, CHANGE_PW_LIMIT);
+  if (limit.limited) {
+    return { error: `Слишком много попыток. Повторите через ${limit.retryAfterSec} с.` };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+  if (!user) return { error: "Не авторизован" };
+
+  const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
+  if (!valid) {
+    recordFailure(key, CHANGE_PW_WINDOW_MS);
+    return { error: "Текущий пароль неверен" };
+  }
+
+  // Смена пароля двигает рубеж действительности сессий: все выданные
+  // токены, включая текущий, перестают действовать. Это и есть ответ
+  // на компрометацию аккаунта — «выйти на всех устройствах».
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash: await hashPassword(parsed.data.newPassword),
+      sessionsValidFrom: new Date(),
+    },
+  });
+
+  await signOut({ redirectTo: "/login?changed=1" });
+  return {};
 }

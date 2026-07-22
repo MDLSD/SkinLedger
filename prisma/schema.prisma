@@ -18,6 +18,10 @@ model User {
   passwordHash String   @map("password_hash")
   baseCurrency String   @default("RUB") @map("base_currency")
   createdAt    DateTime @default(now()) @map("created_at")
+  // Рубеж действительности сессий: JWT, выданные раньше этого момента,
+  // считаются отозванными. Даёт «выйти на всех устройствах» без
+  // серверного хранилища сессий (смена пароля двигает рубеж).
+  sessionsValidFrom DateTime @default(now()) @map("sessions_valid_from")
 
   deals     Deal[]
   platforms Platform[]

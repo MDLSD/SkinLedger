@@ -4,6 +4,10 @@
 
 - [ ] `AUTH_SECRET` — сгенерировать: `openssl rand -base64 32`.
 - [ ] `DATABASE_URL` — Postgres (Neon/Supabase), не SQLite.
+- [ ] **`AUTH_URL`** — публичный адрес приложения, например `https://skinledger.app`.
+      Без него при `trustHost: true` базовый URL для callback/redirect собирается из
+      заголовка `Host`, то есть `Host: evil.com` его подменяет. Заодно фиксирует
+      протокол независимо от того, выставляет ли прокси `x-forwarded-proto`.
 - [ ] **`TRUST_PROXY=true`** — ⚠️ **обязательно за доверенным прокси (Vercel/nginx).**
       Без него все клиенты делят один ключ rate-limit `"unknown"`: подделку IP это
       не пропускает (fail-closed), но один атакующий 5 запросами блокирует

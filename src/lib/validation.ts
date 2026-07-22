@@ -22,6 +22,16 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Введите пароль"),
 });
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Введите текущий пароль"),
+    newPassword: z.string().min(8, "Новый пароль — минимум 8 символов"),
+  })
+  .refine((d) => d.currentPassword !== d.newPassword, {
+    path: ["newPassword"],
+    message: "Новый пароль совпадает с текущим",
+  });
+
 // --- Сделки ---
 
 const emptyToUndef = (v: unknown) =>
