@@ -32,7 +32,7 @@ export type DashboardData = {
   cards: {
     netProfit: number;
     turnover: number;
-    avgMargin: number | null;
+    roiPct: number | null;
     closedCount: number;
     withdrawalLoss: number; // положительное число = размер потерь
     frozenInHolding: number;
@@ -84,7 +84,11 @@ export function computeDashboard(
   const netProfit = sold.reduce((s, d) => s + dealProfit(d), 0);
   const turnover = sold.reduce((s, d) => s + revenue(d), 0);
   const totalCost = sold.reduce((s, d) => s + cost(d), 0);
-  const avgMargin = totalCost > 0 ? (netProfit / totalCost) * 100 : null;
+  // Прибыль ко всей себестоимости — это ROI портфеля, а не среднее по сделкам:
+  // сделка на 100 000 ₽ влияет на него в сто раз сильнее сделки на 1 000 ₽.
+  // Подпись на карточке говорит именно про рентабельность, чтобы значение
+  // не сверяли с колонкой «Маржа» в списке.
+  const roiPct = totalCost > 0 ? (netProfit / totalCost) * 100 : null;
   const withdrawalLoss = withdrawn.reduce((s, d) => s + (cost(d) - revenue(d)), 0);
   const frozenInHolding = holding.reduce((s, d) => s + cost(d), 0);
 
@@ -136,7 +140,7 @@ export function computeDashboard(
     .sort((a, b) => b.profit - a.profit);
 
   return {
-    cards: { netProfit, turnover, avgMargin, closedCount: sold.length, withdrawalLoss, frozenInHolding },
+    cards: { netProfit, turnover, roiPct, closedCount: sold.length, withdrawalLoss, frozenInHolding },
     monthly,
     cumulative,
     topProfit,

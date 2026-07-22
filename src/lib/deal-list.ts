@@ -22,8 +22,8 @@ export const STATUS_OPTIONS = [
 
 export const SORT_COLUMNS = [
   { key: "item", label: "Скин" },
-  { key: "buyPrice", label: "Покупка" },
-  { key: "sellPrice", label: "Продажа" },
+  { key: "buyPrice", label: "Затраты" },
+  { key: "sellPrice", label: "Выручка" },
   { key: "profit", label: "Прибыль" },
   { key: "margin", label: "Маржа" },
   { key: "days", label: "Дней" },

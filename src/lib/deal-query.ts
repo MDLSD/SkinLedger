@@ -2,7 +2,13 @@
 // маппинг в DTO и сортировка — чтобы CSV-экспорт совпадал со списком.
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { holdingDays, marginPct, profit } from "@/lib/deal-math";
+import {
+  buyCostBase,
+  holdingDays,
+  marginPct,
+  profit,
+  sellRevenueBase,
+} from "@/lib/deal-math";
 import { fxFactor, type Rates } from "@/lib/currency";
 import { getRates, type RatesSource } from "@/lib/rates";
 import { periodRange, type DealFilters, type SortKey } from "@/lib/deal-list";
@@ -118,11 +124,11 @@ export async function loadUserDeals(
   const sortDir = filters.dir === "asc" ? 1 : -1;
   const comparators: Record<SortKey, (a: DealDTO, b: DealDTO) => number> = {
     item: (a, b) => a.itemName.localeCompare(b.itemName, "ru"),
-    // Цены сравниваем в базовой валюте (цена × курс к базовой).
-    buyPrice: (a, b) => a.buyPrice * a.buyFxRate - b.buyPrice * b.buyFxRate,
+    // Сортируем по тем же величинам, что показаны в колонках: затраты и
+    // выручка по всей партии с комиссиями, в базовой валюте.
+    buyPrice: (a, b) => buyCostBase(a) - buyCostBase(b),
     sellPrice: (a, b) =>
-      num(a.sellPrice == null ? null : a.sellPrice * (a.sellFxRate ?? 1), -sortDir) -
-      num(b.sellPrice == null ? null : b.sellPrice * (b.sellFxRate ?? 1), -sortDir),
+      num(sellRevenueBase(a), -sortDir) - num(sellRevenueBase(b), -sortDir),
     profit: (a, b) => num(profit(a), -sortDir) - num(profit(b), -sortDir),
     margin: (a, b) => num(marginPct(a), -sortDir) - num(marginPct(b), -sortDir),
     days: (a, b) =>

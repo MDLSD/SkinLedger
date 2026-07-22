@@ -35,11 +35,13 @@ import { DealForm } from "@/components/deal-form";
 import { DealsToolbar } from "@/components/deals-toolbar";
 import { deleteAllDealsAction, deleteDealAction } from "@/lib/actions/deals";
 import {
+  buyCostBase,
   formatMoney,
   formatPct,
   holdingDays,
   marginPct,
   profit,
+  sellRevenueBase,
 } from "@/lib/deal-math";
 import {
   buildDealQuery,
@@ -54,6 +56,14 @@ function formatDate(d: string | null) {
   if (!d) return "—";
   const [y, m, day] = d.split("-");
   return `${day}.${m}.${y}`;
+}
+
+// Цена за штуку в валюте сделки — ровно то, что вводил пользователь.
+// В самой колонке стоит итог по партии с комиссией, поэтому цену показываем
+// отдельной строкой, а не вместо неё.
+function unitPrice(price: number | null, currency: string, quantity: number) {
+  if (price == null) return null;
+  return `${quantity > 1 ? `${quantity} × ` : ""}${formatMoney(price, currency)} · `;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -266,10 +276,10 @@ export function DealsClient({
                   <SortHeader col="item" label="Скин" filters={filters} />
                 </TableHead>
                 <TableHead>
-                  <SortHeader col="buyPrice" label="Покупка" filters={filters} />
+                  <SortHeader col="buyPrice" label="Затраты" filters={filters} />
                 </TableHead>
                 <TableHead>
-                  <SortHeader col="sellPrice" label="Продажа" filters={filters} />
+                  <SortHeader col="sellPrice" label="Выручка" filters={filters} />
                 </TableHead>
                 <TableHead className="text-right">
                   <SortHeader col="profit" label="Прибыль" filters={filters} align="right" />
@@ -290,6 +300,7 @@ export function DealsClient({
               {deals.map((deal) => {
                 const p = profit(deal);
                 const m = marginPct(deal);
+                const sellRevenue = sellRevenueBase(deal);
                 const isWithdrawal = deal.status === "withdrawn_via_skin";
                 return (
                   <TableRow key={deal.id}>
@@ -307,41 +318,29 @@ export function DealsClient({
                       )}
                     </TableCell>
                     <TableCell>
-                      <div>
-                        {formatMoney(deal.buyPrice * deal.buyFxRate, baseCurrency)}
-                        {deal.buyCurrency !== baseCurrency && (
-                          <span className="text-xs text-muted-foreground">
-                            {" "}
-                            ({formatMoney(deal.buyPrice, deal.buyCurrency)})
-                          </span>
-                        )}
-                      </div>
+                      {/* Вся партия с комиссией — в том же масштабе, что «Прибыль».
+                          Цена за штуку ушла второй строкой к площадке и дате. */}
+                      <div>{formatMoney(buyCostBase(deal), baseCurrency)}</div>
                       <div className="text-xs text-muted-foreground">
+                        {unitPrice(deal.buyPrice, deal.buyCurrency, deal.quantity)}
                         {deal.buyPlatformName} · {formatDate(deal.buyDate)}
                       </div>
                     </TableCell>
                     <TableCell>
-                      {deal.sellPrice != null ? (
+                      {sellRevenue == null ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
                         <>
-                          <div>
-                            {formatMoney(
-                              deal.sellPrice * (deal.sellFxRate ?? 1),
-                              baseCurrency,
-                            )}
-                            {deal.sellCurrency &&
-                              deal.sellCurrency !== baseCurrency && (
-                                <span className="text-xs text-muted-foreground">
-                                  {" "}
-                                  ({formatMoney(deal.sellPrice, deal.sellCurrency)})
-                                </span>
-                              )}
-                          </div>
+                          <div>{formatMoney(sellRevenue, baseCurrency)}</div>
                           <div className="text-xs text-muted-foreground">
+                            {unitPrice(
+                              deal.sellPrice,
+                              deal.sellCurrency ?? deal.buyCurrency,
+                              deal.quantity,
+                            )}
                             {deal.sellPlatformName} · {formatDate(deal.sellDate)}
                           </div>
                         </>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">

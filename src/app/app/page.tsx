@@ -84,7 +84,7 @@ export default async function DashboardPage({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat label="Чистая прибыль" value={formatMoney(c.netProfit, cur, true)} tone={c.netProfit >= 0 ? "pos" : "neg"} />
         <Stat label="Оборот (продажи)" value={formatMoney(c.turnover, cur)} />
-        <Stat label="Средняя маржа" value={c.avgMargin == null ? "—" : formatPct(c.avgMargin)} tone={c.avgMargin == null ? undefined : c.avgMargin >= 0 ? "pos" : "neg"} />
+        <Stat label="Рентабельность вложений" value={c.roiPct == null ? "—" : formatPct(c.roiPct)} tone={c.roiPct == null ? undefined : c.roiPct >= 0 ? "pos" : "neg"} />
         <Stat label="Закрыто сделок" value={String(c.closedCount)} />
         <Stat label="Потери на выводе" value={c.withdrawalLoss > 0 ? formatMoney(-c.withdrawalLoss, cur, true) : "—"} tone={c.withdrawalLoss > 0 ? "neg" : undefined} />
         <Stat label="Заморожено в холде" value={formatMoney(c.frozenInHolding, cur)} />
