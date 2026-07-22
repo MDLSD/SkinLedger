@@ -79,11 +79,15 @@ function sheetToMatrix(sheet: XLSX.WorkSheet): string[][] {
     .map((r) => (r as unknown[]).map((c) => String(c ?? "").trim()));
 }
 
+// Распаковка xlsx даёт амплификацию: маленький архив разворачивается
+// в много листов, а прогонять sheetToMatrix по всем — дорого.
+const MAX_SHEETS = 20;
+
 // Лист с наиболее «читаемым» заголовком (иначе первый).
 function pickBestSheet(wb: XLSX.WorkBook): string {
   let best = wb.SheetNames[0];
   let bestScore = -1;
-  for (const sn of wb.SheetNames) {
+  for (const sn of wb.SheetNames.slice(0, MAX_SHEETS)) {
     const m = sheetToMatrix(wb.Sheets[sn]);
     const hi = detectHeaderRow(m);
     const score = hi >= 0 ? Object.keys(mapColumns(m[hi], m.slice(hi + 1, hi + 8))).length + 100 : 0;

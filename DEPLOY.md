@@ -33,6 +33,16 @@
 
 ## Зависимости
 
+- [ ] **Следить за релизами Auth.js.** Аутентификация держится на
+      `next-auth@5.0.0-beta.*`: API между beta-релизами ломается, сроков
+      security-патчей никто не обещает, и `npm audit` для неё бесполезен.
+      Перед каждым обновлением перечитывать changelog Auth.js.
+- [ ] `npm audit` — оставшиеся находки разобраны и признаны недостижимыми:
+      `sharp` (тянется через `next`, но `next/image` не используется),
+      `postcss` (только сборка), `@hono/node-server` (dev-тулинг Prisma).
+      **Не запускать `npm audit fix --force`** — он предлагает `next@9.3.3`,
+      то есть даунгрейд на семь мажоров.
+
 - [ ] `xlsx` подключён из официального CDN SheetJS (`https://cdn.sheetjs.com/...tgz`,
       см. `package.json`), а не из npm — там `xlsx` завис на 0.18.5 с непофикшенной
       high-severity prototype-pollution. На сборке нужен доступ к `cdn.sheetjs.com`

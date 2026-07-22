@@ -1,25 +1,10 @@
 import type { NextConfig } from "next";
 
-const isDev = process.env.NODE_ENV !== "production";
-
-// CSP: 'unsafe-inline' нужен Next для бутстрап-скриптов и React/Base UI для
-// inline-стилей; в dev добавляем 'unsafe-eval'/ws для HMR. Картинки скинов —
-// с CDN Steam (*.steamstatic.com).
-const csp = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https://*.steamstatic.com",
-  "font-src 'self' data:",
-  `connect-src 'self'${isDev ? " ws:" : ""}`,
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-].join("; ");
-
+// CSP выдаётся не отсюда, а из src/proxy.ts: nonce должен быть свой на каждый
+// запрос, а статический заголовок этого не умеет. Здесь — только заголовки,
+// одинаковые для всех ответов. Два заголовка CSP браузер применяет
+// пересечением, поэтому дублировать его тут нельзя.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
@@ -36,6 +21,15 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // xlsx — тяжёлый CJS-пакет, читается только в серверном экшене импорта.
   serverExternalPackages: ["xlsx"],
+  experimental: {
+    serverActions: {
+      // Импорт проверяет размер файла на 5 МБ, но дефолтный лимит тела
+      // server action — 1 МБ, и файлы крупнее отваливались раньше с невнятной
+      // ошибкой платформы. Запас сверх 5 МБ — на multipart-обвязку
+      // (границы, заголовки частей), как советует документация.
+      bodySizeLimit: "6mb",
+    },
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

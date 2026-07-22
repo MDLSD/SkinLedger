@@ -1,7 +1,13 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { Button } from "@/components/ui/button";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // CSP с nonce требует динамического рендера: nonce проставляется при SSR
+  // из заголовка запроса, а у страницы, собранной на билде, запроса нет —
+  // её инлайн-скрипты остались бы без nonce и были бы заблокированы.
+  await connection();
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
       <h1 className="max-w-2xl text-4xl font-bold tracking-tight">
