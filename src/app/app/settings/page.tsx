@@ -6,6 +6,7 @@ import { getRates } from "@/lib/rates";
 import { CURRENCY_SYMBOL, fxFactor } from "@/lib/currency";
 import { CurrencySettings } from "@/components/currency-settings";
 import { PasswordSettings } from "@/components/password-settings";
+import { PlatformSettings } from "@/components/platform-settings";
 import { CURRENCIES } from "@/lib/validation";
 
 export const metadata: Metadata = { title: "Настройки — SkinLedger" };
@@ -14,15 +15,35 @@ export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [user, { rates, updatedAt, source }] = await Promise.all([
+  const [user, { rates, updatedAt, source }, platformRows] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { id: session.user.id },
       // Только нужное поле: без select сюда приезжал и passwordHash.
       select: { baseCurrency: true },
     }),
     getRates(),
+    prisma.platform.findMany({
+      where: { OR: [{ isCustom: false }, { userId: session.user.id }] },
+      orderBy: [{ isCustom: "asc" }, { name: "asc" }],
+    }),
   ]);
   const base = user.baseCurrency;
+
+  const customPlatforms = platformRows
+    .filter((p) => p.isCustom)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      buyFee: Number(p.defaultBuyFeePct),
+      sellFee: Number(p.defaultSellFeePct),
+    }));
+  const seededPlatforms = platformRows
+    .filter((p) => !p.isCustom)
+    .map((p) => ({
+      name: p.name,
+      buyFee: Number(p.defaultBuyFeePct),
+      sellFee: Number(p.defaultSellFeePct),
+    }));
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -44,6 +65,15 @@ export default async function SettingsPage() {
           действовать — войдите заново с новым паролем.
         </p>
         <PasswordSettings />
+      </section>
+
+      <section className="rounded-lg border p-4">
+        <h2 className="text-sm font-medium">Свои площадки и комиссии</h2>
+        <p className="mt-1 mb-3 text-sm text-muted-foreground">
+          Добавьте площадки, которых нет в списке, и задайте их комиссии — они
+          подставятся при выборе площадки в сделке и при импорте.
+        </p>
+        <PlatformSettings custom={customPlatforms} seeded={seededPlatforms} />
       </section>
 
       <section className="rounded-lg border p-4">
