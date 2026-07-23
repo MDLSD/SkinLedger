@@ -49,7 +49,7 @@ export default async function DashboardPage({
       prisma.user.findUniqueOrThrow({
         where: { id: userId },
         // Только нужное поле: без select сюда приезжал и passwordHash.
-        select: { baseCurrency: true },
+        select: { baseCurrency: true, monthlyGoal: true },
       }),
       // Агрегаты должны покрывать все сделки: `take: 5000` без `orderBy` считал
       // прибыль по произвольному подмножеству и никак об этом не сообщал.
@@ -105,6 +105,9 @@ export default async function DashboardPage({
 
   const dash = computeDashboard(deals, range);
   const c = dash.cards;
+  const goal = user.monthlyGoal == null ? null : Number(user.monthlyGoal);
+  const goalPct =
+    goal && goal > 0 ? Math.max(0, Math.min(100, (dash.thisMonthProfit / goal) * 100)) : null;
 
   return (
     <div className="space-y-6">
@@ -120,6 +123,27 @@ export default async function DashboardPage({
         excludedLabel="сделок не учтено"
       />
 
+      {goal && (
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm font-medium">Цель месяца · прибыль</h3>
+            <div className="text-sm">
+              <span className={`font-semibold ${dash.thisMonthProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {formatMoney(dash.thisMonthProfit, cur, true)}
+              </span>
+              <span className="text-muted-foreground"> / {formatMoney(goal, cur)}</span>
+              <span className="ml-2 text-muted-foreground">{Math.round(goalPct ?? 0)}%</span>
+            </div>
+          </div>
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${goalPct ?? 0}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat label="Чистая прибыль" value={formatMoney(c.netProfit, cur, true)} tone={c.netProfit >= 0 ? "pos" : "neg"} />
         <Stat label="Оборот (продажи)" value={formatMoney(c.turnover, cur)} />
@@ -130,9 +154,16 @@ export default async function DashboardPage({
         <Stat label="Средний срок сделки" value={c.avgHoldDays == null ? "—" : `${c.avgHoldDays} дн.`} />
         <Stat label="Заморожено в холде" value={formatMoney(c.frozenInHolding, cur)} />
         <Stat label="Позиций в холде" value={String(c.holdingCount)} sub={c.holdingCount ? `можно продавать: ${c.tradableCount}` : undefined} />
+        <Stat label="Мёртвый капитал" value={formatMoney(dash.deadCapital.amount, cur)} tone={dash.deadCapital.amount > 0 ? "neg" : undefined} sub={dash.deadCapital.count ? `${dash.deadCapital.count} поз. в холде > 60 дн` : "нет застрявших > 60 дн"} />
       </div>
 
-      <DashboardCharts monthly={dash.monthly} cumulative={dash.cumulative} currency={cur} />
+      <DashboardCharts
+        monthly={dash.monthly}
+        monthlyRoi={dash.monthlyRoi}
+        cumulative={dash.cumulative}
+        marginByHold={dash.marginByHold}
+        currency={cur}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <TopList title="Топ-5 прибыльных" deals={dash.topProfit} currency={cur} tone="pos" />
@@ -140,7 +171,7 @@ export default async function DashboardPage({
       </div>
 
       <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-medium">Прибыль по площадкам продажи</h3>
+        <h3 className="mb-3 text-sm font-medium">Площадки продажи: прибыль и маржа</h3>
         {dash.platforms.length === 0 ? (
           <p className="text-sm text-muted-foreground">Нет закрытых сделок за период.</p>
         ) : (
@@ -149,6 +180,7 @@ export default async function DashboardPage({
               <tr className="text-left text-muted-foreground">
                 <th className="pb-2 font-normal">Площадка</th>
                 <th className="pb-2 text-right font-normal">Сделок</th>
+                <th className="pb-2 text-right font-normal">Ср. маржа</th>
                 <th className="pb-2 text-right font-normal">Прибыль</th>
               </tr>
             </thead>
@@ -157,6 +189,9 @@ export default async function DashboardPage({
                 <tr key={p.name} className="border-t">
                   <td className="py-1.5">{p.name}</td>
                   <td className="py-1.5 text-right">{p.count}</td>
+                  <td className={`py-1.5 text-right ${p.margin == null ? "text-muted-foreground" : p.margin >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {p.margin == null ? "—" : formatPct(p.margin)}
+                  </td>
                   <td className={`py-1.5 text-right ${p.profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {formatMoney(p.profit, cur, true)}
                   </td>

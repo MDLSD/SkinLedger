@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getRates } from "@/lib/rates";
 import { CURRENCY_SYMBOL, fxFactor } from "@/lib/currency";
 import { CurrencySettings } from "@/components/currency-settings";
+import { GoalSettings } from "@/components/goal-settings";
 import { PasswordSettings } from "@/components/password-settings";
 import { PlatformSettings } from "@/components/platform-settings";
 import { DeleteAccount } from "@/components/delete-account";
@@ -20,7 +21,7 @@ export default async function SettingsPage() {
     prisma.user.findUniqueOrThrow({
       where: { id: session.user.id },
       // Только нужное поле: без select сюда приезжал и passwordHash.
-      select: { baseCurrency: true },
+      select: { baseCurrency: true, monthlyGoal: true },
     }),
     getRates(),
     prisma.platform.findMany({
@@ -57,6 +58,15 @@ export default async function SettingsPage() {
           текущему курсу. При смене валюты все сделки отобразятся в новой валюте.
         </p>
         <CurrencySettings current={base} />
+      </section>
+
+      <section className="rounded-lg border bg-card p-4">
+        <h2 className="text-sm font-medium">Цель по прибыли</h2>
+        <p className="mt-1 mb-3 text-sm text-muted-foreground">
+          Задай цель чистой прибыли за месяц — на дашборде появится прогресс-бар.
+          Пусто или 0 — цель снята.
+        </p>
+        <GoalSettings current={user.monthlyGoal == null ? null : Number(user.monthlyGoal)} currency={base} />
       </section>
 
       <section className="rounded-lg border bg-card p-4">

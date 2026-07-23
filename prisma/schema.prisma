@@ -17,6 +17,8 @@ model User {
   email        String   @unique
   passwordHash String   @map("password_hash")
   baseCurrency String   @default("RUB") @map("base_currency")
+  // Личная цель по чистой прибыли за месяц (в основной валюте). null — не задана.
+  monthlyGoal  Decimal? @map("monthly_goal")
   createdAt    DateTime @default(now()) @map("created_at")
   // Рубеж действительности сессий: JWT, выданные раньше этого момента,
   // считаются отозванными. Даёт «выйти на всех устройствах» без

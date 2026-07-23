@@ -51,13 +51,46 @@ function renderTip(currency: string) {
   };
 }
 
+// Тултип для процентных графиков (ROI, маржа); опц. вторая строка (кол-во).
+function renderPctTip(unit: string) {
+  return (raw: unknown) => {
+    const { active, payload, label } = raw as {
+      active?: boolean;
+      payload?: readonly { value?: number | string; payload?: { count?: number } }[];
+      label?: React.ReactNode;
+    };
+    if (!active || !payload?.length) return null;
+    const v = Number(payload[0].value ?? 0);
+    const count = payload[0].payload?.count;
+    return (
+      <div className="rounded-md border bg-popover px-3 py-2 text-sm shadow-md">
+        <div className="text-muted-foreground">{label}</div>
+        <div className="font-medium" style={{ color: v >= 0 ? POS : NEG }}>
+          {v} % {unit}
+        </div>
+        {count != null && (
+          <div className="text-xs text-muted-foreground">{count} сделок</div>
+        )}
+      </div>
+    );
+  };
+}
+
 type Props = {
   monthly: { label: string; profit: number }[];
+  monthlyRoi: { label: string; roiPct: number }[];
   cumulative: { label: string; value: number }[];
+  marginByHold: { label: string; margin: number | null; count: number }[];
   currency: string;
 };
 
-export function DashboardCharts({ monthly, cumulative, currency }: Props) {
+export function DashboardCharts({
+  monthly,
+  monthlyRoi,
+  cumulative,
+  marginByHold,
+  currency,
+}: Props) {
   const empty = monthly.length === 0;
 
   return (
@@ -130,6 +163,53 @@ export function DashboardCharts({ monthly, cumulative, currency }: Props) {
                 activeDot={{ r: 5 }}
               />
             </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="rounded-lg border bg-card p-4">
+        <h3 className="mb-3 text-sm font-medium">ROI по месяцам, %</h3>
+        {empty ? (
+          <Placeholder />
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={monthlyRoi} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} stroke={GRID} />
+              <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 12 }} tickLine={false} axisLine={{ stroke: GRID }} />
+              <YAxis tick={{ fill: AXIS, fontSize: 12 }} tickLine={false} axisLine={false} width={40} tickFormatter={(v) => `${v}`} />
+              <ReferenceLine y={0} stroke={AXIS} />
+              <Tooltip cursor={{ fill: "rgba(255,255,255,0.06)" }} content={renderPctTip("ROI")} />
+              <Bar dataKey="roiPct" radius={[4, 4, 0, 0]}>
+                {monthlyRoi.map((d, i) => (
+                  <Cell key={i} fill={d.roiPct >= 0 ? POS : NEG} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="rounded-lg border bg-card p-4">
+        <h3 className="mb-1 text-sm font-medium">Маржа по сроку холда, %</h3>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Часто длинные холды съедают доходность
+        </p>
+        {empty ? (
+          <Placeholder />
+        ) : (
+          <ResponsiveContainer width="100%" height={216}>
+            <BarChart data={marginByHold} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} stroke={GRID} />
+              <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 12 }} tickLine={false} axisLine={{ stroke: GRID }} />
+              <YAxis tick={{ fill: AXIS, fontSize: 12 }} tickLine={false} axisLine={false} width={40} />
+              <ReferenceLine y={0} stroke={AXIS} />
+              <Tooltip cursor={{ fill: "rgba(255,255,255,0.06)" }} content={renderPctTip("маржа")} />
+              <Bar dataKey="margin" radius={[4, 4, 0, 0]}>
+                {marginByHold.map((d, i) => (
+                  <Cell key={i} fill={(d.margin ?? 0) >= 0 ? POS : NEG} />
+                ))}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         )}
       </div>
