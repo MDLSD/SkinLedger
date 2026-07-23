@@ -26,12 +26,12 @@ export function WaitlistForm({ feature }: { feature?: string }) {
         name="email"
         required
         placeholder="ваш@email"
-        className="h-11 rounded-xl border border-white/15 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60 focus:bg-white/10 sm:max-w-xs"
+        className="h-11 rounded-xl border border-white/15 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#58e2b0]/60 focus:bg-white/10 sm:max-w-xs"
       />
       <button
         type="submit"
         disabled={pending}
-        className="h-11 rounded-xl bg-cyan-400 px-5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
+        className="h-11 rounded-xl bg-[#58e2b0] px-5 text-sm font-semibold text-slate-950 transition hover:bg-[#7fecc4] disabled:opacity-50"
       >
         {pending ? "Отправка…" : "Сообщить о запуске"}
       </button>

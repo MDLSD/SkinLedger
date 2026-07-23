@@ -84,32 +84,32 @@
 }
 
 .dark {
-  /* Тёмная finance-gaming палитра под лендинг: near-black с лёгким синим
-     подтоном + cyan-акцент. */
-  --background: oklch(0.16 0.012 250);
-  --foreground: oklch(0.97 0.005 250);
-  --card: oklch(0.2 0.013 250);
-  --card-foreground: oklch(0.97 0.005 250);
-  --popover: oklch(0.21 0.013 250);
-  --popover-foreground: oklch(0.97 0.005 250);
-  --primary: oklch(0.8 0.13 200); /* cyan */
-  --primary-foreground: oklch(0.19 0.02 250);
-  --secondary: oklch(0.26 0.013 250);
-  --secondary-foreground: oklch(0.97 0.005 250);
-  --muted: oklch(0.24 0.012 250);
-  --muted-foreground: oklch(0.72 0.02 250);
-  --accent: oklch(0.28 0.02 210);
-  --accent-foreground: oklch(0.97 0.005 250);
-  --destructive: oklch(0.7 0.19 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.8 0.13 200); /* cyan focus */
-  --chart-1: oklch(0.8 0.13 200); /* cyan */
-  --chart-2: oklch(0.72 0.15 165); /* teal */
-  --chart-3: oklch(0.7 0.16 300); /* violet */
-  --chart-4: oklch(0.75 0.15 90); /* amber */
-  --chart-5: oklch(0.65 0.12 250);
-  --sidebar: oklch(0.205 0 0);
+  /* Палитра из референса csmarketcap: сине-чёрные поверхности, мятно-зелёный
+     основной акцент, фиолетовый вторичный. */
+  --background: #101319;
+  --foreground: #e5edff;
+  --card: #1b1f28;
+  --card-foreground: #e5edff;
+  --popover: #1f242e;
+  --popover-foreground: #e5edff;
+  --primary: #58e2b0; /* мятно-зелёный */
+  --primary-foreground: #101319;
+  --secondary: #232938;
+  --secondary-foreground: #e5edff;
+  --muted: #1b1f28;
+  --muted-foreground: #92a1bf;
+  --accent: #232938;
+  --accent-foreground: #e5edff;
+  --destructive: #ff5757;
+  --border: #2a3142;
+  --input: #333b4d;
+  --ring: #58e2b0;
+  --chart-1: #58e2b0; /* мята */
+  --chart-2: #725df8; /* фиолетовый */
+  --chart-3: #60a5fa; /* голубой */
+  --chart-4: #fbbf24; /* янтарь */
+  --chart-5: #f87171; /* роза */
+  --sidebar: #151820;
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);

@@ -15,12 +15,12 @@ import {
 } from "recharts";
 import { formatMoney } from "@/lib/deal-math";
 
-// Цвета под тёмную тему.
-const POS = "#34d399"; // emerald-400
-const NEG = "#f87171"; // red-400
-const LINE = "#22d3ee"; // cyan-400
-const GRID = "rgba(255,255,255,0.08)";
-const AXIS = "#94a3b8"; // slate-400
+// Цвета под тёмную тему (палитра референса).
+const POS = "#58e2b0"; // мятно-зелёный (акцент)
+const NEG = "#f87171"; // роза
+const LINE = "#60a5fa"; // голубой
+const GRID = "rgba(255,255,255,0.07)";
+const AXIS = "#92a1bf"; // приглушённый bluish
 
 function compact(v: number): string {
   const a = Math.abs(v);

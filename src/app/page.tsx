@@ -45,7 +45,7 @@ const FEATURES = [
 ];
 
 const CTA_PRIMARY =
-  "inline-flex h-11 items-center justify-center rounded-xl bg-cyan-400 px-6 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300";
+  "inline-flex h-11 items-center justify-center rounded-xl bg-[#58e2b0] px-6 text-sm font-semibold text-slate-950 transition hover:bg-[#7fecc4]";
 const CTA_GHOST =
   "inline-flex h-11 items-center justify-center rounded-xl border border-white/15 px-6 text-sm font-medium text-white transition hover:bg-white/10";
 
@@ -60,7 +60,7 @@ export default async function LandingPage() {
     <main className="relative min-h-screen w-full overflow-hidden bg-[#080b12] text-slate-200">
       {/* Фоновые свечения */}
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-[-14rem] size-[44rem] -translate-x-1/2 rounded-full bg-cyan-500/20 blur-[130px]" />
+        <div className="absolute left-1/2 top-[-14rem] size-[44rem] -translate-x-1/2 rounded-full bg-[#14b179]/20 blur-[130px]" />
         <div className="absolute right-[8%] top-[6rem] size-[26rem] rounded-full bg-violet-500/15 blur-[130px]" />
         <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:26px_26px] [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" />
       </div>
@@ -68,7 +68,7 @@ export default async function LandingPage() {
       {/* Навбар */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
         <span className="text-lg font-semibold text-white">
-          Skin<span className="text-cyan-400">Ledger</span>
+          Skin<span className="text-[#58e2b0]">Ledger</span>
         </span>
         {loggedIn ? (
           <Link href="/app" className={CTA_GHOST + " h-9 px-4"}>
@@ -84,13 +84,13 @@ export default async function LandingPage() {
       <div className="mx-auto flex max-w-5xl flex-col gap-24 px-4 pb-24 pt-10 sm:pt-16">
         {/* Hero */}
         <section className="flex flex-col items-center gap-6 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-300">
-            <span className="size-1.5 rounded-full bg-cyan-400" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#58e2b0]/30 bg-[#58e2b0]/10 px-3 py-1 text-xs font-medium text-[#7fecc4]">
+            <span className="size-1.5 rounded-full bg-[#58e2b0]" />
             Учёт арбитража скинов CS2
           </span>
           <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white sm:text-6xl">
             Узнай, сколько ты{" "}
-            <span className="bg-gradient-to-r from-cyan-300 to-teal-200 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#7fecc4] to-[#9fead2] bg-clip-text text-transparent">
               реально зарабатываешь
             </span>{" "}
             на скинах
@@ -126,7 +126,7 @@ export default async function LandingPage() {
 
         {/* Превью интерфейса */}
         <section aria-hidden className="relative">
-          <div className="absolute -inset-x-8 -top-8 bottom-0 -z-10 rounded-[2rem] bg-gradient-to-b from-cyan-500/10 to-transparent blur-2xl" />
+          <div className="absolute -inset-x-8 -top-8 bottom-0 -z-10 rounded-[2rem] bg-gradient-to-b from-[#14b179]/10 to-transparent blur-2xl" />
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 shadow-2xl shadow-black/40 backdrop-blur-sm sm:p-5">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <PreviewStat label="Чистая прибыль" value="+18 420 ₽" tone="pos" />
@@ -141,7 +141,7 @@ export default async function LandingPage() {
                 <div
                   key={i}
                   style={{ height: `${h}%` }}
-                  className="flex-1 rounded-t bg-gradient-to-t from-cyan-500/40 to-cyan-400"
+                  className="flex-1 rounded-t bg-gradient-to-t from-[#14b179]/40 to-[#58e2b0]"
                 />
               ))}
             </div>
@@ -179,9 +179,9 @@ export default async function LandingPage() {
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-cyan-400/40 hover:bg-white/[0.05]"
+                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-[#58e2b0]/40 hover:bg-white/[0.05]"
               >
-                <div className="flex size-11 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300 transition group-hover:bg-cyan-400/20">
+                <div className="flex size-11 items-center justify-center rounded-xl border border-[#58e2b0]/20 bg-[#58e2b0]/10 text-[#7fecc4] transition group-hover:bg-[#58e2b0]/20">
                   <f.icon className="size-5" />
                 </div>
                 <h3 className="mt-4 font-semibold text-white">{f.title}</h3>
