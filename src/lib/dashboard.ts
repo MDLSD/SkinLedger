@@ -43,9 +43,9 @@ export type DashboardData = {
     turnover: number;
     roiPct: number | null;
     avgMargin: number | null;
-    winRate: number | null;
+    avgProfitPerDeal: number | null;
+    bestTrade: number | null;
     avgHoldDays: number | null;
-    feesPaid: number;
     closedCount: number;
     frozenInHolding: number;
     holdingCount: number;
@@ -110,27 +110,18 @@ export function computeDashboard(
     .filter((m): m is number => m != null);
   const avgMargin = margins.length ? margins.reduce((s, m) => s + m, 0) / margins.length : null;
 
-  // Винрейт — доля закрытых сделок в плюс.
-  const winRate = sold.length
-    ? (sold.filter((d) => dealProfit(d) > 0).length / sold.length) * 100
+  // Средняя прибыль на закрытую сделку.
+  const avgProfitPerDeal = sold.length ? roundMoney(netProfit / sold.length) : null;
+
+  // Лучшая сделка за период (максимальная прибыль одной сделки).
+  const bestTrade = sold.length
+    ? roundMoney(Math.max(...sold.map((d) => dealProfit(d))))
     : null;
 
   // Средний срок сделки в днях (от покупки до продажи).
   const avgHoldDays = sold.length
     ? Math.round(sold.reduce((s, d) => s + holdingDays(d.buyDate, d.sellDate), 0) / sold.length)
     : null;
-
-  // Всего уплачено комиссий (покупка + продажа) в базовой валюте.
-  const feesPaid = roundMoney(
-    sold.reduce((s, d) => {
-      const buyFee = d.buyPrice * d.quantity * (d.buyFeePct / 100) * d.buyFxRate;
-      const sellFee =
-        d.sellPrice != null
-          ? d.sellPrice * d.quantity * ((d.sellFeePct ?? 0) / 100) * (d.sellFxRate ?? 1)
-          : 0;
-      return s + buyFee + sellFee;
-    }, 0),
-  );
 
   // Холд: сколько позиций и сколько уже вышли из трейд-бана (7 дней).
   const now = Date.now();
@@ -195,9 +186,9 @@ export function computeDashboard(
       turnover,
       roiPct,
       avgMargin,
-      winRate,
+      avgProfitPerDeal,
+      bestTrade,
       avgHoldDays,
-      feesPaid,
       closedCount: sold.length,
       frozenInHolding,
       holdingCount: holding.length,

@@ -125,9 +125,9 @@ export default async function DashboardPage({
         <Stat label="Оборот (продажи)" value={formatMoney(c.turnover, cur)} />
         <Stat label="Рентабельность вложений" value={c.roiPct == null ? "—" : formatPct(c.roiPct)} tone={c.roiPct == null ? undefined : c.roiPct >= 0 ? "pos" : "neg"} />
         <Stat label="Средняя маржа" value={c.avgMargin == null ? "—" : formatPct(c.avgMargin)} tone={c.avgMargin == null ? undefined : c.avgMargin >= 0 ? "pos" : "neg"} />
-        <Stat label="Винрейт" value={c.winRate == null ? "—" : formatPct(c.winRate)} sub={c.closedCount ? `${c.closedCount} закрытых` : undefined} />
+        <Stat label="Средняя прибыль/сделку" value={c.avgProfitPerDeal == null ? "—" : formatMoney(c.avgProfitPerDeal, cur, true)} tone={c.avgProfitPerDeal == null ? undefined : c.avgProfitPerDeal >= 0 ? "pos" : "neg"} sub={c.closedCount ? `${c.closedCount} закрытых` : undefined} />
+        <Stat label="Лучшая сделка" value={c.bestTrade == null ? "—" : formatMoney(c.bestTrade, cur, true)} tone={c.bestTrade == null ? undefined : c.bestTrade >= 0 ? "pos" : "neg"} />
         <Stat label="Средний срок сделки" value={c.avgHoldDays == null ? "—" : `${c.avgHoldDays} дн.`} />
-        <Stat label="Уплачено комиссий" value={formatMoney(c.feesPaid, cur)} />
         <Stat label="Заморожено в холде" value={formatMoney(c.frozenInHolding, cur)} />
         <Stat label="Позиций в холде" value={String(c.holdingCount)} sub={c.holdingCount ? `можно продавать: ${c.tradableCount}` : undefined} />
       </div>
