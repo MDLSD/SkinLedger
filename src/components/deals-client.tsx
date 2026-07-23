@@ -193,6 +193,108 @@ function DeleteAllButton({ total }: { total: number }) {
   );
 }
 
+// Карточка сделки для мобильной версии (вместо строки таблицы).
+function DealCard({
+  deal,
+  baseCurrency,
+  onSell,
+  onEdit,
+}: {
+  deal: DealDTO;
+  baseCurrency: string;
+  onSell: () => void;
+  onEdit: () => void;
+}) {
+  const p = profit(deal);
+  const m = marginPct(deal);
+  const sellRevenue = sellRevenueBase(deal);
+  const isWithdrawal = deal.status === "withdrawn_via_skin";
+  const profitColor = isWithdrawal
+    ? "text-amber-600"
+    : p != null && p >= 0
+      ? "text-emerald-600"
+      : "text-red-600";
+
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-medium">
+            {deal.itemName}
+            {deal.quantity > 1 && (
+              <span className="text-muted-foreground"> ×{deal.quantity}</span>
+            )}
+          </div>
+          {deal.itemQuality && (
+            <div className="text-xs text-muted-foreground">{deal.itemQuality}</div>
+          )}
+        </div>
+        <StatusBadge status={deal.status} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <div className="text-xs text-muted-foreground">Затраты</div>
+          <div>{formatMoney(buyCostBase(deal), baseCurrency)}</div>
+          <div className="text-xs text-muted-foreground">
+            {unitPrice(deal.buyPrice, deal.buyCurrency, deal.quantity)}
+            {deal.buyPlatformName} · {formatDate(deal.buyDate)}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Выручка</div>
+          {sellRevenue == null ? (
+            <span className="text-muted-foreground">—</span>
+          ) : (
+            <>
+              <div>{formatMoney(sellRevenue, baseCurrency)}</div>
+              <div className="text-xs text-muted-foreground">
+                {unitPrice(
+                  deal.sellPrice,
+                  deal.sellCurrency ?? deal.buyCurrency,
+                  deal.quantity,
+                )}
+                {deal.sellPlatformName} · {formatDate(deal.sellDate)}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 text-sm">
+        <span className="text-muted-foreground">Прибыль</span>
+        <span className={`font-medium ${profitColor}`}>
+          {p == null ? "—" : formatMoney(p, baseCurrency, true)}
+        </span>
+        <span className="text-muted-foreground">
+          {isWithdrawal
+            ? deal.withdrawalDiscountPct == null
+              ? ""
+              : `вывод ${formatPct(-deal.withdrawalDiscountPct)}`
+            : m == null
+              ? ""
+              : `· ${formatPct(m)}`}
+        </span>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {holdingDays(deal.buyDate, deal.sellDate)} дн.
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        {deal.status === "holding" && (
+          <Button variant="outline" size="sm" onClick={onSell}>
+            Продано
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" onClick={onEdit}>
+          Изменить
+        </Button>
+        <DeleteButton deal={deal} />
+      </div>
+    </div>
+  );
+}
+
 type Props = {
   deals: DealDTO[];
   platforms: PlatformDTO[];
@@ -235,9 +337,9 @@ export function DealsClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Сделки</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {totalAll > 0 && <DeleteAllButton total={totalAll} />}
           {total > 0 && (
             <Button
@@ -268,7 +370,9 @@ export function DealsClient({
             : "Под фильтры ничего не подошло. Измените или сбросьте фильтры."}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <>
+        {/* Десктоп — таблица, мобилка — карточки. */}
+        <div className="hidden overflow-x-auto rounded-lg border md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -408,6 +512,19 @@ export function DealsClient({
             </TableBody>
           </Table>
         </div>
+
+        <div className="space-y-3 md:hidden">
+          {deals.map((deal) => (
+            <DealCard
+              key={deal.id}
+              deal={deal}
+              baseCurrency={baseCurrency}
+              onSell={() => openSell(deal)}
+              onEdit={() => openEdit(deal)}
+            />
+          ))}
+        </div>
+        </>
       )}
 
       {total > 0 && (
