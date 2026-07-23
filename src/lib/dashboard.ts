@@ -40,7 +40,6 @@ export type DashboardData = {
     turnover: number;
     roiPct: number | null;
     closedCount: number;
-    withdrawalLoss: number; // положительное число = размер потерь
     frozenInHolding: number;
   };
   monthly: { key: string; label: string; profit: number }[];
@@ -82,9 +81,6 @@ export function computeDashboard(
 
   // Закрытые торговые сделки за период (по дате продажи).
   const sold = deals.filter((d) => d.status === "sold" && inRange(d.sellDate, range));
-  const withdrawn = deals.filter(
-    (d) => d.status === "withdrawn_via_skin" && inRange(d.sellDate, range),
-  );
   const holding = deals.filter((d) => d.status === "holding");
 
   // Слагаемые уже в копейках (округляет deal-math), но сумма многих таких
@@ -97,9 +93,6 @@ export function computeDashboard(
   // Подпись на карточке говорит именно про рентабельность, чтобы значение
   // не сверяли с колонкой «Маржа» в списке.
   const roiPct = totalCost > 0 ? (netProfit / totalCost) * 100 : null;
-  const withdrawalLoss = roundMoney(
-    withdrawn.reduce((s, d) => s + (cost(d) - revenue(d)), 0),
-  );
   const frozenInHolding = roundMoney(holding.reduce((s, d) => s + cost(d), 0));
 
   // Помесячная торговая прибыль (по дате продажи) + кумулятивная.
@@ -154,7 +147,7 @@ export function computeDashboard(
     .sort((a, b) => b.profit - a.profit);
 
   return {
-    cards: { netProfit, turnover, roiPct, closedCount: sold.length, withdrawalLoss, frozenInHolding },
+    cards: { netProfit, turnover, roiPct, closedCount: sold.length, frozenInHolding },
     monthly,
     cumulative,
     topProfit,

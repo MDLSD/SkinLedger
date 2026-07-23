@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const CURRENCIES = ["RUB", "USD", "EUR", "CNY"] as const;
 export const BASE_CURRENCIES = ["RUB", "USD", "EUR"] as const;
-export const DEAL_STATUSES = ["holding", "sold", "withdrawn_via_skin"] as const;
+export const DEAL_STATUSES = ["holding", "sold"] as const;
 export const ITEM_KINDS = [
   "skin", "sticker", "agent", "case", "capsule", "container",
   "keychain", "patch", "graffiti", "music_kit", "collectible",
@@ -119,7 +119,7 @@ export const dealSchema = z
   })
   .superRefine((d, ctx) => {
     if (d.status === "holding") return;
-    const label = d.status === "sold" ? "продажи" : "вывода";
+    const label = "продажи";
     if (!d.sellPlatformId)
       ctx.addIssue({ code: "custom", path: ["sellPlatformId"], message: `Выберите площадку ${label}` });
     if (d.sellPrice == null)

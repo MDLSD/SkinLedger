@@ -34,7 +34,6 @@ const DEAL_SELECT = {
   sellFxRate: true,
   sellFeePct: true,
   sellDate: true,
-  withdrawalDiscountPct: true,
   note: true,
   itemId: true,
   buyPlatform: { select: { name: true } },
@@ -144,8 +143,6 @@ export async function loadUserDeals(
         sellFxRate,
         sellFeePct: d.sellFeePct != null ? Number(d.sellFeePct) : null,
         sellDate: toDateStr(d.sellDate),
-        withdrawalDiscountPct:
-          d.withdrawalDiscountPct != null ? Number(d.withdrawalDiscountPct) : null,
         note: d.note,
         itemId: d.itemId,
         itemFamilyId: d.item?.familyId ?? null,

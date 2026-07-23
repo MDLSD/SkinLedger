@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import {
-  BarChart3,
-  Boxes,
-  Coins,
-  FileSpreadsheet,
-  ArrowLeftRight,
-  Wallet,
-} from "lucide-react";
+import { BarChart3, Boxes, Coins, FileSpreadsheet, Wallet } from "lucide-react";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { WaitlistForm } from "@/components/waitlist-form";
@@ -37,11 +30,6 @@ const FEATURES = [
     icon: Boxes,
     title: "Каталог ~33 000 предметов",
     text: "Скины, стикеры, агенты, кейсы, капсулы, брелки, патчи, граффити — автоподсказка по названию.",
-  },
-  {
-    icon: ArrowLeftRight,
-    title: "Выводные скины",
-    text: "Отдельный учёт вывода баланса через скины: потери на выводе не смешиваются с торговой прибылью.",
   },
 ];
 

@@ -29,7 +29,6 @@ export type CsvKey = (typeof CSV_COLUMNS)[number]["key"];
 export const STATUS_RU: Record<string, string> = {
   holding: "в холде",
   sold: "продано",
-  withdrawn_via_skin: "вывод",
 };
 
 // Разбор статуса из CSV: принимаем RU-подписи, англ. enum и синонимы.
@@ -38,8 +37,6 @@ export function parseStatus(raw: string): string | null {
   if (!s) return null; // пусто → выведем из наличия продажи
   if (["в холде", "холд", "holding"].includes(s)) return "holding";
   if (["продано", "продажа", "sold"].includes(s)) return "sold";
-  if (["вывод", "выводной", "withdrawn_via_skin", "withdrawn"].includes(s))
-    return "withdrawn_via_skin";
   return null;
 }
 

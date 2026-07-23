@@ -288,11 +288,7 @@ function PreviewTable({
               <td className="py-1 pr-3">{money(f.buyPrice, f.buyCurrency)}</td>
               <td className="py-1 pr-3">{f.buyDate || "сегодня"}</td>
               <td className="py-1 pr-3">
-                {f.status === "sold"
-                  ? "продано"
-                  : f.status === "withdrawn_via_skin"
-                    ? "вывод"
-                    : "в холде"}
+                {f.status === "sold" ? "продано" : "в холде"}
               </td>
               <td className="py-1 pr-3">{money(f.sellPrice, f.sellCurrency)}</td>
               <td className="py-1">{f.sellDate || "—"}</td>

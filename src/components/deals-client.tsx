@@ -68,8 +68,6 @@ function unitPrice(price: number | null, currency: string, quantity: number) {
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "sold") return <Badge>Продано</Badge>;
-  if (status === "withdrawn_via_skin")
-    return <Badge variant="outline">Вывод</Badge>;
   return <Badge variant="secondary">В холде</Badge>;
 }
 
@@ -208,12 +206,8 @@ function DealCard({
   const p = profit(deal);
   const m = marginPct(deal);
   const sellRevenue = sellRevenueBase(deal);
-  const isWithdrawal = deal.status === "withdrawn_via_skin";
-  const profitColor = isWithdrawal
-    ? "text-amber-600"
-    : p != null && p >= 0
-      ? "text-emerald-600"
-      : "text-red-600";
+  const profitColor =
+    p != null && p >= 0 ? "text-emerald-600" : "text-red-600";
 
   return (
     <div className="space-y-3 rounded-lg border p-3">
@@ -267,13 +261,7 @@ function DealCard({
           {p == null ? "—" : formatMoney(p, baseCurrency, true)}
         </span>
         <span className="text-muted-foreground">
-          {isWithdrawal
-            ? deal.withdrawalDiscountPct == null
-              ? ""
-              : `вывод ${formatPct(-deal.withdrawalDiscountPct)}`
-            : m == null
-              ? ""
-              : `· ${formatPct(m)}`}
+          {m == null ? "" : `· ${formatPct(m)}`}
         </span>
         <span className="ml-auto text-xs text-muted-foreground">
           {holdingDays(deal.buyDate, deal.sellDate)} дн.
@@ -405,7 +393,6 @@ export function DealsClient({
                 const p = profit(deal);
                 const m = marginPct(deal);
                 const sellRevenue = sellRevenueBase(deal);
-                const isWithdrawal = deal.status === "withdrawn_via_skin";
                 return (
                   <TableRow key={deal.id}>
                     <TableCell>
@@ -452,30 +439,14 @@ export function DealsClient({
                         <span className="text-muted-foreground">—</span>
                       ) : (
                         <span
-                          className={
-                            isWithdrawal
-                              ? "text-amber-600"
-                              : p >= 0
-                                ? "text-emerald-600"
-                                : "text-red-600"
-                          }
+                          className={p >= 0 ? "text-emerald-600" : "text-red-600"}
                         >
                           {formatMoney(p, baseCurrency, true)}
                         </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {/* У вывода маржа не имеет смысла — вместо неё показываем
-                          зафиксированную при сохранении потерю на выводе. */}
-                      {isWithdrawal ? (
-                        deal.withdrawalDiscountPct == null ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <span className="text-amber-600" title="Потеря на выводе">
-                            {formatPct(-deal.withdrawalDiscountPct)}
-                          </span>
-                        )
-                      ) : m == null ? (
+                      {m == null ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
                         formatPct(m)

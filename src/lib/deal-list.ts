@@ -17,7 +17,6 @@ export const STATUS_OPTIONS = [
   { value: "all", label: "Все статусы" },
   { value: "holding", label: "В холде" },
   { value: "sold", label: "Продано" },
-  { value: "withdrawn_via_skin", label: "Вывод" },
 ] as const;
 
 export const SORT_COLUMNS = [
@@ -38,7 +37,7 @@ export type DealFilters = {
   period: Period;
   from: string; // yyyy-MM-dd (для custom)
   to: string;
-  status: string; // all | holding | sold | withdrawn_via_skin
+  status: string; // all | holding | sold
   platform: string; // all | platformId
   q: string; // поиск по названию
   sort: SortKey;

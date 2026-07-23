@@ -10,7 +10,7 @@ datasource db {
 // Enum-значения храним строками (SQLite не поддерживает enum),
 // допустимые значения контролируются zod-схемами на сервере.
 // Currency: RUB | USD | EUR | CNY
-// DealStatus: holding | sold | withdrawn_via_skin
+// DealStatus: holding | sold
 
 model User {
   id           String   @id @default(uuid())
@@ -78,8 +78,7 @@ model Deal {
   sellFeePct     Decimal?  @map("sell_fee_pct")
   sellDate       DateTime? @map("sell_date")
 
-  withdrawalDiscountPct Decimal? @map("withdrawal_discount_pct")
-  note                  String?
+  note String?
 
   // Ссылка на предмет из каталога (скин/стикер). Nullable: старые сделки
   // со свободным текстом остаются без ссылки.

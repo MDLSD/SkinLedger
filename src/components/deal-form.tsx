@@ -52,16 +52,10 @@ export function DealForm({
   const [state, formAction, pending] = useActionState(saveDealAction, {});
   const families = useSkinsIndex();
 
-  // Режим сделки: покупка (holding) / продажа (sold) / вывод скином.
-  type Mode = "buy" | "sold" | "withdrawn";
+  // Режим сделки: покупка (holding) / продажа (sold).
+  type Mode = "buy" | "sold";
   const initialMode: Mode =
-    deal && deal.status !== "holding"
-      ? deal.status === "withdrawn_via_skin"
-        ? "withdrawn"
-        : "sold"
-      : initialWithSell
-        ? "sold"
-        : "buy";
+    (deal && deal.status !== "holding") || initialWithSell ? "sold" : "buy";
   const [mode, setMode] = useState<Mode>(initialMode);
   const withSell = mode !== "buy";
 
@@ -117,12 +111,7 @@ export function DealForm({
     }
   }, [state.success, onDone, router]);
 
-  const status =
-    mode === "buy"
-      ? "holding"
-      : mode === "withdrawn"
-        ? "withdrawn_via_skin"
-        : "sold";
+  const status = mode === "buy" ? "holding" : "sold";
 
   const calc = useMemo(() => {
     const d = {
@@ -230,7 +219,7 @@ export function DealForm({
       <input type="hidden" name="souvenir" value={souvenir ? "true" : "false"} />
       <input type="hidden" name="finish" value={isSticker ? finish : ""} />
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
           variant={mode === "buy" ? "default" : "outline"}
@@ -244,13 +233,6 @@ export function DealForm({
           onClick={() => setMode("sold")}
         >
           Купил и продал
-        </Button>
-        <Button
-          type="button"
-          variant={mode === "withdrawn" ? "default" : "outline"}
-          onClick={() => setMode("withdrawn")}
-        >
-          Вывел скином
         </Button>
       </div>
 
@@ -430,16 +412,7 @@ export function DealForm({
 
       {withSell && (
         <fieldset className="rounded-lg border p-3">
-          <legend className="px-1 text-sm font-medium">
-            {status === "withdrawn_via_skin" ? "Вывод" : "Продажа"}
-          </legend>
-          {status === "withdrawn_via_skin" && (
-            <p className="mb-3 text-xs text-muted-foreground">
-              Цена покупки — сколько потрачено балансом Steam, цена ниже — сколько
-              фактически получено на внешней площадке. Разница пойдёт в «Потери на
-              выводе», а не в торговую прибыль.
-            </p>
-          )}
+          <legend className="px-1 text-sm font-medium">Продажа</legend>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="col-span-2 grid gap-1.5">
               <Label>Площадка</Label>
@@ -508,7 +481,7 @@ export function DealForm({
             </div>
             <div className="col-span-2 grid gap-1.5">
               <Label htmlFor="sellDate">
-                {status === "withdrawn_via_skin" ? "Дата вывода" : "Дата продажи"}
+                Дата продажи
               </Label>
               <Input
                 id="sellDate"

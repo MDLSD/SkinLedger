@@ -119,7 +119,7 @@ const ALIASES: Record<CsvKey, string[]> = {
   sellPlatform: [
     "площадка продажи", "продано на", "где продано", "куда продано",
     "маркет продажи", "магазин продажи", "биржа продажи", "сайт продажи",
-    "площадка вывода", "площадка 2", "sell platform", "sellplatform",
+    "площадка 2", "sell platform", "sellplatform",
     "sell market", "sell site", "sold on", "sold to", "sold at", "destination",
   ],
   sellPrice: [
