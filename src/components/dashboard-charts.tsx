@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { formatMoney } from "@/lib/deal-math";
+import { Hint } from "@/components/hint";
 
 // Цвета под тёмную тему (палитра референса).
 const POS = "#58e2b0"; // мятно-зелёный (акцент)
@@ -96,7 +97,10 @@ export function DashboardCharts({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-medium">Прибыль по месяцам</h3>
+        <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
+          Прибыль по месяцам
+          <Hint text="Чистая прибыль по месяцам (по дате продажи). Зелёные столбцы — плюс, красные — минус." />
+        </h3>
         {empty ? (
           <Placeholder />
         ) : (
@@ -132,7 +136,10 @@ export function DashboardCharts({
       </div>
 
       <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-medium">Кумулятивная прибыль</h3>
+        <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
+          Кумулятивная прибыль
+          <Hint text="Накопленная прибыль нарастающим итогом по месяцам — общая динамика заработка." />
+        </h3>
         {empty ? (
           <Placeholder />
         ) : (
@@ -168,7 +175,10 @@ export function DashboardCharts({
       </div>
 
       <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-medium">ROI по месяцам, %</h3>
+        <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
+          ROI по месяцам, %
+          <Hint text="Доходность вложенного капитала за каждый месяц: прибыль месяца ÷ себестоимость проданного в этом месяце × 100. Главное число для арбитража — важнее абсолютной прибыли." />
+        </h3>
         {empty ? (
           <Placeholder />
         ) : (
@@ -190,7 +200,10 @@ export function DashboardCharts({
       </div>
 
       <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-1 text-sm font-medium">Маржа по сроку холда, %</h3>
+        <h3 className="mb-1 flex items-center gap-1 text-sm font-medium">
+          Маржа по сроку холда, %
+          <Hint text="Средняя маржа по группам срока удержания (≤7 / 8–30 / 31–60 / >60 дней). Помогает увидеть, не съедают ли длинные холды доходность." />
+        </h3>
         <p className="mb-2 text-xs text-muted-foreground">
           Часто длинные холды съедают доходность
         </p>

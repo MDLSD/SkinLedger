@@ -8,6 +8,7 @@ import { parseDealFilters, periodRange } from "@/lib/deal-list";
 import { computeDashboard, type DashDeal, type DealBrief } from "@/lib/dashboard";
 import { DashboardCharts } from "@/components/dashboard-charts";
 import { DashboardPeriod } from "@/components/dashboard-period";
+import { Hint } from "@/components/hint";
 import { RatesNotice } from "@/components/rates-notice";
 import { loadAllByCursor } from "@/lib/db-batch";
 
@@ -126,7 +127,10 @@ export default async function DashboardPage({
       {goal && (
         <div className="rounded-lg border bg-card p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-sm font-medium">Цель месяца · прибыль</h3>
+            <h3 className="flex items-center gap-1 text-sm font-medium">
+              Цель месяца · прибыль
+              <Hint text="Прогресс к личной цели прибыли за текущий календарный месяц (независимо от фильтра периода). Цель задаётся в Настройках." />
+            </h3>
             <div className="text-sm">
               <span className={`font-semibold ${dash.thisMonthProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                 {formatMoney(dash.thisMonthProfit, cur, true)}
@@ -145,16 +149,16 @@ export default async function DashboardPage({
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Stat label="Чистая прибыль" value={formatMoney(c.netProfit, cur, true)} tone={c.netProfit >= 0 ? "pos" : "neg"} />
-        <Stat label="Оборот (продажи)" value={formatMoney(c.turnover, cur)} />
-        <Stat label="Рентабельность вложений" value={c.roiPct == null ? "—" : formatPct(c.roiPct)} tone={c.roiPct == null ? undefined : c.roiPct >= 0 ? "pos" : "neg"} />
-        <Stat label="Средняя маржа" value={c.avgMargin == null ? "—" : formatPct(c.avgMargin)} tone={c.avgMargin == null ? undefined : c.avgMargin >= 0 ? "pos" : "neg"} />
-        <Stat label="Средняя прибыль/сделку" value={c.avgProfitPerDeal == null ? "—" : formatMoney(c.avgProfitPerDeal, cur, true)} tone={c.avgProfitPerDeal == null ? undefined : c.avgProfitPerDeal >= 0 ? "pos" : "neg"} sub={c.closedCount ? `${c.closedCount} закрытых` : undefined} />
-        <Stat label="Лучшая сделка" value={c.bestTrade == null ? "—" : formatMoney(c.bestTrade, cur, true)} tone={c.bestTrade == null ? undefined : c.bestTrade >= 0 ? "pos" : "neg"} />
-        <Stat label="Средний срок сделки" value={c.avgHoldDays == null ? "—" : `${c.avgHoldDays} дн.`} />
-        <Stat label="Заморожено в холде" value={formatMoney(c.frozenInHolding, cur)} />
-        <Stat label="Позиций в холде" value={String(c.holdingCount)} sub={c.holdingCount ? `можно продавать: ${c.tradableCount}` : undefined} />
-        <Stat label="Мёртвый капитал" value={formatMoney(dash.deadCapital.amount, cur)} tone={dash.deadCapital.amount > 0 ? "neg" : undefined} sub={dash.deadCapital.count ? `${dash.deadCapital.count} поз. в холде > 60 дн` : "нет застрявших > 60 дн"} />
+        <Stat label="Чистая прибыль" value={formatMoney(c.netProfit, cur, true)} tone={c.netProfit >= 0 ? "pos" : "neg"} hint="Суммарная прибыль по закрытым сделкам за выбранный период: выручка минус затраты, с учётом комиссий и курсов валют." />
+        <Stat label="Оборот (продажи)" value={formatMoney(c.turnover, cur)} hint="Сумма всех продаж за период (выручка после комиссии продажи). Показывает масштаб торговли, а не заработок." />
+        <Stat label="Рентабельность вложений" value={c.roiPct == null ? "—" : formatPct(c.roiPct)} tone={c.roiPct == null ? undefined : c.roiPct >= 0 ? "pos" : "neg"} hint="ROI портфеля: общая прибыль ÷ общие затраты × 100. Взвешена по размеру сделок — крупные влияют сильнее." />
+        <Stat label="Средняя маржа" value={c.avgMargin == null ? "—" : formatPct(c.avgMargin)} tone={c.avgMargin == null ? undefined : c.avgMargin >= 0 ? "pos" : "neg"} hint="Среднее арифметическое маржи по сделкам. Все сделки равны независимо от суммы — типичная выгодность одной сделки." />
+        <Stat label="Средняя прибыль/сделку" value={c.avgProfitPerDeal == null ? "—" : formatMoney(c.avgProfitPerDeal, cur, true)} tone={c.avgProfitPerDeal == null ? undefined : c.avgProfitPerDeal >= 0 ? "pos" : "neg"} sub={c.closedCount ? `${c.closedCount} закрытых` : undefined} hint="Чистая прибыль ÷ число закрытых сделок за период." />
+        <Stat label="Лучшая сделка" value={c.bestTrade == null ? "—" : formatMoney(c.bestTrade, cur, true)} tone={c.bestTrade == null ? undefined : c.bestTrade >= 0 ? "pos" : "neg"} hint="Максимальная прибыль одной сделки за период." />
+        <Stat label="Средний срок сделки" value={c.avgHoldDays == null ? "—" : `${c.avgHoldDays} дн.`} hint="Сколько в среднем дней проходит от покупки до продажи. Меньше — быстрее оборачивается капитал." />
+        <Stat label="Заморожено в холде" value={formatMoney(c.frozenInHolding, cur)} hint="Стоимость покупки всех непроданных позиций (снимок на сейчас, без учёта фильтра периода)." />
+        <Stat label="Позиций в холде" value={String(c.holdingCount)} sub={c.holdingCount ? `можно продавать: ${c.tradableCount}` : undefined} hint="Сколько предметов ещё не продано. «Можно продавать» — у скольких уже прошёл 7-дневный трейд-бан Steam." />
+        <Stat label="Мёртвый капитал" value={formatMoney(dash.deadCapital.amount, cur)} tone={dash.deadCapital.amount > 0 ? "neg" : undefined} sub={dash.deadCapital.count ? `${dash.deadCapital.count} поз. в холде > 60 дн` : "нет застрявших > 60 дн"} hint="Деньги, застрявшие в холде дольше 60 дней. Кандидаты на то, чтобы сбросить и высвободить капитал." />
       </div>
 
       <DashboardCharts
@@ -166,12 +170,15 @@ export default async function DashboardPage({
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <TopList title="Топ-5 прибыльных" deals={dash.topProfit} currency={cur} tone="pos" />
-        <TopList title="Топ-5 убыточных" deals={dash.topLoss} currency={cur} tone="neg" />
+        <TopList title="Топ-5 прибыльных" deals={dash.topProfit} currency={cur} tone="pos" hint="Пять сделок с наибольшей прибылью за выбранный период." />
+        <TopList title="Топ-5 убыточных" deals={dash.topLoss} currency={cur} tone="neg" hint="Пять сделок с наибольшим убытком за выбранный период." />
       </div>
 
       <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-medium">Площадки продажи: прибыль и маржа</h3>
+        <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
+          Площадки продажи: прибыль и маржа
+          <Hint text="Прибыль и фактическая маржа по площадкам продажи. Маржа = сумма прибыли ÷ сумма себестоимости на площадке × 100." />
+        </h3>
         {dash.platforms.length === 0 ? (
           <p className="text-sm text-muted-foreground">Нет закрытых сделок за период.</p>
         ) : (
@@ -210,16 +217,21 @@ function Stat({
   value,
   tone,
   sub,
+  hint,
 }: {
   label: string;
   value: string;
   tone?: "pos" | "neg";
   sub?: string;
+  hint?: string;
 }) {
   const color = tone === "pos" ? "text-emerald-400" : tone === "neg" ? "text-red-400" : "";
   return (
     <div className="rounded-lg border bg-card p-4">
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <span>{label}</span>
+        {hint && <Hint text={hint} />}
+      </div>
       <div className={`mt-1 text-xl font-semibold ${color}`}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
     </div>
@@ -231,16 +243,21 @@ function TopList({
   deals,
   currency,
   tone,
+  hint,
 }: {
   title: string;
   deals: DealBrief[];
   currency: string;
   tone: "pos" | "neg";
+  hint?: string;
 }) {
   const color = tone === "pos" ? "text-emerald-400" : "text-red-400";
   return (
     <div className="rounded-lg border bg-card p-4">
-      <h3 className="mb-3 text-sm font-medium">{title}</h3>
+      <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
+        {title}
+        {hint && <Hint text={hint} />}
+      </h3>
       {deals.length === 0 ? (
         <p className="text-sm text-muted-foreground">Нет данных за период.</p>
       ) : (
