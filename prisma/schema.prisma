@@ -29,6 +29,17 @@ model User {
   @@map("users")
 }
 
+// Заявки с лендинга («Планируется»): дешёвая проверка спроса на фичи.
+model Lead {
+  id        String   @id @default(uuid())
+  email     String
+  feature   String? // какая планируемая фича интересует
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("leads")
+}
+
 model Platform {
   id                String  @id @default(uuid())
   name              String
