@@ -86,6 +86,10 @@ export function DealForm({
   );
 
   const [quantity, setQuantity] = useState(String(deal?.quantity ?? 1));
+  // Частичная продажа: сколько штук из партии продаётся (остаток → в холд).
+  // По умолчанию следует за общим количеством, пока не тронули вручную.
+  const [sellQty, setSellQty] = useState(String(deal?.quantity ?? 1));
+  const [sellQtyTouched, setSellQtyTouched] = useState(false);
   const [buyPrice, setBuyPrice] = useState(deal ? String(deal.buyPrice) : "");
   const [buyFeePct, setBuyFeePct] = useState(String(deal?.buyFeePct ?? 0));
   const [sellPrice, setSellPrice] = useState(
@@ -111,11 +115,19 @@ export function DealForm({
     }
   }, [state.success, onDone, router]);
 
+  // Проданное кол-во по умолчанию = общему; вручную нельзя больше общего.
+  useEffect(() => {
+    if (!sellQtyTouched) setSellQty(quantity);
+    else if (num(sellQty) > num(quantity)) setSellQty(quantity);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quantity]);
+
   const status = mode === "buy" ? "holding" : "sold";
 
   const calc = useMemo(() => {
     const d = {
-      quantity: num(quantity),
+      // При продаже расчёт — по проданному кол-ву (остаток уходит в холд).
+      quantity: withSell ? num(sellQty) : num(quantity),
       buyPrice: num(buyPrice),
       buyFeePct: num(buyFeePct) || 0,
       // Курса нет → 0, и проверка ниже гасит предпросчёт: показывать суммы
@@ -131,7 +143,7 @@ export function DealForm({
       return { cost, profit: null as number | null, margin: null as number | null };
     }
     return { cost, profit: profit(d), margin: marginPct(d) };
-  }, [quantity, buyPrice, buyFeePct, buyFactor, sellPrice, sellFeePct, sellFactor, withSell]);
+  }, [quantity, sellQty, buyPrice, buyFeePct, buyFactor, sellPrice, sellFeePct, sellFactor, withSell]);
 
   const onBuyPlatformChange = (id: string) => {
     setBuyPlatformId(id);
@@ -431,6 +443,30 @@ export function DealForm({
                 ))}
               </NativeSelect>
             </div>
+            {num(quantity) > 1 && (
+              <div className="col-span-2 grid gap-1.5">
+                <Label htmlFor="sellQuantity">Продано, шт (из {num(quantity)})</Label>
+                <Input
+                  id="sellQuantity"
+                  name="sellQuantity"
+                  type="number"
+                  min={1}
+                  max={num(quantity) || 1}
+                  step={1}
+                  value={sellQty}
+                  onChange={(e) => {
+                    setSellQtyTouched(true);
+                    setSellQty(e.target.value);
+                  }}
+                />
+                {num(sellQty) > 0 && num(sellQty) < num(quantity) && (
+                  <p className="text-xs text-muted-foreground">
+                    Остаток {num(quantity) - num(sellQty)} шт. останется в холде
+                    отдельной сделкой.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="grid gap-1.5">
               <Label htmlFor="sellPrice">Цена за шт.</Label>
               <Input

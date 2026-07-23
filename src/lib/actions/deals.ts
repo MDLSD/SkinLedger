@@ -135,6 +135,14 @@ export async function saveDealAction(
       await assertPlatformVisible(parsed.data.sellPlatformId, userId);
     }
 
+    // Частичная продажа: продаём часть партии, остаток уходит в холд
+    // отдельной сделкой. Цена — за штуку, поэтому дробим количество.
+    const total = parsed.data.quantity;
+    const sq = parsed.data.sellQuantity;
+    const partial = parsed.data.status !== "holding" && sq != null && sq < total;
+    const remaining = partial ? total - (sq as number) : 0;
+    if (partial) parsed.data.quantity = sq as number;
+
     const data = dealData(userId, parsed.data);
     const resolved = await resolveItem(parsed.data);
     if (resolved) {
@@ -153,6 +161,20 @@ export async function saveDealAction(
       if (count !== 1) return { error: "Сделка не найдена" };
     } else {
       await prisma.deal.create({ data });
+    }
+
+    if (partial) {
+      const holdData = dealData(userId, {
+        ...parsed.data,
+        status: "holding",
+        quantity: remaining,
+      });
+      if (resolved) {
+        holdData.itemId = resolved.itemId;
+        holdData.itemName = resolved.itemName;
+        holdData.itemQuality = resolved.itemQuality;
+      }
+      await prisma.deal.create({ data: holdData });
     }
 
     revalidatePath("/app/deals");

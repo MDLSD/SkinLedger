@@ -87,6 +87,11 @@ export const dealSchema = z
       .int("Количество — целое число")
       .min(1, "Количество — минимум 1")
       .max(MAX_QUANTITY, "Слишком большое количество"),
+    // Частичная продажа: сколько штук продано (остаток → в холд).
+    // Пусто/отсутствует = продано всё количество.
+    sellQuantity: optionalNumber(
+      z.coerce.number().int("Продано — целое число").min(1, "Продано — минимум 1"),
+    ),
 
     buyPlatformId: z.string().min(1, "Выберите площадку покупки"),
     buyPrice: requiredPrice("Цена покупки должна быть больше 0"),
@@ -128,6 +133,8 @@ export const dealSchema = z
       ctx.addIssue({ code: "custom", path: ["sellDate"], message: `Укажите дату ${label}` });
     if (d.sellDate && d.sellDate < d.buyDate)
       ctx.addIssue({ code: "custom", path: ["sellDate"], message: "Дата продажи не может быть раньше даты покупки" });
+    if (d.sellQuantity != null && d.sellQuantity > d.quantity)
+      ctx.addIssue({ code: "custom", path: ["sellQuantity"], message: "Продано не может быть больше количества" });
   });
 
 export type DealInput = z.infer<typeof dealSchema>;
