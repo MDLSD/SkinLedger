@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { BarChart3, Boxes, Coins, FileSpreadsheet, Wallet } from "lucide-react";
+import {
+  BarChart3,
+  Boxes,
+  Coins,
+  FileSpreadsheet,
+  ListFilter,
+  Wallet,
+} from "lucide-react";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { WaitlistForm } from "@/components/waitlist-form";
@@ -30,6 +37,11 @@ const FEATURES = [
     icon: Boxes,
     title: "Каталог ~33 000 предметов",
     text: "Скины, стикеры, агенты, кейсы, капсулы, брелки, патчи, граффити — автоподсказка по названию.",
+  },
+  {
+    icon: ListFilter,
+    title: "Гибкий список сделок",
+    text: "Фильтры по периоду, статусу и площадке, поиск по названию и сортировка по любой колонке — удобно с сотнями сделок.",
   },
 ];
 
