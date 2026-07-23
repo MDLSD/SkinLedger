@@ -215,7 +215,28 @@ export function ImportDeals() {
                 <option value="mdy">Месяц/День (US, ММ/ДД)</option>
               </NativeSelect>
             </label>
+            <label className="grid gap-1 text-sm">
+              <span className="text-muted-foreground">Комиссия площадки в ценах</span>
+              <NativeSelect
+                value={options.applyPlatformFees ? "no" : "yes"}
+                onChange={(e) =>
+                  setOptions((o) => ({
+                    ...o,
+                    applyPlatformFees: e.target.value === "no",
+                  }))
+                }
+                className="w-64"
+              >
+                <option value="yes">Уже учтена (итоговые цены)</option>
+                <option value="no">Не учтена — применить комиссию</option>
+              </NativeSelect>
+            </label>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Если выбрать «Не учтена», к продажам подставится комиссия распознанной
+            площадки (Steam 13%, Market.CSGO 5% и т.д.). Своя колонка комиссии в
+            таблице всегда в приоритете.
+          </p>
 
           {/* Превью первых строк */}
           <PreviewTable rows={rows} mapping={mapping} options={options} />

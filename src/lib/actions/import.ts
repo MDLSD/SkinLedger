@@ -10,6 +10,7 @@ import { dealData } from "@/lib/deal-data";
 import { dealSchema } from "@/lib/validation";
 import { fxFactor } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
+import { canonicalPlatform, normalizePlatform } from "@/lib/platform-aliases";
 import { parseCsv } from "@/lib/deal-csv";
 import {
   detectCurrency,
@@ -204,7 +205,14 @@ export async function analyzeImportAction(
   if (dateOrder === "mdy") notes.push("Похоже, даты в формате ММ/ДД (US) — учтено.");
 
   const flagCol = detectFlagColumn(headers);
-  const options: ImportOptions = { currency, dateOrder, flagCol };
+  // По умолчанию считаем цены итоговыми (комиссия учтена) — не применяем,
+  // чтобы не задвоить. Пользователь переключит, если цены без комиссии.
+  const options: ImportOptions = {
+    currency,
+    dateOrder,
+    flagCol,
+    applyPlatformFees: false,
+  };
 
   if (sheetNames.length > 1) notes.push(`Импортируется лист «${sheet}».`);
 
@@ -263,22 +271,29 @@ export async function commitImportAction(
   const visible = await prisma.platform.findMany({
     where: { OR: [{ isCustom: false }, { userId }] },
   });
-  const platformByName = new Map<string, string>();
+  // Ключ — нормализованное имя, чтобы «market csgo» нашло «Market.CSGO (TM)».
+  type Plat = { id: string; buyFee: number; sellFee: number };
+  const platformByNorm = new Map<string, Plat>();
   let ownCount = 0;
   for (const p of visible) {
-    platformByName.set(p.name.trim().toLowerCase(), p.id);
+    platformByNorm.set(normalizePlatform(p.name), {
+      id: p.id,
+      buyFee: Number(p.defaultBuyFeePct),
+      sellFee: Number(p.defaultSellFeePct),
+    });
     if (p.userId === userId) ownCount++;
   }
 
-  type Resolved = { id: string } | { error: string };
-
-  async function resolvePlatform(rawName: string): Promise<Resolved> {
-    const parsed = platformNameSchema.safeParse(rawName.trim() || DEFAULT_PLATFORM);
+  async function resolvePlatform(rawName: string): Promise<Plat | { error: string }> {
+    // Синоним → каноничное имя площадки (иначе исходное написание).
+    const canonical =
+      canonicalPlatform(rawName) ?? (rawName.trim() || DEFAULT_PLATFORM);
+    const parsed = platformNameSchema.safeParse(canonical);
     if (!parsed.success) return { error: "Некорректное название площадки" };
     const name = parsed.data;
-    const key = name.toLowerCase();
-    const existing = platformByName.get(key);
-    if (existing) return { id: existing };
+    const key = normalizePlatform(name);
+    const existing = platformByNorm.get(key);
+    if (existing) return existing;
     if (ownCount >= MAX_PLATFORMS) {
       return { error: `Достигнут лимит площадок (${MAX_PLATFORMS})` };
     }
@@ -292,8 +307,9 @@ export async function commitImportAction(
       },
     });
     ownCount++;
-    platformByName.set(key, created.id);
-    return { id: created.id };
+    const plat: Plat = { id: created.id, buyFee: 0, sellFee: 0 };
+    platformByNorm.set(key, plat);
+    return plat;
   }
 
   let imported = 0;
@@ -301,6 +317,8 @@ export async function commitImportAction(
   const rowErrors: { row: number; message: string }[] = [];
   let datesDefaulted = 0;
   let curDefaulted = 0;
+  let feesApplied = 0;
+  const applyFees = options.applyPlatformFees === true;
 
   for (let idx = 0; idx < rows.length; idx++) {
     const fileRow = idx + 1;
@@ -348,6 +366,11 @@ export async function commitImportAction(
         continue;
       }
       parsed.data.buyPlatformId = buy.id;
+      // Комиссия площадки — только если пользователь сказал, что цены БЕЗ неё,
+      // и в таблице не было явной колонки комиссии (её значение приоритетнее).
+      if (applyFees && f.buyFeePct === "" && buy.buyFee > 0) {
+        parsed.data.buyFeePct = buy.buyFee;
+      }
       if (f.status !== "holding") {
         const sell = await resolvePlatform(f.sellPlatform);
         if ("error" in sell) {
@@ -355,6 +378,10 @@ export async function commitImportAction(
           continue;
         }
         parsed.data.sellPlatformId = sell.id;
+        if (applyFees && f.sellFeePct === "" && sell.sellFee > 0) {
+          parsed.data.sellFeePct = sell.sellFee;
+          feesApplied++;
+        }
       }
       if (f.buyDateMissing) datesDefaulted++;
       if (f.currencyDefaulted) curDefaulted++;
@@ -385,6 +412,10 @@ export async function commitImportAction(
   if (datesDefaulted > 0)
     warnings.push(
       `У ${datesDefaulted} сделок не было даты покупки — подставлена дата продажи или сегодняшняя.`,
+    );
+  if (feesApplied > 0)
+    warnings.push(
+      `Комиссия площадки применена к ${feesApplied} продажам (цены указаны без комиссии).`,
     );
 
   if (imported > 0) {

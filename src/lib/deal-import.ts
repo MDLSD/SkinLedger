@@ -511,6 +511,9 @@ export type ImportOptions = {
   currency: string; // валюта по умолчанию (когда нет символа и столбца валюты)
   dateOrder: DateOrder;
   flagCol?: number | null; // столбец StatTrak/Souvenir
+  // Цены БЕЗ комиссии площадки → подставить комиссию распознанной площадки.
+  // false = цены уже итоговые (комиссия учтена), ничего не применяем.
+  applyPlatformFees?: boolean;
 };
 
 export type RowFields = {
