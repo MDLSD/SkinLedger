@@ -3,11 +3,14 @@
 // потери на выводе — отдельно, заморожено в холде — снимок (без периода).
 import {
   buyCostBase,
+  holdingDays,
   marginPct,
   profit,
   roundMoney,
   sellRevenueBase,
 } from "@/lib/deal-math";
+
+const TRADE_LOCK_DAYS = 7;
 
 export type DashDeal = {
   id: string;
@@ -39,8 +42,14 @@ export type DashboardData = {
     netProfit: number;
     turnover: number;
     roiPct: number | null;
+    avgMargin: number | null;
+    winRate: number | null;
+    avgHoldDays: number | null;
+    feesPaid: number;
     closedCount: number;
     frozenInHolding: number;
+    holdingCount: number;
+    tradableCount: number;
   };
   monthly: { key: string; label: string; profit: number }[];
   cumulative: { label: string; value: number }[];
@@ -95,6 +104,40 @@ export function computeDashboard(
   const roiPct = totalCost > 0 ? (netProfit / totalCost) * 100 : null;
   const frozenInHolding = roundMoney(holding.reduce((s, d) => s + cost(d), 0));
 
+  // Средняя маржа по сделке (среднее из маржей, а не портфельный ROI).
+  const margins = sold
+    .map((d) => marginPct({ quantity: d.quantity, buyPrice: d.buyPrice, buyFeePct: d.buyFeePct, buyFxRate: d.buyFxRate, sellPrice: d.sellPrice, sellFeePct: d.sellFeePct, sellFxRate: d.sellFxRate }))
+    .filter((m): m is number => m != null);
+  const avgMargin = margins.length ? margins.reduce((s, m) => s + m, 0) / margins.length : null;
+
+  // Винрейт — доля закрытых сделок в плюс.
+  const winRate = sold.length
+    ? (sold.filter((d) => dealProfit(d) > 0).length / sold.length) * 100
+    : null;
+
+  // Средний срок сделки в днях (от покупки до продажи).
+  const avgHoldDays = sold.length
+    ? Math.round(sold.reduce((s, d) => s + holdingDays(d.buyDate, d.sellDate), 0) / sold.length)
+    : null;
+
+  // Всего уплачено комиссий (покупка + продажа) в базовой валюте.
+  const feesPaid = roundMoney(
+    sold.reduce((s, d) => {
+      const buyFee = d.buyPrice * d.quantity * (d.buyFeePct / 100) * d.buyFxRate;
+      const sellFee =
+        d.sellPrice != null
+          ? d.sellPrice * d.quantity * ((d.sellFeePct ?? 0) / 100) * (d.sellFxRate ?? 1)
+          : 0;
+      return s + buyFee + sellFee;
+    }, 0),
+  );
+
+  // Холд: сколько позиций и сколько уже вышли из трейд-бана (7 дней).
+  const now = Date.now();
+  const tradableCount = holding.filter(
+    (d) => (now - d.buyDate.getTime()) / 86_400_000 >= TRADE_LOCK_DAYS,
+  ).length;
+
   // Помесячная торговая прибыль (по дате продажи) + кумулятивная.
   const byMonth = new Map<string, number>();
   for (const d of sold) {
@@ -147,7 +190,19 @@ export function computeDashboard(
     .sort((a, b) => b.profit - a.profit);
 
   return {
-    cards: { netProfit, turnover, roiPct, closedCount: sold.length, frozenInHolding },
+    cards: {
+      netProfit,
+      turnover,
+      roiPct,
+      avgMargin,
+      winRate,
+      avgHoldDays,
+      feesPaid,
+      closedCount: sold.length,
+      frozenInHolding,
+      holdingCount: holding.length,
+      tradableCount,
+    },
     monthly,
     cumulative,
     topProfit,

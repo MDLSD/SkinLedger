@@ -124,8 +124,12 @@ export default async function DashboardPage({
         <Stat label="Чистая прибыль" value={formatMoney(c.netProfit, cur, true)} tone={c.netProfit >= 0 ? "pos" : "neg"} />
         <Stat label="Оборот (продажи)" value={formatMoney(c.turnover, cur)} />
         <Stat label="Рентабельность вложений" value={c.roiPct == null ? "—" : formatPct(c.roiPct)} tone={c.roiPct == null ? undefined : c.roiPct >= 0 ? "pos" : "neg"} />
-        <Stat label="Закрыто сделок" value={String(c.closedCount)} />
+        <Stat label="Средняя маржа" value={c.avgMargin == null ? "—" : formatPct(c.avgMargin)} tone={c.avgMargin == null ? undefined : c.avgMargin >= 0 ? "pos" : "neg"} />
+        <Stat label="Винрейт" value={c.winRate == null ? "—" : formatPct(c.winRate)} sub={c.closedCount ? `${c.closedCount} закрытых` : undefined} />
+        <Stat label="Средний срок сделки" value={c.avgHoldDays == null ? "—" : `${c.avgHoldDays} дн.`} />
+        <Stat label="Уплачено комиссий" value={formatMoney(c.feesPaid, cur)} />
         <Stat label="Заморожено в холде" value={formatMoney(c.frozenInHolding, cur)} />
+        <Stat label="Позиций в холде" value={String(c.holdingCount)} sub={c.holdingCount ? `можно продавать: ${c.tradableCount}` : undefined} />
       </div>
 
       <DashboardCharts monthly={dash.monthly} cumulative={dash.cumulative} currency={cur} />
@@ -170,16 +174,19 @@ function Stat({
   label,
   value,
   tone,
+  sub,
 }: {
   label: string;
   value: string;
   tone?: "pos" | "neg";
+  sub?: string;
 }) {
   const color = tone === "pos" ? "text-emerald-400" : tone === "neg" ? "text-red-400" : "";
   return (
     <div className="rounded-lg border bg-card p-4">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`mt-1 text-xl font-semibold ${color}`}>{value}</div>
+      {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
     </div>
   );
 }
