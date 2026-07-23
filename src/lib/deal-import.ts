@@ -574,17 +574,31 @@ export function rowToFields(
     buyCurrency,
   );
 
-  // Статус: явная колонка (текст/да-нет) либо вывод по наличию цены продажи.
+  const rawBuyDate = parseDate(get("buyDate"), opts.dateOrder) ?? "";
+  const sellDate = parseDate(get("sellDate"), opts.dateOrder) ?? "";
+
+  // Статус: явная колонка (текст/да-нет) либо вывод.
   let status = "";
   const stCol = get("status");
   if (stCol) {
     const b = isBooleanish(stCol);
     status = parseStatus(stCol) ?? (b === "true" ? "sold" : b === "false" ? "holding" : "");
   }
-  if (!status) status = normalizeNumber(sellRaw) !== "" ? "sold" : "holding";
+  if (!status) {
+    // Если в таблице есть колонка даты продажи — «продано» только когда эта
+    // дата заполнена. Цена продажи без даты — это целевая цена/листинг, а не
+    // совершённая сделка, поэтому такой предмет остаётся «в холде».
+    // Без колонки даты продажи ориентируемся на наличие цены продажи.
+    status =
+      map.sellDate != null
+        ? sellDate !== ""
+          ? "sold"
+          : "holding"
+        : normalizeNumber(sellRaw) !== ""
+          ? "sold"
+          : "holding";
+  }
 
-  const rawBuyDate = parseDate(get("buyDate"), opts.dateOrder) ?? "";
-  const sellDate = parseDate(get("sellDate"), opts.dateOrder) ?? "";
   // Нет даты покупки, но есть дата продажи → берём её (покупка не может быть
   // позже продажи). Иначе импорт подставит сегодня.
   const buyDate =
