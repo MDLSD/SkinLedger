@@ -15,11 +15,12 @@ import {
 } from "recharts";
 import { formatMoney } from "@/lib/deal-math";
 
-const POS = "#059669";
-const NEG = "#dc2626";
-const LINE = "#2563eb";
-const GRID = "#e5e7eb";
-const AXIS = "#6b7280";
+// Цвета под тёмную тему.
+const POS = "#34d399"; // emerald-400
+const NEG = "#f87171"; // red-400
+const LINE = "#22d3ee"; // cyan-400
+const GRID = "rgba(255,255,255,0.08)";
+const AXIS = "#94a3b8"; // slate-400
 
 function compact(v: number): string {
   const a = Math.abs(v);
@@ -61,7 +62,7 @@ export function DashboardCharts({ monthly, cumulative, currency }: Props) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-3 text-sm font-medium">Прибыль по месяцам</h3>
         {empty ? (
           <Placeholder />
@@ -84,7 +85,7 @@ export function DashboardCharts({ monthly, cumulative, currency }: Props) {
               />
               <ReferenceLine y={0} stroke={AXIS} />
               <Tooltip
-                cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                cursor={{ fill: "rgba(255,255,255,0.06)" }}
                 content={renderTip(currency)}
               />
               <Bar dataKey="profit" radius={[4, 4, 0, 0]}>
@@ -97,7 +98,7 @@ export function DashboardCharts({ monthly, cumulative, currency }: Props) {
         )}
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-3 text-sm font-medium">Кумулятивная прибыль</h3>
         {empty ? (
           <Placeholder />

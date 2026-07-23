@@ -50,7 +50,7 @@ export default async function SettingsPage() {
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold">Настройки</h1>
 
-      <section className="rounded-lg border p-4">
+      <section className="rounded-lg border bg-card p-4">
         <h2 className="text-sm font-medium">Валюта</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
           Все суммы (цены, прибыль, дашборд) пересчитываются в основную валюту по
@@ -59,7 +59,7 @@ export default async function SettingsPage() {
         <CurrencySettings current={base} />
       </section>
 
-      <section className="rounded-lg border p-4">
+      <section className="rounded-lg border bg-card p-4">
         <h2 className="text-sm font-medium">Пароль</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
           После смены пароля все входы на всех устройствах перестают
@@ -68,7 +68,7 @@ export default async function SettingsPage() {
         <PasswordSettings />
       </section>
 
-      <section className="rounded-lg border p-4">
+      <section className="rounded-lg border bg-card p-4">
         <h2 className="text-sm font-medium">Свои площадки и комиссии</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
           Добавьте площадки, которых нет в списке, и задайте их комиссии — они
@@ -77,7 +77,7 @@ export default async function SettingsPage() {
         <PlatformSettings custom={customPlatforms} seeded={seededPlatforms} />
       </section>
 
-      <section className="rounded-lg border p-4">
+      <section className="rounded-lg border bg-card p-4">
         <h2 className="mb-1 text-sm font-medium">
           Курсы к {base} {CURRENCY_SYMBOL[base] ?? ""}
         </h2>

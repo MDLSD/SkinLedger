@@ -135,7 +135,7 @@ export default async function DashboardPage({
         <TopList title="Топ-5 убыточных" deals={dash.topLoss} currency={cur} tone="neg" />
       </div>
 
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-3 text-sm font-medium">Прибыль по площадкам продажи</h3>
         {dash.platforms.length === 0 ? (
           <p className="text-sm text-muted-foreground">Нет закрытых сделок за период.</p>
@@ -153,7 +153,7 @@ export default async function DashboardPage({
                 <tr key={p.name} className="border-t">
                   <td className="py-1.5">{p.name}</td>
                   <td className="py-1.5 text-right">{p.count}</td>
-                  <td className={`py-1.5 text-right ${p.profit >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  <td className={`py-1.5 text-right ${p.profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {formatMoney(p.profit, cur, true)}
                   </td>
                 </tr>
@@ -175,9 +175,9 @@ function Stat({
   value: string;
   tone?: "pos" | "neg";
 }) {
-  const color = tone === "pos" ? "text-emerald-600" : tone === "neg" ? "text-red-600" : "";
+  const color = tone === "pos" ? "text-emerald-400" : tone === "neg" ? "text-red-400" : "";
   return (
-    <div className="rounded-lg border p-4">
+    <div className="rounded-lg border bg-card p-4">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`mt-1 text-xl font-semibold ${color}`}>{value}</div>
     </div>
@@ -195,9 +195,9 @@ function TopList({
   currency: string;
   tone: "pos" | "neg";
 }) {
-  const color = tone === "pos" ? "text-emerald-600" : "text-red-600";
+  const color = tone === "pos" ? "text-emerald-400" : "text-red-400";
   return (
-    <div className="rounded-lg border p-4">
+    <div className="rounded-lg border bg-card p-4">
       <h3 className="mb-3 text-sm font-medium">{title}</h3>
       {deals.length === 0 ? (
         <p className="text-sm text-muted-foreground">Нет данных за период.</p>

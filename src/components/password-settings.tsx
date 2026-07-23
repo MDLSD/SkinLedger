@@ -36,7 +36,7 @@ export function PasswordSettings() {
         <Button type="submit" disabled={pending}>
           {pending ? "Сохранение…" : "Сменить пароль"}
         </Button>
-        {state.error && <span className="text-sm text-red-600">{state.error}</span>}
+        {state.error && <span className="text-sm text-red-400">{state.error}</span>}
       </div>
     </form>
   );

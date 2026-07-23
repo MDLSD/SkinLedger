@@ -519,7 +519,7 @@ export function DealForm({
         ) : (
           <span
             className={
-              calc.profit >= 0 ? "text-emerald-600" : "text-red-600"
+              calc.profit >= 0 ? "text-emerald-400" : "text-red-400"
             }
           >
             Прибыль: <b>{formatMoney(calc.profit, baseCurrency, true)}</b>
@@ -529,7 +529,7 @@ export function DealForm({
       </div>
 
       {state.error && (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm text-red-400" role="alert">
           {state.error}
         </p>
       )}

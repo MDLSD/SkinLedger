@@ -139,7 +139,7 @@ function PlatformRow({ platform }: { platform: PlatformDTO }) {
       </Button>
       <DeletePlatform id={platform.id} name={platform.name} />
       {state.error && (
-        <span className="w-full text-sm text-red-600">{state.error}</span>
+        <span className="w-full text-sm text-red-400">{state.error}</span>
       )}
     </form>
   );
@@ -162,7 +162,7 @@ function AddPlatformForm() {
         {pending ? "…" : "Добавить площадку"}
       </Button>
       {state.error && (
-        <span className="w-full text-sm text-red-600">{state.error}</span>
+        <span className="w-full text-sm text-red-400">{state.error}</span>
       )}
     </form>
   );
@@ -206,7 +206,7 @@ function DeletePlatform({ id, name }: { id: string; name: string }) {
         </AlertDialogContent>
       </AlertDialog>
       {state.error && (
-        <span className="w-full text-sm text-red-600">{state.error}</span>
+        <span className="w-full text-sm text-red-400">{state.error}</span>
       )}
     </>
   );

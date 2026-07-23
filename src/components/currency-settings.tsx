@@ -32,9 +32,9 @@ export function CurrencySettings({ current }: { current: string }) {
         {pending ? "Сохранение…" : "Сохранить"}
       </Button>
       {state.success && (
-        <span className="text-sm text-emerald-600">Сохранено</span>
+        <span className="text-sm text-emerald-400">Сохранено</span>
       )}
-      {state.error && <span className="text-sm text-red-600">{state.error}</span>}
+      {state.error && <span className="text-sm text-red-400">{state.error}</span>}
     </form>
   );
 }

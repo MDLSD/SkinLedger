@@ -21,17 +21,17 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b">
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/app" className="font-semibold">
-            SkinLedger
+          <Link href="/app" className="text-lg font-semibold">
+            Skin<span className="text-primary">Ledger</span>
           </Link>
           <nav className="flex gap-4 text-sm text-muted-foreground">
             {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="hover:text-foreground"
+                className="transition-colors hover:text-foreground"
               >
                 {item.label}
               </Link>

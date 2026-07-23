@@ -46,7 +46,7 @@ export function DeleteAccount() {
               autoComplete="current-password"
               aria-invalid={state.error ? true : undefined}
             />
-            {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+            {state.error && <p className="text-sm text-red-400">{state.error}</p>}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel type="button">Отмена</AlertDialogCancel>

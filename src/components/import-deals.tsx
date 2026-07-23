@@ -79,16 +79,16 @@ export function ImportDeals() {
           <div className="space-y-2 rounded-lg border p-3 text-sm">
             <p>
               Импортировано:{" "}
-              <span className="font-medium text-emerald-600">{commit.imported}</span>
+              <span className="font-medium text-emerald-400">{commit.imported}</span>
               {commit.skipped ? (
                 <>
                   {" · "}Пропущено:{" "}
-                  <span className="font-medium text-amber-600">{commit.skipped}</span>
+                  <span className="font-medium text-amber-400">{commit.skipped}</span>
                 </>
               ) : null}
             </p>
             {commit.warnings?.map((w, i) => (
-              <p key={i} className="text-amber-600">
+              <p key={i} className="text-amber-400">
                 ⚠ {w}
               </p>
             ))}
@@ -175,7 +175,7 @@ export function ImportDeals() {
         <Button type="submit" disabled={analyzing}>
           {analyzing ? "Анализ…" : analyze.ok ? "Проанализировать заново" : "Проанализировать"}
         </Button>
-        {analyze.error && <p className="text-sm text-red-600">{analyze.error}</p>}
+        {analyze.error && <p className="text-sm text-red-400">{analyze.error}</p>}
       </form>
 
       {/* ---------- Шаг 2: превью ---------- */}
@@ -241,7 +241,7 @@ export function ImportDeals() {
           {/* Превью первых строк */}
           <PreviewTable rows={rows} mapping={mapping} options={options} />
 
-          {commit.error && <p className="text-sm text-red-600">{commit.error}</p>}
+          {commit.error && <p className="text-sm text-red-400">{commit.error}</p>}
 
           <form action={commitAction}>
             <input type="hidden" name="payload" value={payload} />
