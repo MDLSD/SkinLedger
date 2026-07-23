@@ -487,7 +487,13 @@ export function DealForm({
                 id="sellDate"
                 name="sellDate"
                 type="date"
-                defaultValue={deal?.sellDate ?? today()}
+                // Ещё не проданные (и новые) → сегодня; уже проданные при
+                // редактировании сохраняют свою дату продажи.
+                defaultValue={
+                  deal && deal.status !== "holding"
+                    ? (deal.sellDate ?? today())
+                    : today()
+                }
                 required={withSell}
               />
             </div>
