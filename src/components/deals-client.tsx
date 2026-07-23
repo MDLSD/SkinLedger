@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronsUpDown, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +69,41 @@ function unitPrice(price: number | null, currency: string, quantity: number) {
 function StatusBadge({ status }: { status: string }) {
   if (status === "sold") return <Badge>Продано</Badge>;
   return <Badge variant="secondary">В холде</Badge>;
+}
+
+const TRADE_LOCK_DAYS = 7;
+
+function plurDays(n: number) {
+  const a = n % 10;
+  const b = n % 100;
+  if (a === 1 && b !== 11) return "день";
+  if (a >= 2 && a <= 4 && (b < 10 || b >= 20)) return "дня";
+  return "дней";
+}
+
+// Маркер трейд-бана Steam (7 дней после покупки/обмена на площадке): показывает,
+// сколько ждать до продажи, или что предмет уже можно продавать.
+function TradeLock({ buyDate }: { buyDate: string }) {
+  const bought = new Date(`${buyDate}T00:00:00`).getTime();
+  const elapsed = Math.floor((Date.now() - bought) / 86_400_000);
+  const left = TRADE_LOCK_DAYS - elapsed;
+  if (left > 0) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-xs text-amber-400"
+        title={`Трейд-бан ещё ${left} ${plurDays(left)}`}
+      >
+        <Lock className="size-3" />
+        {left} {plurDays(left)}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-emerald-400" title="Трейд-бан снят">
+      <Check className="size-3" />
+      можно продавать
+    </span>
+  );
 }
 
 // Заголовок-сортировщик: клик по своей колонке инвертирует направление,
@@ -223,7 +258,10 @@ function DealCard({
             <div className="text-xs text-muted-foreground">{deal.itemQuality}</div>
           )}
         </div>
-        <StatusBadge status={deal.status} />
+        <div className="flex flex-col items-end gap-1">
+          <StatusBadge status={deal.status} />
+          {deal.status === "holding" && <TradeLock buyDate={deal.buyDate} />}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -456,7 +494,12 @@ export function DealsClient({
                       {holdingDays(deal.buyDate, deal.sellDate)}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={deal.status} />
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusBadge status={deal.status} />
+                        {deal.status === "holding" && (
+                          <TradeLock buyDate={deal.buyDate} />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
                       {deal.status === "holding" && (
