@@ -7,6 +7,7 @@ import { CURRENCY_SYMBOL, fxFactor } from "@/lib/currency";
 import { CurrencySettings } from "@/components/currency-settings";
 import { PasswordSettings } from "@/components/password-settings";
 import { PlatformSettings } from "@/components/platform-settings";
+import { DeleteAccount } from "@/components/delete-account";
 import { CURRENCIES } from "@/lib/validation";
 
 export const metadata: Metadata = { title: "Настройки — SkinLedger" };
@@ -105,6 +106,15 @@ export default async function SettingsPage() {
               ))}
           </tbody>
         </table>
+      </section>
+
+      <section className="rounded-lg border border-destructive/30 p-4">
+        <h2 className="text-sm font-medium text-destructive">Удаление аккаунта</h2>
+        <p className="mt-1 mb-3 text-sm text-muted-foreground">
+          Удалит аккаунт и все данные (сделки, свои площадки) без возможности
+          восстановления.
+        </p>
+        <DeleteAccount />
       </section>
     </div>
   );

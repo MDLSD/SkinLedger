@@ -119,6 +119,51 @@ export async function logoutAction() {
   await signOut({ redirectTo: "/login" });
 }
 
+// Лимит на подбор пароля при удалении аккаунта (действие необратимое).
+const DELETE_LIMIT = 10;
+const DELETE_WINDOW_MS = 15 * 60_000;
+
+export async function deleteAccountAction(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Не авторизован" };
+  const userId = session.user.id;
+
+  const password = formData.get("password")?.toString() ?? "";
+  if (!password) return { error: "Введите пароль для подтверждения" };
+
+  const key = `delacct:user:${userId}`;
+  if (checkLimit(key, DELETE_LIMIT).limited) {
+    return { error: "Слишком много попыток. Повторите позже." };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+  if (!user) return { error: "Не авторизован" };
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    recordFailure(key, DELETE_WINDOW_MS);
+    return { error: "Пароль неверен" };
+  }
+
+  // Удаляем все данные пользователя явной транзакцией: сделки → свои
+  // площадки → аккаунт (порядок исключает конфликт FK сделка→площадка).
+  await prisma.$transaction([
+    prisma.deal.deleteMany({ where: { userId } }),
+    prisma.platform.deleteMany({ where: { userId, isCustom: true } }),
+    prisma.user.delete({ where: { id: userId } }),
+  ]);
+
+  // Пробрасывает redirect — очищает cookie и уводит на лендинг.
+  await signOut({ redirectTo: "/?deleted=1" });
+  return {};
+}
+
 // Лимит на подбор ТЕКУЩЕГО пароля через форму смены: сессия у атакующего
 // уже есть, но пароль мог бы утечь для переиспользования на других сайтах.
 const CHANGE_PW_LIMIT = 10;
