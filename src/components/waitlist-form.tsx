@@ -1,10 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { joinWaitlistAction, type WaitlistState } from "@/lib/actions/waitlist";
 
+// Стилизована под тёмный лендинг (не использует тему приложения).
 export function WaitlistForm({ feature }: { feature?: string }) {
   const [state, action, pending] = useActionState<WaitlistState, FormData>(
     joinWaitlistAction,
@@ -13,7 +12,7 @@ export function WaitlistForm({ feature }: { feature?: string }) {
 
   if (state.success) {
     return (
-      <p className="text-sm text-emerald-600">
+      <p className="text-sm text-emerald-400">
         Спасибо! Напишем, как только это появится.
       </p>
     );
@@ -22,19 +21,22 @@ export function WaitlistForm({ feature }: { feature?: string }) {
   return (
     <form action={action} className="flex flex-col gap-2 sm:flex-row">
       {feature && <input type="hidden" name="feature" value={feature} />}
-      <Input
+      <input
         type="email"
         name="email"
         required
         placeholder="ваш@email"
-        className="sm:max-w-xs"
-        aria-invalid={state.error ? true : undefined}
+        className="h-11 rounded-xl border border-white/15 bg-white/5 px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400/60 focus:bg-white/10 sm:max-w-xs"
       />
-      <Button type="submit" disabled={pending}>
+      <button
+        type="submit"
+        disabled={pending}
+        className="h-11 rounded-xl bg-cyan-400 px-5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-50"
+      >
         {pending ? "Отправка…" : "Сообщить о запуске"}
-      </Button>
+      </button>
       {state.error && (
-        <span className="self-center text-sm text-red-600">{state.error}</span>
+        <span className="self-center text-sm text-red-400">{state.error}</span>
       )}
     </form>
   );

@@ -9,14 +9,13 @@ import {
   Wallet,
 } from "lucide-react";
 import { auth } from "@/auth";
-import { Button } from "@/components/ui/button";
 import { WaitlistForm } from "@/components/waitlist-form";
 
 const FEATURES = [
   {
     icon: Wallet,
     title: "Настоящая прибыль",
-    text: "Учёт покупок и продаж с комиссиями площадок, курсами валют и выводными скинами — видишь чистую прибыль, а не «на глаз».",
+    text: "Учёт покупок и продаж с комиссиями площадок, курсами валют — видишь чистую прибыль, а не «на глаз».",
   },
   {
     icon: BarChart3,
@@ -26,7 +25,7 @@ const FEATURES = [
   {
     icon: FileSpreadsheet,
     title: "Импорт за минуты",
-    text: "Загрузи свою таблицу Excel/CSV или вставь текст из заметок — колонки, валюты и даты распознаются автоматически.",
+    text: "Загрузи Excel/CSV или вставь текст из заметок — колонки, валюты и даты распознаются автоматически.",
   },
   {
     icon: Coins,
@@ -41,9 +40,14 @@ const FEATURES = [
   {
     icon: ListFilter,
     title: "Гибкий список сделок",
-    text: "Фильтры по периоду, статусу и площадке, поиск по названию и сортировка по любой колонке — удобно с сотнями сделок.",
+    text: "Фильтры по периоду, статусу и площадке, поиск по названию и сортировка по любой колонке.",
   },
 ];
+
+const CTA_PRIMARY =
+  "inline-flex h-11 items-center justify-center rounded-xl bg-cyan-400 px-6 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300";
+const CTA_GHOST =
+  "inline-flex h-11 items-center justify-center rounded-xl border border-white/15 px-6 text-sm font-medium text-white transition hover:bg-white/10";
 
 export default async function LandingPage() {
   // CSP с nonce требует динамического рендера: nonce проставляется при SSR
@@ -53,128 +57,175 @@ export default async function LandingPage() {
   const loggedIn = !!session?.user;
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-20 px-4 py-16 sm:py-24">
-      {/* Hero */}
-      <section className="flex flex-col items-center gap-6 text-center">
-        <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
-          Учёт арбитража скинов CS2
+    <main className="relative min-h-screen w-full overflow-hidden bg-[#080b12] text-slate-200">
+      {/* Фоновые свечения */}
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute left-1/2 top-[-14rem] size-[44rem] -translate-x-1/2 rounded-full bg-cyan-500/20 blur-[130px]" />
+        <div className="absolute right-[8%] top-[6rem] size-[26rem] rounded-full bg-violet-500/15 blur-[130px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:26px_26px] [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" />
+      </div>
+
+      {/* Навбар */}
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
+        <span className="text-lg font-semibold text-white">
+          Skin<span className="text-cyan-400">Ledger</span>
         </span>
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
-          Узнай, сколько ты реально зарабатываешь на арбитраже скинов
-        </h1>
-        <p className="max-w-xl text-lg text-muted-foreground">
-          SkinLedger заменяет эксель-таблицу: заноси сделки, а сервис сам
-          посчитает прибыль с учётом комиссий, курсов и выводных скинов.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          {loggedIn ? (
-            <Button size="lg" nativeButton={false} render={<Link href="/app" />}>
-              Открыть приложение
-            </Button>
-          ) : (
-            <>
-              <Button size="lg" nativeButton={false} render={<Link href="/register" />}>
-                Начать бесплатно
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                nativeButton={false}
-                render={<Link href="/login" />}
-              >
-                Войти
-              </Button>
-            </>
-          )}
-        </div>
-      </section>
+        {loggedIn ? (
+          <Link href="/app" className={CTA_GHOST + " h-9 px-4"}>
+            Открыть приложение
+          </Link>
+        ) : (
+          <Link href="/login" className="text-sm text-slate-300 hover:text-white">
+            Войти
+          </Link>
+        )}
+      </header>
 
-      {/* Превью интерфейса */}
-      <section aria-hidden className="rounded-2xl border bg-muted/30 p-4 sm:p-6">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <PreviewStat label="Чистая прибыль" value="+18 420 ₽" tone="pos" />
-          <PreviewStat label="Оборот" value="212 300 ₽" />
-          <PreviewStat label="Средняя маржа" value="14,2 %" tone="pos" />
-        </div>
-        <div className="mt-3 overflow-hidden rounded-lg border bg-background">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="text-muted-foreground">
-              <tr className="border-b">
-                <th className="p-2 font-normal">Скин</th>
-                <th className="p-2 font-normal">Покупка</th>
-                <th className="p-2 font-normal">Продажа</th>
-                <th className="p-2 text-right font-normal">Прибыль</th>
-              </tr>
-            </thead>
-            <tbody>
-              <PreviewRow
-                name="AK-47 | Redline (FT)"
-                buy="1 500 ₽"
-                sell="2 100 ₽"
-                profit="+490 ₽"
-                tone="pos"
-              />
-              <PreviewRow
-                name="AWP | Asiimov (WW)"
-                buy="4 050 ₽"
-                sell="3 700 ₽"
-                profit="−560 ₽"
-                tone="neg"
-              />
-              <PreviewRow
-                name="★ Karambit | Doppler (FN)"
-                buy="52 000 ₽"
-                sell="—"
-                profit="в холде"
-              />
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <div className="mx-auto flex max-w-5xl flex-col gap-24 px-4 pb-24 pt-10 sm:pt-16">
+        {/* Hero */}
+        <section className="flex flex-col items-center gap-6 text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-300">
+            <span className="size-1.5 rounded-full bg-cyan-400" />
+            Учёт арбитража скинов CS2
+          </span>
+          <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white sm:text-6xl">
+            Узнай, сколько ты{" "}
+            <span className="bg-gradient-to-r from-cyan-300 to-teal-200 bg-clip-text text-transparent">
+              реально зарабатываешь
+            </span>{" "}
+            на скинах
+          </h1>
+          <p className="max-w-xl text-lg text-slate-400">
+            SkinLedger заменяет эксель-таблицу: заноси сделки, а сервис сам
+            считает прибыль с учётом комиссий и курсов валют.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {loggedIn ? (
+              <Link href="/app" className={CTA_PRIMARY}>
+                Открыть приложение
+              </Link>
+            ) : (
+              <>
+                <Link href="/register" className={CTA_PRIMARY}>
+                  Начать бесплатно
+                </Link>
+                <Link href="/login" className={CTA_GHOST}>
+                  Войти
+                </Link>
+              </>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500">
+            <span>33 000+ предметов в каталоге</span>
+            <span className="hidden sm:inline">·</span>
+            <span>4 валюты с авто-курсом</span>
+            <span className="hidden sm:inline">·</span>
+            <span>импорт из Excel</span>
+          </div>
+        </section>
 
-      {/* Возможности */}
-      <section className="flex flex-col gap-8">
-        <h2 className="text-center text-2xl font-semibold">Что внутри</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-xl border p-5">
-              <f.icon className="size-6 text-primary" />
-              <h3 className="mt-3 font-medium">{f.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{f.text}</p>
+        {/* Превью интерфейса */}
+        <section aria-hidden className="relative">
+          <div className="absolute -inset-x-8 -top-8 bottom-0 -z-10 rounded-[2rem] bg-gradient-to-b from-cyan-500/10 to-transparent blur-2xl" />
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 shadow-2xl shadow-black/40 backdrop-blur-sm sm:p-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <PreviewStat label="Чистая прибыль" value="+18 420 ₽" tone="pos" />
+              <PreviewStat label="Оборот" value="212 300 ₽" />
+              <PreviewStat label="Рентабельность" value="14,2 %" tone="pos" />
+              <PreviewStat label="В холде" value="52 000 ₽" />
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* Планируется */}
-      <section className="rounded-2xl border bg-muted/30 p-6 sm:p-8">
-        <h2 className="text-2xl font-semibold">Планируется</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Оставь email — напишем, когда появится. Так мы поймём, что делать
-          дальше.
-        </p>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border bg-background p-4">
-            <h3 className="font-medium">Автоимпорт из Steam и площадок</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Подтягивать сделки автоматически, без выгрузки таблиц вручную.
+            {/* Мини-график */}
+            <div className="mt-3 flex h-24 items-end gap-1.5 rounded-xl border border-white/10 bg-black/20 p-3">
+              {[38, 52, 44, 63, 71, 58, 80, 68, 90, 76, 96, 84].map((h, i) => (
+                <div
+                  key={i}
+                  style={{ height: `${h}%` }}
+                  className="flex-1 rounded-t bg-gradient-to-t from-cyan-500/40 to-cyan-400"
+                />
+              ))}
+            </div>
+
+            {/* Мини-таблица сделок */}
+            <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead className="text-slate-500">
+                  <tr className="border-b border-white/10">
+                    <th className="p-2.5 font-normal">Скин</th>
+                    <th className="p-2.5 font-normal">Покупка</th>
+                    <th className="p-2.5 font-normal">Продажа</th>
+                    <th className="p-2.5 text-right font-normal">Прибыль</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-300">
+                  <PreviewRow name="AK-47 | Redline (FT)" buy="1 500 ₽" sell="2 100 ₽" profit="+490 ₽" tone="pos" />
+                  <PreviewRow name="AWP | Asiimov (WW)" buy="4 050 ₽" sell="3 700 ₽" profit="−560 ₽" tone="neg" />
+                  <PreviewRow name="★ Karambit | Doppler (FN)" buy="52 000 ₽" sell="—" profit="в холде" />
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* Возможности */}
+        <section className="flex flex-col gap-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-semibold text-white">Что внутри</h2>
+            <p className="mt-2 text-slate-400">
+              Всё, чтобы вести сделки и видеть реальную картину
             </p>
           </div>
-          <div className="rounded-xl border bg-background p-4">
-            <h3 className="font-medium">Алерты по ценам</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Уведомления, когда цена интересующего предмета доходит до нужной.
-            </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f) => (
+              <div
+                key={f.title}
+                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-cyan-400/40 hover:bg-white/[0.05]"
+              >
+                <div className="flex size-11 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300 transition group-hover:bg-cyan-400/20">
+                  <f.icon className="size-5" />
+                </div>
+                <h3 className="mt-4 font-semibold text-white">{f.title}</h3>
+                <p className="mt-1.5 text-sm text-slate-400">{f.text}</p>
+              </div>
+            ))}
           </div>
-        </div>
-        <div className="mt-5">
-          <WaitlistForm feature="planned" />
-        </div>
-      </section>
+        </section>
 
-      <footer className="border-t pt-6 text-center text-sm text-muted-foreground">
-        SkinLedger — учёт арбитража скинов. Интерфейс на русском.
-      </footer>
+        {/* Планируется */}
+        <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-transparent p-6 sm:p-8">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-violet-400/30 bg-violet-400/10 px-2.5 py-0.5 text-xs font-medium text-violet-300">
+              скоро
+            </span>
+            <h2 className="text-2xl font-semibold text-white">Планируется</h2>
+          </div>
+          <p className="mt-2 text-sm text-slate-400">
+            Оставь email — напишем, когда появится. Так мы поймём, что делать
+            дальше.
+          </p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <h3 className="font-medium text-white">Автоимпорт из Steam и площадок</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Подтягивать сделки автоматически, без выгрузки таблиц вручную.
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <h3 className="font-medium text-white">Алерты по ценам</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Уведомления, когда цена интересующего предмета доходит до нужной.
+              </p>
+            </div>
+          </div>
+          <div className="mt-5">
+            <WaitlistForm feature="planned" />
+          </div>
+        </section>
+
+        <footer className="border-t border-white/10 pt-6 text-center text-sm text-slate-500">
+          SkinLedger — учёт арбитража скинов. Интерфейс на русском.
+        </footer>
+      </div>
     </main>
   );
 }
@@ -189,10 +240,10 @@ function PreviewStat({
   tone?: "pos" | "neg";
 }) {
   const color =
-    tone === "pos" ? "text-emerald-600" : tone === "neg" ? "text-red-600" : "";
+    tone === "pos" ? "text-emerald-400" : tone === "neg" ? "text-red-400" : "text-white";
   return (
-    <div className="rounded-lg border bg-background p-3">
-      <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+      <div className="text-xs text-slate-500">{label}</div>
       <div className={`mt-1 text-lg font-semibold ${color}`}>{value}</div>
     </div>
   );
@@ -212,13 +263,13 @@ function PreviewRow({
   tone?: "pos" | "neg";
 }) {
   const color =
-    tone === "pos" ? "text-emerald-600" : tone === "neg" ? "text-red-600" : "text-muted-foreground";
+    tone === "pos" ? "text-emerald-400" : tone === "neg" ? "text-red-400" : "text-slate-500";
   return (
-    <tr className="border-b last:border-0">
-      <td className="p-2">{name}</td>
-      <td className="p-2">{buy}</td>
-      <td className="p-2">{sell}</td>
-      <td className={`p-2 text-right font-medium ${color}`}>{profit}</td>
+    <tr className="border-b border-white/5 last:border-0">
+      <td className="p-2.5 text-slate-200">{name}</td>
+      <td className="p-2.5">{buy}</td>
+      <td className="p-2.5">{sell}</td>
+      <td className={`p-2.5 text-right font-medium ${color}`}>{profit}</td>
     </tr>
   );
 }
