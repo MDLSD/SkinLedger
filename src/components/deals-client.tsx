@@ -228,7 +228,7 @@ function DealCard({
 
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <div className="text-xs text-muted-foreground">Затраты</div>
+          <div className="text-xs text-muted-foreground">Покупка</div>
           <div>{formatMoney(buyCostBase(deal), baseCurrency)}</div>
           <div className="text-xs text-muted-foreground">
             {unitPrice(deal.buyPrice, deal.buyCurrency, deal.quantity)}
@@ -236,7 +236,7 @@ function DealCard({
           </div>
         </div>
         <div>
-          <div className="text-xs text-muted-foreground">Выручка</div>
+          <div className="text-xs text-muted-foreground">Продажа</div>
           {sellRevenue == null ? (
             <span className="text-muted-foreground">—</span>
           ) : (
@@ -368,10 +368,10 @@ export function DealsClient({
                   <SortHeader col="item" label="Скин" filters={filters} />
                 </TableHead>
                 <TableHead>
-                  <SortHeader col="buyPrice" label="Затраты" filters={filters} />
+                  <SortHeader col="buyPrice" label="Покупка" filters={filters} />
                 </TableHead>
                 <TableHead>
-                  <SortHeader col="sellPrice" label="Выручка" filters={filters} />
+                  <SortHeader col="sellPrice" label="Продажа" filters={filters} />
                 </TableHead>
                 <TableHead className="text-right">
                   <SortHeader col="profit" label="Прибыль" filters={filters} align="right" />
