@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -25,16 +26,19 @@ export default function AppError({
   }, [error]);
 
   return (
-    <div className="mx-auto max-w-md space-y-4 py-16 text-center">
-      <h1 className="text-xl font-semibold">Что-то пошло не так</h1>
-      <p className="text-sm text-muted-foreground">
-        Не удалось загрузить страницу. Попробуйте повторить — если ошибка
-        повторяется, сообщите нам код ниже.
-      </p>
-      {error.digest && (
-        <p className="font-mono text-xs text-muted-foreground">
-          Код: {error.digest}
+    <div className="mx-auto flex max-w-md flex-col items-center gap-5 py-16 text-center">
+      <div className="flex size-14 items-center justify-center rounded-2xl border border-primary/25 bg-primary/10 text-primary">
+        <TriangleAlert className="size-7" />
+      </div>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold">Что-то пошло не так</h1>
+        <p className="text-muted-foreground">
+          Не удалось загрузить страницу. Попробуйте повторить — если ошибка
+          повторяется, сообщите нам код ниже.
         </p>
+      </div>
+      {error.digest && (
+        <p className="font-mono text-xs text-muted-foreground">Код: {error.digest}</p>
       )}
       <Button onClick={reset}>Повторить</Button>
     </div>
