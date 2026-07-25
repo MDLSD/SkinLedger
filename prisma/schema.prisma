@@ -145,3 +145,60 @@ model MarketItem {
   @@index([familyId, finish]) // резолв стикера
   @@map("market_items")
 }
+
+// ── Модуль сравнения цен (этап 2) ──────────────────────────────────────────
+// Ценовые данные живут отдельно от Platform (та — комиссии для ручного ввода
+// сделок). Источник — внешний агрегатор (Pricempire), качается кроном в БД.
+// Цены хранятся нормализованными в USD; в валюту пользователя — на отображении.
+
+// Площадка-источник цен + наши комиссии (агрегатор их не отдаёт, заполняем сами).
+model MarketSource {
+  slug           String  @id // ключ провайдера: steam, buff163, market_csgo …
+  title          String
+  currency       String  @default("USD") // родная валюта площадки (справочно)
+  buyFeePct      Decimal @default(0) @map("buy_fee_pct")
+  sellFeePct     Decimal @default(0) @map("sell_fee_pct")
+  withdrawFeePct Decimal @default(0) @map("withdraw_fee_pct")
+  isActive       Boolean @default(true) @map("is_active")
+
+  quotes  PriceQuote[]
+  history PriceHistory[]
+
+  @@map("market_sources")
+}
+
+// Последний срез цены: ровно одна строка на пару (предмет, площадка).
+// Перезаписывается на каждом тике крона. market_hash_name — мягкая ссылка на
+// каталог MarketItem (без FK: цены могут прийти для предмета вне каталога).
+model PriceQuote {
+  marketHashName String   @map("market_hash_name")
+  sourceSlug     String   @map("source_slug")
+  priceMin       Decimal? @map("price_min") // минимальный листинг, USD
+  priceOrder     Decimal? @map("price_order") // ордер покупки (авто-бай), USD
+  priceAvg30     Decimal? @map("price_avg_30")
+  priceMedian30  Decimal? @map("price_median_30")
+  offersCount    Int?     @map("offers_count")
+  sales30d       Int?     @map("sales_30d")
+  fetchedAt      DateTime @map("fetched_at")
+
+  source MarketSource @relation(fields: [sourceSlug], references: [slug], onDelete: Cascade)
+
+  @@id([marketHashName, sourceSlug])
+  @@index([sourceSlug])
+  @@index([marketHashName])
+  @@map("price_quotes")
+}
+
+// История цен для графика. Растёт быстро — чистить/агрегировать по времени.
+model PriceHistory {
+  id             String   @id @default(uuid())
+  marketHashName String   @map("market_hash_name")
+  sourceSlug     String   @map("source_slug")
+  price          Decimal // нормализовано в USD
+  ts             DateTime
+
+  source MarketSource @relation(fields: [sourceSlug], references: [slug], onDelete: Cascade)
+
+  @@index([marketHashName, sourceSlug, ts])
+  @@map("price_history")
+}
