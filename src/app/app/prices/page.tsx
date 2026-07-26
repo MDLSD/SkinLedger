@@ -65,14 +65,17 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+    // Страница во всю ширину экрана: панель настроек прижата к левому краю,
+    // таблице достаётся всё остальное. calc(50% − 50vw) «отменяет» центровку
+    // контейнера приложения (mx-auto max-w-[1600px] + паддинги).
+    <div className="flex flex-col gap-4 lg:mx-[calc(50%-50vw)] lg:flex-row lg:items-start lg:gap-6">
       {/* В клиент отдаём только простые поля: Decimal-комиссии не сериализуются. */}
       <PricesSidebar
         filters={filters}
         sources={sources.map(({ slug, title }) => ({ slug, title }))}
       />
 
-      <div className="min-w-0 flex-1 space-y-4">
+      <div className="min-w-0 flex-1 space-y-4 lg:pr-8">
         <div>
           <h1 className="text-xl font-semibold">Таблица</h1>
           <p className="text-sm text-muted-foreground">

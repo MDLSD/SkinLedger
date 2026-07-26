@@ -47,8 +47,8 @@ export async function loadComparison(
   }
   const feesA = toFees(buySrc);
   const feesB = toFees(sellSrc);
-  const buyField = PRICE_FIELD[f.buyType];
-  const sellField = PRICE_FIELD[f.sellType];
+  const buyField = PRICE_FIELD[f.buyType] ?? "priceMin";
+  const sellField = PRICE_FIELD[f.sellType] ?? "priceMin";
 
   // Тянем котировки обеих площадок (все поля цен + ликвидность); нужное поле
   // выбираем в JS. Джойним в памяти по market_hash_name. На фейке ~2500 строк
@@ -56,13 +56,20 @@ export async function loadComparison(
   const [buyQuotes, sellQuotes] = await Promise.all([
     prisma.priceQuote.findMany({
       where: { sourceSlug: f.buy },
-      select: { marketHashName: true, priceMin: true, priceAvg30: true, priceMedian30: true },
+      select: {
+        marketHashName: true,
+        priceMin: true,
+        priceOrder: true,
+        priceAvg30: true,
+        priceMedian30: true,
+      },
     }),
     prisma.priceQuote.findMany({
       where: { sourceSlug: f.sell },
       select: {
         marketHashName: true,
         priceMin: true,
+        priceOrder: true,
         priceAvg30: true,
         priceMedian30: true,
         sales30d: true,
@@ -72,7 +79,7 @@ export async function loadComparison(
 
   const sellMap = new Map(sellQuotes.map((q) => [q.marketHashName, q]));
   const priceOf = (
-    q: { priceMin: unknown; priceAvg30: unknown; priceMedian30: unknown },
+    q: { priceMin: unknown; priceOrder: unknown; priceAvg30: unknown; priceMedian30: unknown },
     field: typeof buyField,
   ): number | null => {
     const v = q[field];

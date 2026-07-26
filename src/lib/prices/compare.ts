@@ -4,18 +4,30 @@
 
 export const PAGE_SIZE = 50;
 
-// Какое поле котировки сравнивать на обеих площадках.
+// Какое поле котировки сравнивать на обеих площадках. field: null — тип цены
+// есть в интерфейсе, но данных под него источник пока не отдаёт (в списке такой
+// пункт неактивен с пометкой «Недоступно»).
 export const PRICE_TYPES = [
-  { value: "min", label: "Минимальная", field: "priceMin" },
-  { value: "avg30", label: "Средняя (30д)", field: "priceAvg30" },
-  { value: "median30", label: "Медиана (30д)", field: "priceMedian30" },
+  { value: "min", label: "Мин. цена", field: "priceMin" },
+  { value: "minHold", label: "Мин. цена (холд)", field: null },
+  { value: "minNoHold", label: "Мин. цена (без холда)", field: null },
+  { value: "avg30", label: "Средняя цена за 30 дней", field: "priceAvg30" },
+  { value: "median30", label: "Медианная цена за 30 дней", field: "priceMedian30" },
+  { value: "corridor50_7", label: "Коридор цены 50% за 7 дней", field: null },
+  { value: "corridor70_30", label: "Коридор цены 70% за 30 дней", field: null },
+  { value: "order", label: "Ордер покупки (авто-бай)", field: "priceOrder" },
 ] as const;
 export type PriceType = (typeof PRICE_TYPES)[number]["value"];
-export type PriceField = "priceMin" | "priceAvg30" | "priceMedian30";
-export const PRICE_FIELD: Record<PriceType, PriceField> = {
+export type PriceField = "priceMin" | "priceOrder" | "priceAvg30" | "priceMedian30";
+export const PRICE_FIELD: Record<PriceType, PriceField | null> = {
   min: "priceMin",
+  minHold: null,
+  minNoHold: null,
   avg30: "priceAvg30",
   median30: "priceMedian30",
+  corridor50_7: null,
+  corridor70_30: null,
+  order: "priceOrder",
 };
 
 export const SORT_COLUMNS = [
@@ -50,8 +62,11 @@ const str = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 export const DEFAULT_BUY = "buff163";
 export const DEFAULT_SELL = "steam";
 
-const parseType = (v: string): PriceType =>
-  (PRICE_TYPES.find((t) => t.value === v)?.value ?? "min") as PriceType;
+// Тип без данных выбрать нельзя даже через URL — иначе таблица окажется пустой.
+const parseType = (v: string): PriceType => {
+  const t = PRICE_TYPES.find((t) => t.value === v);
+  return t && t.field ? (t.value as PriceType) : "min";
+};
 
 export function parsePriceFilters(sp: RawParams, sourceSlugs: string[]): PriceFilters {
   const pick = (v: string, fallback: string) => (sourceSlugs.includes(v) ? v : fallback);

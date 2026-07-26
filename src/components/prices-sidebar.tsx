@@ -92,10 +92,19 @@ export function PricesSidebar({ filters, sources }: Props) {
       <SelectTrigger className="h-9 w-full min-w-0">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent alignItemWithTrigger={false} className="p-1">
+      <SelectContent
+        alignItemWithTrigger={false}
+        align="end"
+        className="w-[22rem] max-w-[calc(100vw-2rem)] p-1"
+      >
         {PRICE_TYPES.map((t) => (
-          <SelectItem key={t.value} value={t.value} className="py-1.5">
+          <SelectItem key={t.value} value={t.value} disabled={!t.field} className="py-1.5">
             {t.label}
+            {!t.field && (
+              <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                Недоступно
+              </span>
+            )}
           </SelectItem>
         ))}
       </SelectContent>
@@ -105,7 +114,7 @@ export function PricesSidebar({ filters, sources }: Props) {
   if (!open) {
     return (
       <aside
-        className={`${STICKY} shrink-0 lg:-ml-8 lg:w-14 lg:border-r lg:border-border lg:bg-card`}
+        className={`${STICKY} shrink-0 lg:w-14 lg:border-r lg:border-border lg:bg-card`}
       >
         <button
           onClick={() => setOpen(true)}
@@ -120,7 +129,7 @@ export function PricesSidebar({ filters, sources }: Props) {
 
   return (
     <aside
-      className={`${STICKY} w-full shrink-0 lg:-ml-8 lg:w-96 lg:border-r lg:border-border lg:bg-card`}
+      className={`${STICKY} w-full shrink-0 lg:w-96 lg:border-r lg:border-border lg:bg-card`}
     >
       <div className="flex h-full flex-col rounded-lg border border-border bg-card lg:rounded-none lg:border-0">
         <div className="flex items-center gap-2 border-b border-border px-4 py-3 lg:pl-8">

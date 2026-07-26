@@ -21,7 +21,10 @@ export default async function AppLayout({
   if (!session?.user) redirect("/login");
 
   return (
-    <div className="flex min-h-screen flex-col">
+    // overflow-x-clip нужен страницам во всю ширину (см. /app/prices): срезает
+    // выход за край на ширину скроллбара. Клип-контейнер не является
+    // скролл-контейнером, поэтому position: sticky внутри продолжает работать.
+    <div className="flex min-h-screen flex-col overflow-x-clip">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/app" className="text-lg font-semibold">
