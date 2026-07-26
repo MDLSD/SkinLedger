@@ -11,6 +11,7 @@
     "db:seed": "prisma db seed",
     "import:catalog": "tsx scripts/import-catalog.ts",
     "prices:ingest": "tsx scripts/prices-ingest.ts",
+    "prices:history": "tsx scripts/prices-history-backfill.ts",
     "backfill:item-slugs": "tsx scripts/backfill-item-slugs.ts"
   },
   "dependencies": {

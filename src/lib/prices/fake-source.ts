@@ -4,7 +4,12 @@
 // каждый тик (двигает историю). Реальный Pricempire подключается заменой этого
 // файла на адаптер с тем же интерфейсом PriceSource.
 import { prisma } from "@/lib/prisma";
-import type { PriceSource, SourceItemPrices, SourcePrice } from "./source";
+import type {
+  PriceSource,
+  SourceItemHistory,
+  SourceItemPrices,
+  SourcePrice,
+} from "./source";
 
 // Сколько предметов каталога озвучивать ценами (для демо; настраивается).
 const SAMPLE = Number(process.env.PRICES_SAMPLE ?? 2500);
@@ -39,6 +44,36 @@ function basePrice(mhn: string): number {
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
+// Детерминированный ГПСЧ: одна и та же пара (предмет, площадка) всегда даёт
+// одну и ту же кривую — повторный бэкфилл не меняет уже показанную историю.
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Сетка времени для истории: чем дальше в прошлое, тем реже точки — иначе на
+ * полгода по 2500 предметов и 8 площадок получаются миллионы строк без пользы
+ * для глаза. Последние 30 дней — по точке в день, дальше — по точке в неделю.
+ */
+export function historyGrid(days: number, now = new Date()): Date[] {
+  // Точки ставим на начало суток: сегодняшний день пишет крон, бэкфилл — только
+  // прошлое, поэтому граница — вчера.
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  const out: Date[] = [];
+  for (let d = days; d >= 1; d--) {
+    if (d > 30 && d % 7 !== 0) continue;
+    out.push(new Date(midnight.getTime() - d * 86400_000));
+  }
+  return out;
+}
+
 export function fakeSource(): PriceSource {
   return {
     async fetchPrices(slugs: string[]): Promise<SourceItemPrices[]> {
@@ -70,6 +105,40 @@ export function fakeSource(): PriceSource {
           };
         });
         out.push({ marketHashName: it.marketHashName, prices });
+      }
+      return out;
+    },
+
+    // Историю рисуем обратным случайным блужданием от текущей цены: последняя
+    // точка стыкуется с тем, что сейчас в котировках, дальше в прошлое цена
+    // расходится. Волатильность и дрейф зависят от предмета — кривые разные.
+    async fetchHistory(
+      marketHashNames: string[],
+      slugs: string[],
+      days: number,
+    ): Promise<SourceItemHistory[]> {
+      const grid = historyGrid(days);
+      const out: SourceItemHistory[] = [];
+
+      for (const mhn of marketHashNames) {
+        const base = basePrice(mhn);
+        if (base < MIN_USD) continue;
+
+        for (const slug of slugs) {
+          const rnd = mulberry32(hashStr(`${mhn}|${slug}|history`));
+          const vol = 0.01 + rnd() * 0.04; // 1–5% шага
+          const drift = (rnd() - 0.5) * 0.004; // лёгкий тренд в обе стороны
+          let price = base * (MULT[slug] ?? 1);
+
+          const points = new Array(grid.length);
+          for (let i = grid.length - 1; i >= 0; i--) {
+            points[i] = { ts: grid[i], price: r2(price) };
+            // Шаг назад: снимаем дрейф и добавляем шум.
+            const shock = (rnd() - 0.5) * 2 * vol;
+            price = Math.max(MIN_USD, price / (1 + drift + shock));
+          }
+          out.push({ marketHashName: mhn, sourceSlug: slug, points });
+        }
       }
       return out;
     },
