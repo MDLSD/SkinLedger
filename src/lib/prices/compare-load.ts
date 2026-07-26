@@ -11,6 +11,20 @@ import {
   type PriceFilters,
 } from "./compare";
 
+// Верхняя строка названия у не-скинов: вид предмета вместо оружия.
+const KIND_LABEL: Record<string, string> = {
+  sticker: "Стикер",
+  agent: "Агент",
+  case: "Кейс",
+  capsule: "Капсула",
+  container: "Контейнер",
+  keychain: "Брелок",
+  patch: "Патч",
+  graffiti: "Граффити",
+  music_kit: "Музыкальный набор",
+  collectible: "Коллекционный предмет",
+};
+
 const numOrNull = (s: string): number | null => {
   if (!s.trim()) return null;
   const n = Number(s.replace(",", "."));
@@ -39,11 +53,12 @@ export async function loadComparison(
   f: PriceFilters,
   sources: SourceRow[],
 ): Promise<ComparisonResult> {
+  const now = Date.now();
   const bySlug = new Map(sources.map((s) => [s.slug, s]));
   const buySrc = bySlug.get(f.buy);
   const sellSrc = bySlug.get(f.sell);
   if (!buySrc || !sellSrc) {
-    return { rows: [], total: 0, page: 1, pageCount: 1, matched: 0 };
+    return { rows: [], total: 0, page: 1, pageCount: 1, matched: 0, now };
   }
   const feesA = toFees(buySrc);
   const feesB = toFees(sellSrc);
@@ -62,6 +77,9 @@ export async function loadComparison(
         priceOrder: true,
         priceAvg30: true,
         priceMedian30: true,
+        offersCount: true,
+        sales30d: true,
+        fetchedAt: true,
       },
     }),
     prisma.priceQuote.findMany({
@@ -72,7 +90,9 @@ export async function loadComparison(
         priceOrder: true,
         priceAvg30: true,
         priceMedian30: true,
+        offersCount: true,
         sales30d: true,
+        fetchedAt: true,
       },
     }),
   ]);
@@ -115,8 +135,17 @@ export async function loadComparison(
     rows.push({
       marketHashName: bq.marketHashName,
       image: null,
+      titleTop: "",
+      titleMain: bq.marketHashName,
+      stattrak: false,
+      souvenir: false,
       buyPrice,
       sellPrice,
+      buyOffers: bq.offersCount ?? null,
+      sellOffers: sq.offersCount ?? null,
+      buyFetchedAt: bq.fetchedAt,
+      sellFetchedAt: sq.fetchedAt,
+      buySales: bq.sales30d ?? null,
       profit,
       profitPct,
       liquidity,
@@ -152,10 +181,35 @@ export async function loadComparison(
   const names = pageRows.map((r) => r.marketHashName);
   const items = await prisma.marketItem.findMany({
     where: { marketHashName: { in: names } },
-    select: { marketHashName: true, image: true },
+    select: {
+      marketHashName: true,
+      image: true,
+      kind: true,
+      weapon: true,
+      skinName: true,
+      wear: true,
+      stickerName: true,
+      stattrak: true,
+      souvenir: true,
+    },
   });
-  const imgMap = new Map(items.map((i) => [i.marketHashName, i.image]));
-  for (const r of pageRows) r.image = imgMap.get(r.marketHashName) ?? null;
+  const itemMap = new Map(items.map((i) => [i.marketHashName, i]));
+  for (const r of pageRows) {
+    const it = itemMap.get(r.marketHashName);
+    if (!it) continue;
+    r.image = it.image ?? null;
+    r.stattrak = it.stattrak;
+    r.souvenir = it.souvenir;
+    if (it.kind === "skin") {
+      r.titleTop = it.weapon || "";
+      const main = [it.skinName, it.wear && `(${it.wear})`].filter(Boolean).join(" ");
+      r.titleMain = main || r.marketHashName;
+    } else {
+      r.titleTop = KIND_LABEL[it.kind] ?? "";
+      r.titleMain =
+        it.stickerName ?? it.skinName ?? r.marketHashName.replace(/^Sticker \| /, "");
+    }
+  }
 
-  return { rows: pageRows, total, page, pageCount, matched };
+  return { rows: pageRows, total, page, pageCount, matched, now };
 }

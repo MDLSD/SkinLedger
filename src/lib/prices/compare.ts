@@ -114,8 +114,19 @@ export function buildPriceQuery(f: PriceFilters, overrides: Partial<PriceFilters
 export type ComparisonRow = {
   marketHashName: string;
   image: string | null;
+  // Две строки названия, как в референсе: «AK-47» сверху, «Elite Build
+  // (Battle-Scarred)» снизу. Для не-скинов сверху вид предмета.
+  titleTop: string;
+  titleMain: string;
+  stattrak: boolean;
+  souvenir: boolean;
   buyPrice: number;
   sellPrice: number;
+  buyOffers: number | null; // предложений на площадке покупки
+  sellOffers: number | null;
+  buyFetchedAt: Date;
+  sellFetchedAt: Date;
+  buySales: number | null; // продаж/30д на площадке покупки
   profit: number;
   profitPct: number;
   liquidity: number | null; // продаж/30д на площадке продажи
@@ -127,4 +138,5 @@ export type ComparisonResult = {
   page: number;
   pageCount: number;
   matched: number; // сколько предметов есть на обеих площадках (до фильтров)
+  now: number; // отсечка времени выборки — от неё считается «Обновлено»
 };

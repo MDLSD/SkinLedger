@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { buildPriceQuery, type PriceFilters } from "@/lib/prices/compare";
@@ -19,10 +18,8 @@ export function PricesFilterBar({ filters }: Props) {
     });
   };
 
-  const [q, setQ] = useState(filters.q);
   const [minProfit, setMinProfit] = useState(filters.minProfit);
   const [minLiq, setMinLiq] = useState(filters.minLiq);
-  useEffect(() => setQ(filters.q), [filters.q]);
   useEffect(() => setMinProfit(filters.minProfit), [filters.minProfit]);
   useEffect(() => setMinLiq(filters.minLiq), [filters.minLiq]);
 
@@ -45,22 +42,6 @@ export function PricesFilterBar({ filters }: Props) {
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <label className="grid gap-1 text-xs text-muted-foreground">
-        Поиск по названию
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="h-8 w-56 pl-8"
-            placeholder="AWP | Asiimov…"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              debounced({ q: e.target.value });
-            }}
-          />
-        </div>
-      </label>
-
       <label className="grid gap-1 text-xs text-muted-foreground">
         Маржа ≥ %
         <Input
