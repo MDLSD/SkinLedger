@@ -407,16 +407,14 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
             {naming && (
               <form action={save} className="flex items-center gap-2">
                 <input type="hidden" name="query" value={currentQuery} />
+                {/* Поле всегда пустое: «+» — это создание нового шаблона,
+                    а не переименование текущего. */}
                 <Input
-                  // Пересоздаём поле при смене активного шаблона: иначе Base UI
-                  // ругается на смену defaultValue у неуправляемого инпута.
-                  key={activeProfile?.id ?? "new"}
                   name="name"
                   autoFocus
                   maxLength={40}
-                  placeholder="Например, lis → tm"
+                  placeholder="Название шаблона"
                   className="h-10"
-                  defaultValue={activeProfile?.name ?? ""}
                 />
                 <Button type="submit" size="sm" disabled={saving} className="h-10 shrink-0">
                   Сохранить
