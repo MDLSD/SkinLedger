@@ -266,6 +266,16 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
   // Строка настроек без самой ссылки на шаблон — её и храним в шаблоне.
   const currentQuery = profileQuery(filters);
 
+  // Состояние шаблона на момент входа в него. Нужно, чтобы «сохранить как
+  // новый шаблон» не уносило с собой правки: исходный шаблон возвращается к
+  // тому, каким его выбрали, а правки достаются новому.
+  const baseline = useRef<{ id: string; query: string } | null>(null);
+  useEffect(() => {
+    if (activeProfile && baseline.current?.id !== activeProfile.id) {
+      baseline.current = { id: activeProfile.id, query: activeProfile.query };
+    }
+  }, [activeProfile]);
+
   // Пока шаблон выбран, правки фильтров дописываются в него.
   useEffect(() => {
     if (activeProfile && activeProfile.query !== currentQuery) {
@@ -280,11 +290,19 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
   useEffect(() => {
     if (savedId && switchedTo.current !== savedId && savedId !== filters.profile) {
       switchedTo.current = savedId;
+      // Создан ДРУГОЙ шаблон, а не пересохранён текущий: возвращаем исходному
+      // те настройки, с которыми в него вошли, — иначе оба шаблона окажутся
+      // одинаковыми и переключение между ними ничего не меняет.
+      const prev = baseline.current;
+      if (prev && prev.id !== savedId && prev.query !== currentQuery) {
+        void updatePriceProfileQuery(prev.id, prev.query);
+      }
+      baseline.current = { id: savedId, query: currentQuery };
       router.replace(pathname + buildPriceQuery(filters, { profile: savedId }), {
         scroll: false,
       });
     }
-  }, [savedId, filters, pathname, router]);
+  }, [savedId, filters, currentQuery, pathname, router]);
 
   // Форма имени закрывается после успешного сохранения — правим состояние
   // в рендере, а не эффектом.
@@ -406,6 +424,11 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
               </form>
             )}
             {saveState.error && <p className="text-xs text-destructive">{saveState.error}</p>}
+            <p className="text-[11px] text-muted-foreground">
+              {activeProfile
+                ? "Изменения фильтров сохраняются в этот шаблон. «+» создаст новый и вернёт этому прежние настройки."
+                : "Настройте фильтры и нажмите «+», чтобы сохранить их шаблоном."}
+            </p>
           </section>
 
           <SideSection
