@@ -66,7 +66,11 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <PricesSidebar filters={filters} sources={sources} />
+      {/* В клиент отдаём только простые поля: Decimal-комиссии не сериализуются. */}
+      <PricesSidebar
+        filters={filters}
+        sources={sources.map(({ slug, title }) => ({ slug, title }))}
+      />
 
       <div className="min-w-0 flex-1 space-y-4">
         <div>

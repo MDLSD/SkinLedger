@@ -14,6 +14,13 @@ npm run start -- -p 3789           # run in background; wait until curl / return
 
 Dev server alternative: `npm run dev -- -p 3789` (slower first paint, no rebuild needed).
 
+**Логин работает только на dev-сервере.** В прод-сборке `useSecureCookies` включён
+(`src/auth.ts`), по http://localhost cookie сессии не сохраняется → форма отвечает
+«Неверный email или пароль». Всё, что требует входа, гоняй через `npm run dev -- -p 3789`.
+Пользователя `test@example.com` в БД может не быть — создать: upsert `user` с
+`passwordHash = await bcrypt.hash("password123", 10)` (скрипт класть в корень проекта,
+`tsx -e` не умеет top-level await).
+
 DB: SQLite at `prisma/dev.db` (env `DATABASE_URL="file:./prisma/dev.db"`, resolved from repo root).
 Migrate: `npx prisma migrate dev`; seed platforms: `npx prisma db seed`.
 Test user: `test@example.com` / `password123`.
