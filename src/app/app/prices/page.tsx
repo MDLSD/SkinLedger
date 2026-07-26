@@ -108,7 +108,10 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
             </p>
 
             <div className="overflow-x-auto rounded-lg border border-border">
-            <Table>
+            {/* Крупная сетка: строка 96px вместо 48, картинка 64px вместо 32,
+                текст 24px вместо 14. Увеличена только таблица сравнения —
+                общий компонент ui/table и остальные страницы не трогаем. */}
+            <Table className="text-2xl [&_td]:p-4 [&_th]:h-16 [&_th]:px-4 [&_th]:text-lg">
               <TableHeader>
                 <TableRow>
                   {SORT_COLUMNS.map((col) => {
@@ -128,9 +131,9 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
                           {col.label}
                           {active &&
                             (filters.dir === "desc" ? (
-                              <ArrowDown className="size-3.5" />
+                              <ArrowDown className="size-4" />
                             ) : (
-                              <ArrowUp className="size-3.5" />
+                              <ArrowUp className="size-4" />
                             ))}
                         </Link>
                       </TableHead>
@@ -144,19 +147,19 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
                   return (
                     <TableRow key={r.marketHashName}>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           {r.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={r.image}
                               alt=""
-                              className="h-8 w-8 shrink-0 rounded bg-muted/40 object-contain"
+                              className="h-16 w-16 shrink-0 rounded bg-muted/40 object-contain"
                               loading="lazy"
                             />
                           ) : (
-                            <div className="h-8 w-8 shrink-0 rounded bg-muted/40" />
+                            <div className="h-16 w-16 shrink-0 rounded bg-muted/40" />
                           )}
-                          <span className="text-sm">{r.marketHashName}</span>
+                          <span>{r.marketHashName}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
