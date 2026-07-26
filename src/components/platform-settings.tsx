@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/number-input";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
@@ -94,25 +95,15 @@ function Fields({
       </div>
       <div className="grid w-24 gap-1.5">
         <Label className="text-xs text-muted-foreground">Покупка, %</Label>
-        <Input
+        <NumberInput
           name="buyFeePct"
-          type="number"
-          min={0}
-          max={100}
-          step="any"
-          inputMode="decimal"
           defaultValue={buyFee ?? 0}
         />
       </div>
       <div className="grid w-24 gap-1.5">
         <Label className="text-xs text-muted-foreground">Продажа, %</Label>
-        <Input
+        <NumberInput
           name="sellFeePct"
-          type="number"
-          min={0}
-          max={100}
-          step="any"
-          inputMode="decimal"
           defaultValue={sellFee ?? 0}
         />
       </div>

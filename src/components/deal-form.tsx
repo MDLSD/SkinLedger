@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/number-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/native-select";
@@ -328,12 +329,10 @@ export function DealForm({
         ) : null}
         <div className="grid gap-1.5">
           <Label htmlFor="quantity">Кол-во</Label>
-          <Input
+          <NumberInput
             id="quantity"
             name="quantity"
-            type="number"
-            min={1}
-            step={1}
+            decimal={false}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             required
@@ -363,13 +362,9 @@ export function DealForm({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="buyPrice">Цена за шт.</Label>
-            <Input
+            <NumberInput
               id="buyPrice"
               name="buyPrice"
-              type="number"
-              min={0}
-              step="any"
-              inputMode="decimal"
               value={buyPrice}
               onChange={(e) => setBuyPrice(e.target.value)}
               required
@@ -391,14 +386,9 @@ export function DealForm({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="buyFeePct">Комиссия, %</Label>
-            <Input
+            <NumberInput
               id="buyFeePct"
               name="buyFeePct"
-              type="number"
-              min={0}
-              max={100}
-              step="any"
-              inputMode="decimal"
               value={buyFeePct}
               onChange={(e) => setBuyFeePct(e.target.value)}
             />
@@ -446,13 +436,10 @@ export function DealForm({
             {num(quantity) > 1 && (
               <div className="col-span-2 grid gap-1.5">
                 <Label htmlFor="sellQuantity">Продано, шт (из {num(quantity)})</Label>
-                <Input
+                <NumberInput
                   id="sellQuantity"
                   name="sellQuantity"
-                  type="number"
-                  min={1}
-                  max={num(quantity) || 1}
-                  step={1}
+                  decimal={false}
                   value={sellQty}
                   onChange={(e) => {
                     setSellQtyTouched(true);
@@ -469,13 +456,9 @@ export function DealForm({
             )}
             <div className="grid gap-1.5">
               <Label htmlFor="sellPrice">Цена за шт.</Label>
-              <Input
+              <NumberInput
                 id="sellPrice"
                 name="sellPrice"
-                type="number"
-                min={0}
-                step="any"
-                inputMode="decimal"
                 value={sellPrice}
                 onChange={(e) => setSellPrice(e.target.value)}
                 required={withSell}
@@ -497,14 +480,9 @@ export function DealForm({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="sellFeePct">Комиссия, %</Label>
-              <Input
+              <NumberInput
                 id="sellFeePct"
                 name="sellFeePct"
-                type="number"
-                min={0}
-                max={100}
-                step="any"
-                inputMode="decimal"
                 value={sellFeePct}
                 onChange={(e) => setSellFeePct(e.target.value)}
               />

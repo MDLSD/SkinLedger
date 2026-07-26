@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/number-input";
 import { Button } from "@/components/ui/button";
 import { SourceIcon } from "@/components/source-icon";
 import {
@@ -133,12 +134,15 @@ function RangeField({
   value,
   placeholder,
   unit,
+  decimal = true,
   onCommit,
 }: {
   label: string;
   value: string;
   placeholder: string;
   unit?: string;
+  /** Количество — целое; цена — с копейками. */
+  decimal?: boolean;
   onCommit: (v: string) => void;
 }) {
   const [v, setV] = useState(value);
@@ -151,9 +155,9 @@ function RangeField({
     <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
       {label}
       <span className="relative">
-        <Input
+        <NumberInput
           className={`h-10 ${unit ? "pr-9" : ""}`}
-          inputMode="decimal"
+          decimal={decimal}
           placeholder={placeholder}
           value={v}
           onChange={(e) => setV(e.target.value)}
@@ -233,6 +237,7 @@ function SideSection({
           value={buy ? filters.buyMinQty : filters.sellMinQty}
           placeholder="0"
           unit="шт"
+          decimal={false}
           onCommit={(v) => go(buy ? { buyMinQty: v } : { sellMinQty: v })}
         />
         <RangeField
@@ -240,6 +245,7 @@ function SideSection({
           value={buy ? filters.buyMaxQty : filters.sellMaxQty}
           placeholder="∞"
           unit="шт"
+          decimal={false}
           onCommit={(v) => go(buy ? { buyMaxQty: v } : { sellMaxQty: v })}
         />
       </div>

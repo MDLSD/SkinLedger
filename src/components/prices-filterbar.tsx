@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/number-input";
 import { buildPriceQuery, type PriceFilters } from "@/lib/prices/compare";
 
 type Props = { filters: PriceFilters };
@@ -38,9 +38,8 @@ export function PricesFilterBar({ filters }: Props) {
     <div className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1 text-xs text-muted-foreground">
         Маржа ≥ %
-        <Input
+        <NumberInput
           className="h-8 w-24"
-          inputMode="decimal"
           placeholder="0"
           value={minProfit}
           onChange={(e) => {
@@ -52,9 +51,9 @@ export function PricesFilterBar({ filters }: Props) {
 
       <label className="grid gap-1 text-xs text-muted-foreground">
         Продаж/30д ≥
-        <Input
+        <NumberInput
           className="h-8 w-24"
-          inputMode="numeric"
+          decimal={false}
           placeholder="0"
           value={minLiq}
           onChange={(e) => {

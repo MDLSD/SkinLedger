@@ -3,7 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/number-input";
 import { setMonthlyGoalAction, type SettingsState } from "@/lib/actions/settings";
 
 export function GoalSettings({
@@ -28,12 +28,8 @@ export function GoalSettings({
         <span className="text-muted-foreground">
           Цель чистой прибыли в месяц ({currency})
         </span>
-        <Input
+        <NumberInput
           name="monthlyGoal"
-          type="number"
-          min={0}
-          step="any"
-          inputMode="decimal"
           defaultValue={current ?? ""}
           placeholder="напр. 30000"
           className="w-48"
