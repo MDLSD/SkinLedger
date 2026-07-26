@@ -158,7 +158,9 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
         sources={sources.map(({ slug, title }) => ({ slug, title }))}
       />
 
-      <div className="min-w-0 flex-1 space-y-4 lg:pr-8">
+      {/* Колонка во всю высоту экрана: шапка страницы, фильтры и заголовок
+          таблицы стоят на месте, прокручивается только тело таблицы. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-4 lg:-my-6 lg:h-[calc(100dvh-var(--app-header-h))] lg:py-6 lg:pr-8">
         <div>
           <h1 className="text-xl font-semibold">Таблица</h1>
           <p className="text-sm text-muted-foreground">
@@ -190,17 +192,23 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
                 ` из ${result.matched.toLocaleString("ru-RU")} общих`}
             </p>
 
-            <div className="overflow-x-auto rounded-lg border border-border bg-card">
+            {/* Скроллится сам контейнер таблицы (её первый div), иначе липкая
+                строка заголовков цепляется не к тому предку и уезжает. */}
+            <div className="min-h-0 flex-1 rounded-lg border border-border bg-card [&>div]:h-full [&>div]:overflow-auto">
             {/* Раскладка строк — по референсу csmarketcap/Pulse: предмет двумя
                 строками, цена в USD над ценой в валюте пользователя, справа от
                 неё число предложений, прибыль % над абсолютной, свежесть
                 котировки и продажи за 30 дней по обеим площадкам. */}
-            <Table className="[&_td]:px-4 [&_td]:py-3 [&_th]:h-12 [&_th]:px-4 [&_th]:text-xs [&_th]:font-normal [&_th]:text-muted-foreground">
+            <Table className="[&_td]:px-4 [&_td]:py-3 [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:h-12 [&_th]:border-b [&_th]:border-border [&_th]:bg-card [&_th]:px-4 [&_th]:text-xs [&_th]:font-normal [&_th]:text-muted-foreground">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="flex h-12 items-center gap-3">
-                    <PricesSearch filters={filters} />
-                    <SortLink k="name" label="Название" filters={filters} />
+                  {/* display:flex на самой th выключил бы её из табличной
+                      раскладки — вместе с липкостью. Флекс во вложенном span. */}
+                  <TableHead>
+                    <span className="flex items-center gap-3">
+                      <PricesSearch filters={filters} />
+                      <SortLink k="name" label="Название" filters={filters} />
+                    </span>
                   </TableHead>
                   <TableHead>
                     <SortLink
@@ -330,7 +338,7 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
           </div>
 
           {result.pageCount > 1 && (
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex shrink-0 items-center justify-center gap-4">
               <Button
                 variant="outline"
                 size="sm"
