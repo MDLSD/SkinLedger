@@ -5,7 +5,9 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-export type ProfileState = { error?: string };
+// profileId возвращается, чтобы клиент сразу переключился в только что
+// созданный шаблон и дальнейшие правки писались уже в него.
+export type ProfileState = { error?: string; profileId?: string };
 
 const MAX_PROFILES = 20;
 
@@ -49,22 +51,39 @@ export async function savePriceProfile(
     }
   }
 
-  await prisma.priceProfile.upsert({
+  const saved = await prisma.priceProfile.upsert({
     where: { userId_name: { userId, name } },
     create: { userId, name, query },
     update: { query },
+    select: { id: true },
   });
 
   revalidatePath("/app/prices");
-  return {};
+  return { profileId: saved.id };
+}
+
+/**
+ * Автосохранение: пока шаблон выбран, любое изменение фильтров пишется в него.
+ * Вызывается из клиента напрямую (без формы), поэтому проверяем и владельца,
+ * и формат строки параметров.
+ */
+export async function updatePriceProfileQuery(id: string, query: string): Promise<void> {
+  const userId = await requireUserId();
+  if (!userId) return;
+  const parsed = profileSchema.shape.query.safeParse(query);
+  if (!parsed.success || !id) return;
+
+  await prisma.priceProfile.updateMany({
+    where: { id, userId },
+    data: { query: parsed.data },
+  });
+  revalidatePath("/app/prices");
 }
 
 /** Удалить шаблон по id (только свой). */
-export async function deletePriceProfile(formData: FormData): Promise<void> {
+export async function deletePriceProfile(id: string): Promise<void> {
   const userId = await requireUserId();
-  if (!userId) return;
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!userId || !id) return;
 
   await prisma.priceProfile.deleteMany({ where: { id, userId } });
   revalidatePath("/app/prices");

@@ -62,6 +62,11 @@ export type PriceFilters = {
   sort: SortKey;
   dir: "asc" | "desc";
   page: number;
+  /**
+   * Активный шаблон профиля (id). Пока он выбран, правки фильтров пишутся
+   * в него; выход — переключением на «Default» или другой шаблон.
+   */
+  profile: string;
 };
 
 /** Поля-диапазоны: одинаковый набор для покупки и продажи. */
@@ -87,6 +92,11 @@ export const EMPTY_RANGES: Record<(typeof RANGE_KEYS)[number], string> = {
   sellMinQty: "",
   sellMaxQty: "",
 };
+
+/** Строка настроек без ссылки на шаблон — именно она в шаблоне и хранится. */
+export function profileQuery(f: PriceFilters): string {
+  return buildPriceQuery(f, { profile: "" });
+}
 
 /** Обмен сторонами: площадка, тип цены и все диапазоны. */
 export function swapSides(f: PriceFilters): Partial<PriceFilters> {
@@ -145,6 +155,7 @@ export function parsePriceFilters(sp: RawParams, sourceSlugs: string[]): PriceFi
     sort,
     dir,
     page,
+    profile: str(sp.profile).slice(0, 40),
   };
 }
 
@@ -162,6 +173,8 @@ export function buildPriceQuery(f: PriceFilters, overrides: Partial<PriceFilters
   if (m.sort !== "profitPct") p.set("sort", m.sort);
   if (m.dir !== "desc") p.set("dir", m.dir);
   if (m.page > 1) p.set("page", String(m.page));
+  // profile идёт последним и в сам шаблон не сохраняется (см. queryOf).
+  if (m.profile) p.set("profile", m.profile);
   const s = p.toString();
   return s ? `?${s}` : "";
 }

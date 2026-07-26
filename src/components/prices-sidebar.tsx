@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowUpDown,
@@ -21,10 +21,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { savePriceProfile, deletePriceProfile } from "@/lib/actions/price-profiles";
+import {
+  savePriceProfile,
+  deletePriceProfile,
+  updatePriceProfileQuery,
+} from "@/lib/actions/price-profiles";
 import {
   buildPriceQuery,
   PRICE_TYPES,
+  profileQuery,
   swapSides,
   type PriceFilters,
 } from "@/lib/prices/compare";
@@ -255,8 +260,47 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
     });
   };
 
-  const currentQuery = buildPriceQuery(filters);
-  const activeProfile = profiles.find((p) => p.query === currentQuery);
+  // Активный шаблон определяется параметром profile в адресе, а НЕ совпадением
+  // настроек: иначе первое же изменение фильтра выбрасывало бы из шаблона.
+  const activeProfile = profiles.find((p) => p.id === filters.profile);
+  // Строка настроек без самой ссылки на шаблон — её и храним в шаблоне.
+  const currentQuery = profileQuery(filters);
+
+  // Пока шаблон выбран, правки фильтров дописываются в него.
+  useEffect(() => {
+    if (activeProfile && activeProfile.query !== currentQuery) {
+      void updatePriceProfileQuery(activeProfile.id, currentQuery);
+    }
+  }, [activeProfile, currentQuery]);
+
+  // Только что созданный шаблон сразу становится активным — но ровно один раз:
+  // иначе переключение на «Default» тут же возвращало бы обратно в шаблон.
+  const savedId = saveState.profileId;
+  const switchedTo = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (savedId && switchedTo.current !== savedId && savedId !== filters.profile) {
+      switchedTo.current = savedId;
+      router.replace(pathname + buildPriceQuery(filters, { profile: savedId }), {
+        scroll: false,
+      });
+    }
+  }, [savedId, filters, pathname, router]);
+
+  // Форма имени закрывается после успешного сохранения — правим состояние
+  // в рендере, а не эффектом.
+  const [closedFor, setClosedFor] = useState<string | undefined>(undefined);
+  if (savedId && closedFor !== savedId) {
+    setClosedFor(savedId);
+    setNaming(false);
+  }
+
+  const pickProfile = (id: string) => {
+    const p = profiles.find((x) => x.id === id);
+    // «Default» — чистое состояние без шаблона.
+    router.replace(p ? `${pathname}${p.query}${p.query ? "&" : "?"}profile=${p.id}` : pathname, {
+      scroll: false,
+    });
+  };
 
   if (!open) {
     return (
@@ -296,30 +340,24 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
             <div className="flex items-center gap-2">
               <Select
                 value={activeProfile?.id ?? ""}
-                onValueChange={(v) => {
-                  const p = profiles.find((x) => x.id === v);
-                  if (p) router.replace(pathname + p.query, { scroll: false });
-                }}
+                onValueChange={(v) => pickProfile(v as string)}
                 items={[
-                  { label: "Не выбран", value: "" },
+                  { label: "Default", value: "" },
                   ...profiles.map((p) => ({ label: p.name, value: p.id })),
                 ]}
               >
                 <SelectTrigger className="h-10 w-full min-w-0">
-                  <SelectValue placeholder="Не выбран" />
+                  <SelectValue placeholder="Default" />
                 </SelectTrigger>
                 <SelectContent alignItemWithTrigger={false} className="max-h-72 p-1">
-                  {profiles.length === 0 ? (
-                    <SelectItem value="" disabled className="py-1.5">
-                      Пока нет сохранённых
+                  <SelectItem value="" className="py-1.5">
+                    Default
+                  </SelectItem>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id} className="py-1.5">
+                      {p.name}
                     </SelectItem>
-                  ) : (
-                    profiles.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="py-1.5">
-                        {p.name}
-                      </SelectItem>
-                    ))
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
               <button
@@ -331,16 +369,20 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
                 {naming ? <X className="size-5" /> : <Plus className="size-5" />}
               </button>
               {activeProfile && (
-                <form action={deletePriceProfile}>
-                  <input type="hidden" name="id" value={activeProfile.id} />
-                  <button
-                    type="submit"
-                    title={`Удалить шаблон «${activeProfile.name}»`}
-                    className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/60 hover:text-destructive"
-                  >
-                    <Trash2 className="size-5" />
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  title={`Удалить шаблон «${activeProfile.name}»`}
+                  onClick={async () => {
+                    await deletePriceProfile(activeProfile.id);
+                    // Убираем ссылку на удалённый шаблон из адреса.
+                    router.replace(pathname + buildPriceQuery(filters, { profile: "" }), {
+                      scroll: false,
+                    });
+                  }}
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/60 hover:text-destructive"
+                >
+                  <Trash2 className="size-5" />
+                </button>
               )}
             </div>
 
@@ -400,7 +442,12 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => router.replace(pathname, { scroll: false })}
+            onClick={() =>
+              router.replace(
+                filters.profile ? `${pathname}?profile=${filters.profile}` : pathname,
+                { scroll: false },
+              )
+            }
           >
             Сбросить все фильтры
           </Button>
