@@ -130,6 +130,16 @@ model MarketItem {
   // StatTrak™ AWP | Dragon Lore (Field-Tested) / Sticker | s1mple (Foil) | MLG Columbus 2016.
   marketHashName String @unique @map("market_hash_name")
 
+  // ЧПУ для публичной страницы предмета (ТЗ 7.2): генерируется один раз при
+  // создании записи и больше не меняется — иначе ломаются проиндексированные
+  // ссылки. Уникален; при коллизии получает числовой суффикс.
+  slug String @unique
+
+  // Для страниц-хабов и хлебных крошек (ТЗ 2.2). Заполняются из каталожного
+  // датасета; если предмета там нет — остаются null.
+  collection String? // «The Phoenix Collection»
+  rarity     String? // «Classified», «Covert» …
+
   // Картинка предмета (CDN Steam) — для превью в автокомплите.
   image String?
 

@@ -10,15 +10,25 @@
  * Русские названия скинов берём из локализации Valve, связывая EN/RU-токены
  * по ключу PaintKit_*_Tag. Идемпотентность: upsert по market_hash_name.
  *
+ * Каждый НОВЫЙ предмет сразу получает slug — ЧПУ публичной страницы (ТЗ 7.2),
+ * уникальный, с числовым суффиксом при коллизии. У существующих предметов slug
+ * не обновляется никогда: смена ломает проиндексированные ссылки. Заодно из
+ * датасета проставляются weapon/collection/rarity (ТЗ 2.2).
+ *
  * Запуск: npx tsx scripts/import-catalog.ts
- * Отладка с локальными файлами: SKINS_JSON=… STICKERS_JSON=… EN_LANG_JSON=… RU_LANG_JSON=…
+ * Отладка с локальными файлами: SKINS_JSON=… SKINS_GROUPED_JSON=… STICKERS_JSON=… EN_LANG_JSON=… RU_LANG_JSON=…
  */
 import "dotenv/config";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { slugFor, uniqueSlug } from "../src/lib/slug";
+import { buildMetaMap, type MetaSkinFamily } from "./lib/catalog-meta";
 
 const NG_URL =
   "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins_not_grouped.json";
+// Сгруппированный список скинов — единственное место, где есть коллекция.
+const SKINS_GROUPED_URL =
+  "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/skins.json";
 const STICKERS_URL =
   "https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/stickers.json";
 const AGENTS_URL =
@@ -95,6 +105,9 @@ type ItemRow = {
   image: string | null;
   ruWeapon: string | null;
   ruSkinName: string | null;
+  // Из каталожного датасета, для страниц-хабов и крошек (ТЗ 2.2).
+  collection: string | null;
+  rarity: string | null;
 };
 
 const FINISH_RE = /\s\((Holo|Foil|Gold|Glitter|Lenticular|Embroidered)\)/;
@@ -154,6 +167,8 @@ function skinRow(s: NgSkin, patternRu: Map<string, string>): ItemRow {
     image: s.image ?? null,
     ruWeapon: null,
     ruSkinName: skinName ? (patternRu.get(skinName.toLowerCase()) ?? null) : null,
+    collection: null,
+    rarity: null,
   };
 }
 
@@ -186,6 +201,8 @@ function stickerRow(s: Sticker): ItemRow | null {
     image: s.image ?? null,
     ruWeapon: null,
     ruSkinName: null, // имена игроков/команд не локализуются
+    collection: null,
+    rarity: null,
   };
 }
 
@@ -211,6 +228,8 @@ function agentRow(a: Agent): ItemRow | null {
     image: a.image ?? null,
     ruWeapon: null,
     ruSkinName: null,
+    collection: null,
+    rarity: null,
   };
 }
 
@@ -236,6 +255,8 @@ function simpleRow(kind: string, it: SimpleItem): ItemRow | null {
     image: it.image ?? null,
     ruWeapon: null,
     ruSkinName: null,
+    collection: null,
+    rarity: null,
   };
 }
 
@@ -253,6 +274,7 @@ async function main() {
   console.log("Загрузка данных…");
   const [
     skins,
+    skinFamilies,
     stickers,
     agents,
     crates,
@@ -265,6 +287,7 @@ async function main() {
     ruLang,
   ] = await Promise.all([
     loadJson<NgSkin[]>(NG_URL, "SKINS_JSON"),
+    loadJson<MetaSkinFamily[]>(SKINS_GROUPED_URL, "SKINS_GROUPED_JSON"),
     loadJson<Sticker[]>(STICKERS_URL, "STICKERS_JSON"),
     loadJson<Agent[]>(AGENTS_URL, "AGENTS_JSON"),
     loadJson<SimpleItem[]>(CRATES_URL, "CRATES_JSON"),
@@ -285,6 +308,19 @@ async function main() {
   const patternRu = buildPatternRuMap(enLang.lang.Tokens, ruLang.lang.Tokens);
   console.log(`  русских названий скинов: ${patternRu.size}`);
 
+  // weapon/collection/rarity по market_hash_name (ТЗ 2.2).
+  const meta = buildMetaMap(skins, skinFamilies, [
+    stickers,
+    agents,
+    crates,
+    keychains,
+    patches,
+    graffiti,
+    musicKits,
+    collectibles,
+  ]);
+  console.log(`  предметов с метаданными: ${meta.size}`);
+
   // Собираем все строки, дедуплицируем по market_hash_name.
   const rows: ItemRow[] = [];
   const seen = new Set<string>();
@@ -300,6 +336,12 @@ async function main() {
       return;
     }
     seen.add(r.marketHashName);
+    const m = meta.get(r.marketHashName);
+    if (m) {
+      r.collection = m.collection;
+      r.rarity = m.rarity;
+      if (!r.weapon && m.weapon) r.weapon = m.weapon;
+    }
     rows.push(r);
   };
   for (const s of skins) push(skinRow(s, patternRu));
@@ -312,11 +354,13 @@ async function main() {
   for (const mk of musicKits) push(simpleRow("music_kit", mk));
   for (const cl of collectibles) push(simpleRow("collectible", cl));
 
-  const existing = new Set(
-    (await prisma.marketItem.findMany({ select: { marketHashName: true } })).map(
-      (m) => m.marketHashName,
-    ),
-  );
+  // Существующие предметы и занятые slug: новый предмет получает ЧПУ сразу при
+  // создании (ТЗ 7.2), у существующих slug не трогаем — он не должен меняться.
+  const known = await prisma.marketItem.findMany({
+    select: { marketHashName: true, slug: true },
+  });
+  const slugByMhn = new Map(known.map((m) => [m.marketHashName, m.slug]));
+  const takenSlugs = new Set(known.map((m) => m.slug));
   let created = 0;
   let updated = 0;
 
@@ -325,12 +369,16 @@ async function main() {
     const chunk = rows.slice(i, i + CHUNK);
     await prisma.$transaction(
       chunk.map((data) => {
-        if (existing.has(data.marketHashName)) updated++;
+        const known = slugByMhn.get(data.marketHashName);
+        if (known) updated++;
         else created++;
+        // Для существующего предмета create не выполнится — подставляем его же
+        // slug, чтобы не занимать лишнее имя в takenSlugs.
+        const slug = known ?? uniqueSlug(slugFor(data.marketHashName), takenSlugs);
         return prisma.marketItem.upsert({
           where: { marketHashName: data.marketHashName },
-          create: data,
-          update: data,
+          create: { ...data, slug },
+          update: data, // slug сознательно не в update
         });
       }),
     );

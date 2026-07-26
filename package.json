@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "db:seed": "prisma db seed",
     "import:catalog": "tsx scripts/import-catalog.ts",
-    "prices:ingest": "tsx scripts/prices-ingest.ts"
+    "prices:ingest": "tsx scripts/prices-ingest.ts",
+    "backfill:item-slugs": "tsx scripts/backfill-item-slugs.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
