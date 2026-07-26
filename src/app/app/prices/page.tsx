@@ -1,29 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  ArrowDown,
-  ArrowLeftRight,
-  ArrowUp,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { PricesSidebar } from "@/components/prices-sidebar";
 import { PricesFilterBar } from "@/components/prices-filterbar";
 import { SourceIcon } from "@/components/source-icon";
 import { PricesSearch } from "@/components/prices-search";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { PriceRow } from "@/components/prices-row";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { formatMoney, formatPct } from "@/lib/deal-math";
 import { CURRENCY_SYMBOL, fxFactor } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
 import {
@@ -71,49 +58,6 @@ function SortLink({
         ))}
     </Link>
   );
-}
-
-// Цена как в референсе: сверху мелко USD, снизу крупно в валюте пользователя,
-// справа — число предложений на площадке. Базовая валюта USD — одна строка.
-function PriceCell({
-  usd,
-  cur,
-  factor,
-  offers,
-}: {
-  usd: number;
-  cur: string;
-  factor: number | null;
-  offers: number | null;
-}) {
-  const single = factor == null || cur === "USD";
-  return (
-    <div className="flex items-end justify-between gap-3">
-      <div className="tabular-nums">
-        {!single && (
-          <div className="text-xs text-muted-foreground">{formatMoney(usd, "USD")}</div>
-        )}
-        <div className="text-sm font-medium">
-          {single ? formatMoney(usd, "USD") : formatMoney(usd * factor, cur)}
-        </div>
-      </div>
-      {offers != null && (
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {offers.toLocaleString("ru-RU")}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// «3 мин», «6 ч», «2 д» — свежесть котировки.
-function ago(d: Date, now: number): string {
-  const min = Math.max(0, Math.round((now - d.getTime()) / 60000));
-  if (min < 1) return "только что";
-  if (min < 60) return `${min} мин`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `${h} ч`;
-  return `${Math.round(h / 24)} д`;
 }
 
 export default async function PricesPage({ searchParams }: { searchParams: SearchParams }) {
@@ -239,100 +183,20 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {result.rows.map((r) => {
-                  const pos = r.profit > 0;
-                  const tone = pos ? "text-primary" : "text-destructive";
-                  return (
-                    <TableRow key={r.marketHashName} className="border-border/60">
-                      {/* Предмет */}
-                      <TableCell className="max-w-[420px]">
-                        <div className="flex items-center gap-3">
-                          {r.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={r.image}
-                              alt=""
-                              className="h-10 w-14 shrink-0 rounded bg-muted/40 object-contain"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="h-10 w-14 shrink-0 rounded bg-muted/40" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span className="truncate">{r.titleTop}</span>
-                              {r.stattrak && (
-                                <span className="rounded bg-[#cf6a32]/20 px-1 text-[10px] font-medium text-[#cf6a32]">
-                                  ST
-                                </span>
-                              )}
-                              {r.souvenir && (
-                                <span className="rounded bg-[#ffd700]/20 px-1 text-[10px] font-medium text-[#e0b400]">
-                                  SV
-                                </span>
-                              )}
-                            </div>
-                            <div className="truncate text-sm">{r.titleMain}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Цена покупки */}
-                      <TableCell>
-                        <PriceCell usd={r.buyPrice} cur={cur} factor={fx} offers={r.buyOffers} />
-                      </TableCell>
-
-                      {/* Цена продажи */}
-                      <TableCell>
-                        <PriceCell usd={r.sellPrice} cur={cur} factor={fx} offers={r.sellOffers} />
-                      </TableCell>
-
-                      {/* Прибыль: маржа сверху, абсолютная снизу */}
-                      <TableCell className={`tabular-nums ${tone}`}>
-                        <div className="flex items-center gap-1.5 text-xs">
-                          {pos ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
-                          {formatPct(r.profitPct)}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-sm font-medium">
-                          <ArrowLeftRight className="size-3.5 opacity-70" />
-                          {fx == null
-                            ? formatMoney(r.profit, "USD", true)
-                            : formatMoney(r.profit * fx, cur, true)}
-                        </div>
-                      </TableCell>
-
-                      {/* Свежесть котировок по обеим площадкам */}
-                      <TableCell className="text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <SourceIcon slug={filters.buy} title={buyTitle} className="size-3.5 text-[7px]" />
-                          {ago(r.buyFetchedAt, result.now)}
-                        </div>
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <SourceIcon slug={filters.sell} title={sellTitle} className="size-3.5 text-[7px]" />
-                          {ago(r.sellFetchedAt, result.now)}
-                        </div>
-                      </TableCell>
-
-                      {/* Продажи за 30 дней на обеих площадках */}
-                      <TableCell>
-                        <div className="flex items-center gap-4 text-xs tabular-nums">
-                          <span className="flex flex-col items-center gap-1">
-                            <SourceIcon slug={filters.buy} title={buyTitle} className="size-4 text-[8px]" />
-                            <span className="text-muted-foreground">
-                              {r.buySales != null ? r.buySales.toLocaleString("ru-RU") : "—"}
-                            </span>
-                          </span>
-                          <span className="flex flex-col items-center gap-1">
-                            <SourceIcon slug={filters.sell} title={sellTitle} className="size-4 text-[8px]" />
-                            <span className="text-muted-foreground">
-                              {r.liquidity != null ? r.liquidity.toLocaleString("ru-RU") : "—"}
-                            </span>
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {result.rows.map((r) => (
+                  <PriceRow
+                    key={r.marketHashName}
+                    r={r}
+                    buy={filters.buy}
+                    sell={filters.sell}
+                    buyTitle={buyTitle}
+                    sellTitle={sellTitle}
+                    cur={cur}
+                    fx={fx}
+                    now={result.now}
+                    colSpan={6}
+                  />
+                ))}
               </TableBody>
             </Table>
           </div>
