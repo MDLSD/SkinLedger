@@ -47,14 +47,64 @@ export type PriceFilters = {
   buyType: PriceType; // какое поле цены брать на площадке покупки
   sellType: PriceType; // …и на площадке продажи
   q: string; // поиск по market_hash_name
-  minPrice: string; // фильтр по цене покупки, USD (строка из URL)
-  maxPrice: string;
+  // Диапазоны — строки как пришли из URL. Цена в USD, количество — число
+  // предложений на площадке. Симметрично для обеих сторон связки.
+  buyMinPrice: string;
+  buyMaxPrice: string;
+  buyMinQty: string;
+  buyMaxQty: string;
+  sellMinPrice: string;
+  sellMaxPrice: string;
+  sellMinQty: string;
+  sellMaxQty: string;
   minProfit: string; // минимальная маржа, %
   minLiq: string; // минимум продаж/30д на площадке продажи
   sort: SortKey;
   dir: "asc" | "desc";
   page: number;
 };
+
+/** Поля-диапазоны: одинаковый набор для покупки и продажи. */
+export const RANGE_KEYS = [
+  "buyMinPrice",
+  "buyMaxPrice",
+  "buyMinQty",
+  "buyMaxQty",
+  "sellMinPrice",
+  "sellMaxPrice",
+  "sellMinQty",
+  "sellMaxQty",
+] as const;
+
+/** Значения по умолчанию — от них считается «фильтры не тронуты». */
+export const EMPTY_RANGES: Record<(typeof RANGE_KEYS)[number], string> = {
+  buyMinPrice: "",
+  buyMaxPrice: "",
+  buyMinQty: "",
+  buyMaxQty: "",
+  sellMinPrice: "",
+  sellMaxPrice: "",
+  sellMinQty: "",
+  sellMaxQty: "",
+};
+
+/** Обмен сторонами: площадка, тип цены и все диапазоны. */
+export function swapSides(f: PriceFilters): Partial<PriceFilters> {
+  return {
+    buy: f.sell,
+    sell: f.buy,
+    buyType: f.sellType,
+    sellType: f.buyType,
+    buyMinPrice: f.sellMinPrice,
+    buyMaxPrice: f.sellMaxPrice,
+    buyMinQty: f.sellMinQty,
+    buyMaxQty: f.sellMaxQty,
+    sellMinPrice: f.buyMinPrice,
+    sellMaxPrice: f.buyMaxPrice,
+    sellMinQty: f.buyMinQty,
+    sellMaxQty: f.buyMaxQty,
+  };
+}
 
 type RawParams = Record<string, string | string[] | undefined>;
 const str = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
@@ -82,8 +132,14 @@ export function parsePriceFilters(sp: RawParams, sourceSlugs: string[]): PriceFi
     buyType: parseType(str(sp.buyType)),
     sellType: parseType(str(sp.sellType)),
     q: str(sp.q).slice(0, 100),
-    minPrice: str(sp.minPrice).slice(0, 12),
-    maxPrice: str(sp.maxPrice).slice(0, 12),
+    buyMinPrice: str(sp.buyMinPrice).slice(0, 12),
+    buyMaxPrice: str(sp.buyMaxPrice).slice(0, 12),
+    buyMinQty: str(sp.buyMinQty).slice(0, 12),
+    buyMaxQty: str(sp.buyMaxQty).slice(0, 12),
+    sellMinPrice: str(sp.sellMinPrice).slice(0, 12),
+    sellMaxPrice: str(sp.sellMaxPrice).slice(0, 12),
+    sellMinQty: str(sp.sellMinQty).slice(0, 12),
+    sellMaxQty: str(sp.sellMaxQty).slice(0, 12),
     minProfit: str(sp.minProfit).slice(0, 12),
     minLiq: str(sp.minLiq).slice(0, 12),
     sort,
@@ -100,8 +156,7 @@ export function buildPriceQuery(f: PriceFilters, overrides: Partial<PriceFilters
   if (m.buyType !== "min") p.set("buyType", m.buyType);
   if (m.sellType !== "min") p.set("sellType", m.sellType);
   if (m.q) p.set("q", m.q);
-  if (m.minPrice) p.set("minPrice", m.minPrice);
-  if (m.maxPrice) p.set("maxPrice", m.maxPrice);
+  for (const k of RANGE_KEYS) if (m[k]) p.set(k, m[k]);
   if (m.minProfit) p.set("minProfit", m.minProfit);
   if (m.minLiq) p.set("minLiq", m.minLiq);
   if (m.sort !== "profitPct") p.set("sort", m.sort);

@@ -1,9 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowUpDown, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import {
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { SourceIcon } from "@/components/source-icon";
 import {
   Select,
@@ -12,17 +21,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { savePriceProfile, deletePriceProfile } from "@/lib/actions/price-profiles";
 import {
   buildPriceQuery,
   PRICE_TYPES,
+  swapSides,
   type PriceFilters,
 } from "@/lib/prices/compare";
 
 type SourceOption = { slug: string; title: string };
+type Profile = { id: string; name: string; query: string };
+type Go = (overrides: Partial<PriceFilters>) => void;
 
 type Props = {
   filters: PriceFilters;
   sources: SourceOption[];
+  profiles: Profile[];
 };
 
 // Панель липнет под шапкой и занимает всю высоту экрана: при скролле таблицы
@@ -30,66 +44,58 @@ type Props = {
 const STICKY =
   "lg:sticky lg:top-(--app-header-h) lg:-my-6 lg:h-[calc(100dvh-var(--app-header-h))]";
 
-export function PricesSidebar({ filters, sources }: Props) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [open, setOpen] = useState(true);
+const titleOf = (sources: SourceOption[], slug: string) =>
+  sources.find((s) => s.slug === slug)?.title ?? slug;
 
-  const go = (overrides: Partial<PriceFilters>) => {
-    router.replace(pathname + buildPriceQuery(filters, { ...overrides, page: 1 }), {
-      scroll: false,
-    });
-  };
-
-  const swap = () => go({ buy: filters.sell, sell: filters.buy });
-  const titleOf = (slug: string) => sources.find((s) => s.slug === slug)?.title ?? slug;
-
-  const SourceSelect = ({
-    value,
-    onChange,
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-  }) => (
+function SourceSelect({
+  value,
+  sources,
+  onChange,
+}: {
+  value: string;
+  sources: SourceOption[];
+  onChange: (v: string) => void;
+}) {
+  return (
     <Select
       value={value}
       onValueChange={(v) => onChange(v as string)}
       items={sources.map((s) => ({ label: s.title, value: s.slug }))}
     >
-      <SelectTrigger className="h-9 w-full min-w-0">
+      <SelectTrigger className="h-10 w-full min-w-0">
         <SelectValue>
           {(v: string) => (
             <span className="flex min-w-0 items-center gap-2">
-              <SourceIcon slug={v} title={titleOf(v)} />
-              <span className="truncate">{titleOf(v)}</span>
+              <SourceIcon
+                slug={v}
+                title={titleOf(sources, v)}
+                className="size-7 text-[11px]"
+              />
+              <span className="truncate">{titleOf(sources, v)}</span>
             </span>
           )}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent alignItemWithTrigger={false} className="max-h-72 p-1">
+      <SelectContent alignItemWithTrigger={false} className="max-h-80 p-1">
         {sources.map((s) => (
-          <SelectItem key={s.slug} value={s.slug} className="py-1.5">
-            <SourceIcon slug={s.slug} title={s.title} />
+          <SelectItem key={s.slug} value={s.slug} className="gap-2 py-2">
+            <SourceIcon slug={s.slug} title={s.title} className="size-7 text-[11px]" />
             {s.title}
           </SelectItem>
         ))}
       </SelectContent>
     </Select>
   );
+}
 
-  const TypeSelect = ({
-    value,
-    onChange,
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-  }) => (
+function TypeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
     <Select
       value={value}
       onValueChange={(v) => onChange(v as string)}
       items={PRICE_TYPES.map((t) => ({ label: t.label, value: t.value }))}
     >
-      <SelectTrigger className="h-9 w-full min-w-0">
+      <SelectTrigger className="h-10 w-full min-w-0">
         <SelectValue />
       </SelectTrigger>
       <SelectContent
@@ -110,113 +116,294 @@ export function PricesSidebar({ filters, sources }: Props) {
       </SelectContent>
     </Select>
   );
+}
+
+/**
+ * Поле диапазона. Значение хранится в URL, поэтому локальный ввод
+ * синхронизируется с ним прямо в рендере — иначе после «Сбросить все фильтры»
+ * или выбора шаблона в поле оставался бы старый текст.
+ */
+function RangeField({
+  label,
+  value,
+  placeholder,
+  unit,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  unit?: string;
+  onCommit: (v: string) => void;
+}) {
+  const [v, setV] = useState(value);
+  const [fromUrl, setFromUrl] = useState(value);
+  if (fromUrl !== value) {
+    setFromUrl(value);
+    setV(value);
+  }
+  return (
+    <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+      {label}
+      <span className="relative">
+        <Input
+          className={`h-10 ${unit ? "pr-9" : ""}`}
+          inputMode="decimal"
+          placeholder={placeholder}
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={() => v !== value && onCommit(v)}
+          onKeyDown={(e) => e.key === "Enter" && onCommit(v)}
+        />
+        {unit && (
+          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-muted-foreground">
+            {unit}
+          </span>
+        )}
+      </span>
+    </label>
+  );
+}
+
+/** Секция стороны связки. У покупки и продажи набор параметров одинаковый. */
+function SideSection({
+  title,
+  sourceLabel,
+  side,
+  filters,
+  sources,
+  go,
+}: {
+  title: string;
+  sourceLabel: string;
+  side: "buy" | "sell";
+  filters: PriceFilters;
+  sources: SourceOption[];
+  go: Go;
+}) {
+  const buy = side === "buy";
+  return (
+    <section className="space-y-3">
+      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        {title}
+      </h3>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+          {sourceLabel}
+          <SourceSelect
+            value={buy ? filters.buy : filters.sell}
+            sources={sources}
+            onChange={(v) => go(buy ? { buy: v } : { sell: v })}
+          />
+        </label>
+        <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+          Тип цены
+          <TypeSelect
+            value={buy ? filters.buyType : filters.sellType}
+            onChange={(v) =>
+              go(
+                buy
+                  ? { buyType: v as PriceFilters["buyType"] }
+                  : { sellType: v as PriceFilters["sellType"] },
+              )
+            }
+          />
+        </label>
+        <RangeField
+          label="Мин. цена"
+          value={buy ? filters.buyMinPrice : filters.sellMinPrice}
+          placeholder="0"
+          unit="$"
+          onCommit={(v) => go(buy ? { buyMinPrice: v } : { sellMinPrice: v })}
+        />
+        <RangeField
+          label="Макс. цена"
+          value={buy ? filters.buyMaxPrice : filters.sellMaxPrice}
+          placeholder="∞"
+          unit="$"
+          onCommit={(v) => go(buy ? { buyMaxPrice: v } : { sellMaxPrice: v })}
+        />
+        <RangeField
+          label="Мин. количество"
+          value={buy ? filters.buyMinQty : filters.sellMinQty}
+          placeholder="0"
+          unit="шт"
+          onCommit={(v) => go(buy ? { buyMinQty: v } : { sellMinQty: v })}
+        />
+        <RangeField
+          label="Макс. количество"
+          value={buy ? filters.buyMaxQty : filters.sellMaxQty}
+          placeholder="∞"
+          unit="шт"
+          onCommit={(v) => go(buy ? { buyMaxQty: v } : { sellMaxQty: v })}
+        />
+      </div>
+    </section>
+  );
+}
+
+export function PricesSidebar({ filters, sources, profiles }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(true);
+  const [naming, setNaming] = useState(false);
+  const [saveState, save, saving] = useActionState(savePriceProfile, {});
+
+  const go: Go = (overrides) => {
+    router.replace(pathname + buildPriceQuery(filters, { ...overrides, page: 1 }), {
+      scroll: false,
+    });
+  };
+
+  const currentQuery = buildPriceQuery(filters);
+  const activeProfile = profiles.find((p) => p.query === currentQuery);
 
   if (!open) {
     return (
-      <aside
-        className={`${STICKY} shrink-0 lg:w-14 lg:border-r lg:border-border lg:bg-card`}
-      >
+      <aside className={`${STICKY} shrink-0 lg:w-14 lg:border-r lg:border-border lg:bg-card`}>
         <button
           onClick={() => setOpen(true)}
-          className="flex size-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground lg:mt-6 lg:ml-1"
+          className="flex size-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground lg:mt-6 lg:ml-3"
           title="Показать настройки"
         >
-          <ChevronRight className="size-4" />
+          <ChevronRight className="size-5" />
         </button>
       </aside>
     );
   }
 
   return (
-    <aside
-      className={`${STICKY} w-full shrink-0 lg:w-96 lg:border-r lg:border-border lg:bg-card`}
-    >
+    <aside className={`${STICKY} w-full shrink-0 lg:w-96 lg:border-r lg:border-border lg:bg-card`}>
       <div className="flex h-full flex-col rounded-lg border border-border bg-card lg:rounded-none lg:border-0">
         <div className="flex items-center gap-2 border-b border-border px-4 py-3 lg:pl-8">
-          <SlidersHorizontal className="size-4 text-primary" />
+          <SlidersHorizontal className="size-5 text-primary" />
           <h2 className="flex-1 text-sm font-semibold">Настройки таблицы</h2>
           <button
             onClick={() => setOpen(false)}
             className="text-muted-foreground transition-colors hover:text-foreground"
             title="Свернуть"
           >
-            <ChevronLeft className="size-4" />
+            <ChevronLeft className="size-5" />
           </button>
         </div>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 lg:pl-8">
-          {/* Сайт для закупки */}
-          <section className="space-y-3">
+          {/* Шаблон профиля: сохранённый набор настроек целиком */}
+          <section className="space-y-2">
             <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Сайт для закупки
+              Шаблон профиля
             </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                Откуда покупаем
-                <SourceSelect value={filters.buy} onChange={(v) => go({ buy: v })} />
-              </label>
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                Тип цены
-                <TypeSelect
-                  value={filters.buyType}
-                  onChange={(v) => go({ buyType: v as PriceFilters["buyType"] })}
-                />
-              </label>
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                Мин. цена, $
-                <Input
-                  className="h-9"
-                  inputMode="decimal"
-                  placeholder="0"
-                  defaultValue={filters.minPrice}
-                  onBlur={(e) => e.target.value !== filters.minPrice && go({ minPrice: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && go({ minPrice: e.currentTarget.value })}
-                />
-              </label>
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                Макс. цена, $
-                <Input
-                  className="h-9"
-                  inputMode="decimal"
-                  placeholder="∞"
-                  defaultValue={filters.maxPrice}
-                  onBlur={(e) => e.target.value !== filters.maxPrice && go({ maxPrice: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && go({ maxPrice: e.currentTarget.value })}
-                />
-              </label>
+            <div className="flex items-center gap-2">
+              <Select
+                value={activeProfile?.id ?? ""}
+                onValueChange={(v) => {
+                  const p = profiles.find((x) => x.id === v);
+                  if (p) router.replace(pathname + p.query, { scroll: false });
+                }}
+                items={[
+                  { label: "Не выбран", value: "" },
+                  ...profiles.map((p) => ({ label: p.name, value: p.id })),
+                ]}
+              >
+                <SelectTrigger className="h-10 w-full min-w-0">
+                  <SelectValue placeholder="Не выбран" />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false} className="max-h-72 p-1">
+                  {profiles.length === 0 ? (
+                    <SelectItem value="" disabled className="py-1.5">
+                      Пока нет сохранённых
+                    </SelectItem>
+                  ) : (
+                    profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="py-1.5">
+                        {p.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => setNaming((v) => !v)}
+                title="Сохранить текущие настройки как шаблон"
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
+              >
+                {naming ? <X className="size-5" /> : <Plus className="size-5" />}
+              </button>
+              {activeProfile && (
+                <form action={deletePriceProfile}>
+                  <input type="hidden" name="id" value={activeProfile.id} />
+                  <button
+                    type="submit"
+                    title={`Удалить шаблон «${activeProfile.name}»`}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/60 hover:text-destructive"
+                  >
+                    <Trash2 className="size-5" />
+                  </button>
+                </form>
+              )}
             </div>
+
+            {naming && (
+              <form action={save} className="flex items-center gap-2">
+                <input type="hidden" name="query" value={currentQuery} />
+                <Input
+                  // Пересоздаём поле при смене активного шаблона: иначе Base UI
+                  // ругается на смену defaultValue у неуправляемого инпута.
+                  key={activeProfile?.id ?? "new"}
+                  name="name"
+                  autoFocus
+                  maxLength={40}
+                  placeholder="Например, lis → tm"
+                  className="h-10"
+                  defaultValue={activeProfile?.name ?? ""}
+                />
+                <Button type="submit" size="sm" disabled={saving} className="h-10 shrink-0">
+                  Сохранить
+                </Button>
+              </form>
+            )}
+            {saveState.error && <p className="text-xs text-destructive">{saveState.error}</p>}
           </section>
 
-          {/* Свап площадок */}
+          <SideSection
+            title="Сайт для закупки"
+            sourceLabel="Откуда покупаем"
+            side="buy"
+            filters={filters}
+            sources={sources}
+            go={go}
+          />
+
+          {/* Свап сторон целиком: площадки, типы цен и все диапазоны */}
           <div className="flex justify-center">
             <button
-              onClick={swap}
-              className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
-              title="Поменять площадки местами"
+              onClick={() => go(swapSides(filters))}
+              className="flex size-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
+              title="Поменять покупку и продажу местами"
             >
-              <ArrowUpDown className="size-4" />
+              <ArrowUpDown className="size-5" />
             </button>
           </div>
 
-          {/* Сайт для продажи */}
-          <section className="space-y-3">
-            <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Сайт для продажи
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                Куда продаём
-                <SourceSelect value={filters.sell} onChange={(v) => go({ sell: v })} />
-              </label>
-              <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                Тип цены
-                <TypeSelect
-                  value={filters.sellType}
-                  onChange={(v) => go({ sellType: v as PriceFilters["sellType"] })}
-                />
-              </label>
-            </div>
-          </section>
+          <SideSection
+            title="Сайт для продажи"
+            sourceLabel="Куда продаём"
+            side="sell"
+            filters={filters}
+            sources={sources}
+            go={go}
+          />
+        </div>
+
+        <div className="border-t border-border p-4 lg:pl-8">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => router.replace(pathname, { scroll: false })}
+          >
+            Сбросить все фильтры
+          </Button>
         </div>
       </div>
     </aside>

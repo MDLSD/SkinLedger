@@ -78,12 +78,17 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
     : { rows: [], total: 0, page: 1, pageCount: 1, matched: 0, now: 0 };
 
   // Вторая строка цены — в валюте пользователя (курс из парсера).
-  const [user, ratesResult] = await Promise.all([
+  const [user, ratesResult, profiles] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { baseCurrency: true },
     }),
     getRates(),
+    prisma.priceProfile.findMany({
+      where: { userId: session.user.id },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, query: true },
+    }),
   ]);
   const cur = user?.baseCurrency ?? "RUB";
   const fx = fxFactor("USD", cur, ratesResult.rates);
@@ -100,6 +105,7 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
       <PricesSidebar
         filters={filters}
         sources={sources.map(({ slug, title }) => ({ slug, title }))}
+        profiles={profiles}
       />
 
       {/* Колонка во всю высоту экрана: шапка страницы, фильтры и заголовок

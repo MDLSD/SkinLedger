@@ -106,8 +106,14 @@ export async function loadComparison(
     return v == null ? null : Number(v);
   };
 
-  const minP = numOrNull(f.minPrice);
-  const maxP = numOrNull(f.maxPrice);
+  const buyMinP = numOrNull(f.buyMinPrice);
+  const buyMaxP = numOrNull(f.buyMaxPrice);
+  const buyMinQ = numOrNull(f.buyMinQty);
+  const buyMaxQ = numOrNull(f.buyMaxQty);
+  const sellMinP = numOrNull(f.sellMinPrice);
+  const sellMaxP = numOrNull(f.sellMaxPrice);
+  const sellMinQ = numOrNull(f.sellMinQty);
+  const sellMaxQ = numOrNull(f.sellMaxQty);
   const minProfit = numOrNull(f.minProfit);
   const minLiq = numOrNull(f.minLiq);
   const qNorm = f.q.trim().toLowerCase();
@@ -124,8 +130,19 @@ export async function loadComparison(
     matched++;
 
     if (qNorm && !bq.marketHashName.toLowerCase().includes(qNorm)) continue;
-    if (minP != null && buyPrice < minP) continue;
-    if (maxP != null && buyPrice > maxP) continue;
+    if (buyMinP != null && buyPrice < buyMinP) continue;
+    if (buyMaxP != null && buyPrice > buyMaxP) continue;
+    if (sellMinP != null && sellPrice < sellMinP) continue;
+    if (sellMaxP != null && sellPrice > sellMaxP) continue;
+
+    // Количество — число предложений на площадке.
+    const buyQty = bq.offersCount ?? null;
+    const sellQty = sq.offersCount ?? null;
+    if (buyMinQ != null && (buyQty ?? 0) < buyMinQ) continue;
+    if (buyMaxQ != null && (buyQty ?? 0) > buyMaxQ) continue;
+    if (sellMinQ != null && (sellQty ?? 0) < sellMinQ) continue;
+    if (sellMaxQ != null && (sellQty ?? 0) > sellMaxQ) continue;
+
     const liquidity = sq.sales30d ?? null;
     if (minLiq != null && (liquidity ?? 0) < minLiq) continue;
 

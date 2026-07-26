@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { buildPriceQuery, type PriceFilters } from "@/lib/prices/compare";
 
 type Props = { filters: PriceFilters };
@@ -18,27 +17,22 @@ export function PricesFilterBar({ filters }: Props) {
     });
   };
 
+  // Синхронизация с URL без эффекта: значения меняются извне (сброс фильтров,
+  // выбор шаблона, навигация назад) — подхватываем прямо в рендере.
   const [minProfit, setMinProfit] = useState(filters.minProfit);
   const [minLiq, setMinLiq] = useState(filters.minLiq);
-  useEffect(() => setMinProfit(filters.minProfit), [filters.minProfit]);
-  useEffect(() => setMinLiq(filters.minLiq), [filters.minLiq]);
+  const [fromUrl, setFromUrl] = useState({ p: filters.minProfit, l: filters.minLiq });
+  if (fromUrl.p !== filters.minProfit || fromUrl.l !== filters.minLiq) {
+    setFromUrl({ p: filters.minProfit, l: filters.minLiq });
+    setMinProfit(filters.minProfit);
+    setMinLiq(filters.minLiq);
+  }
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounced = (overrides: Partial<PriceFilters>) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => go(overrides), 350);
   };
-
-  const isDefault =
-    filters.buy === "buff163" &&
-    filters.sell === "steam" &&
-    filters.buyType === "min" &&
-    filters.sellType === "min" &&
-    !filters.q &&
-    !filters.minPrice &&
-    !filters.maxPrice &&
-    !filters.minProfit &&
-    !filters.minLiq;
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -70,15 +64,6 @@ export function PricesFilterBar({ filters }: Props) {
         />
       </label>
 
-      {!isDefault && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.replace(pathname, { scroll: false })}
-        >
-          Сбросить
-        </Button>
-      )}
     </div>
   );
 }

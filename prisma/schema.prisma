@@ -25,10 +25,28 @@ model User {
   // серверного хранилища сессий (смена пароля двигает рубеж).
   sessionsValidFrom DateTime @default(now()) @map("sessions_valid_from")
 
-  deals     Deal[]
-  platforms Platform[]
+  deals         Deal[]
+  platforms     Platform[]
+  priceProfiles PriceProfile[]
 
   @@map("users")
+}
+
+// Шаблон настроек таблицы цен: сохранённый набор параметров (площадки, тип
+// цены, диапазоны) под своим именем, напр. «lis → tm».
+model PriceProfile {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  name      String
+  // Строка параметров таблицы целиком, как в адресе: ?buy=lis_skins&sell=…
+  query     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("price_profiles")
 }
 
 // Заявки с лендинга («Планируется»): дешёвая проверка спроса на фичи.
