@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { PricesToolbar } from "@/components/prices-toolbar";
+import { PricesSidebar } from "@/components/prices-sidebar";
+import { PricesFilterBar } from "@/components/prices-filterbar";
 import {
   Table,
   TableBody,
@@ -18,13 +19,12 @@ import { formatMoney, formatPct } from "@/lib/deal-math";
 import {
   buildPriceQuery,
   parsePriceFilters,
-  PRICE_TYPES,
   SORT_COLUMNS,
   type SortKey,
 } from "@/lib/prices/compare";
 import { loadComparison } from "@/lib/prices/compare-load";
 
-export const metadata: Metadata = { title: "Сравнение цен — SkinLedger" };
+export const metadata: Metadata = { title: "Таблица — SkinLedger" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -58,7 +58,6 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
 
   const buyTitle = sources.find((s) => s.slug === filters.buy)?.title ?? filters.buy;
   const sellTitle = sources.find((s) => s.slug === filters.sell)?.title ?? filters.sell;
-  const priceLabel = PRICE_TYPES.find((t) => t.value === filters.type)?.label ?? "";
 
   const sortHref = (key: SortKey) => {
     const dir = filters.sort === key && filters.dir === "desc" ? "asc" : "desc";
@@ -66,35 +65,42 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold">Сравнение цен</h1>
-        <p className="text-sm text-muted-foreground">
-          Купить на <span className="text-foreground">{buyTitle}</span> → продать на{" "}
-          <span className="text-foreground">{sellTitle}</span>. Прибыль с учётом комиссий площадок
-          ({priceLabel.toLowerCase()} цена, в долларах).
-        </p>
-      </div>
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <PricesSidebar filters={filters} sources={sources} />
 
-      <PricesToolbar filters={filters} sources={sources} />
-
-      {!hasData ? (
-        <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          Цены ещё не загружены. Запустите <code className="text-foreground">npm run prices:ingest</code>.
-        </p>
-      ) : result.matched === 0 ? (
-        <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-          Нет предметов, торгующихся на обеих площадках одновременно. Попробуйте другую пару.
-        </p>
-      ) : (
-        <>
-          <p className="text-xs text-muted-foreground">
-            Найдено связок: <span className="text-foreground">{result.total.toLocaleString("ru-RU")}</span>
-            {result.total !== result.matched && ` из ${result.matched.toLocaleString("ru-RU")} общих`} ·
-            страница {result.page} из {result.pageCount}
+      <div className="min-w-0 flex-1 space-y-4">
+        <div>
+          <h1 className="text-xl font-semibold">Таблица</h1>
+          <p className="text-sm text-muted-foreground">
+            Купить на <span className="text-foreground">{buyTitle}</span> → продать на{" "}
+            <span className="text-foreground">{sellTitle}</span>. Прибыль с учётом комиссий площадок,
+            в долларах.
           </p>
+        </div>
 
-          <div className="overflow-x-auto rounded-lg border border-border">
+        <PricesFilterBar filters={filters} />
+
+        {!hasData ? (
+          <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+            Цены ещё не загружены. Запустите{" "}
+            <code className="text-foreground">npm run prices:ingest</code>.
+          </p>
+        ) : result.matched === 0 ? (
+          <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+            Нет предметов, торгующихся на обеих площадках одновременно. Попробуйте другую пару.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-primary">
+                [{result.total.toLocaleString("ru-RU")}]
+              </span>{" "}
+              предметов найдено
+              {result.total !== result.matched &&
+                ` из ${result.matched.toLocaleString("ru-RU")} общих`}
+            </p>
+
+            <div className="overflow-x-auto rounded-lg border border-border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -199,8 +205,9 @@ export default async function PricesPage({ searchParams }: { searchParams: Searc
               </Button>
             </div>
           )}
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

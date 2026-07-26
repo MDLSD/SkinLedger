@@ -32,7 +32,8 @@ const SORT_KEYS = SORT_COLUMNS.map((c) => c.key) as SortKey[];
 export type PriceFilters = {
   buy: string; // slug площадки покупки
   sell: string; // slug площадки продажи
-  type: PriceType;
+  buyType: PriceType; // какое поле цены брать на площадке покупки
+  sellType: PriceType; // …и на площадке продажи
   q: string; // поиск по market_hash_name
   minPrice: string; // фильтр по цене покупки, USD (строка из URL)
   maxPrice: string;
@@ -49,9 +50,11 @@ const str = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 export const DEFAULT_BUY = "buff163";
 export const DEFAULT_SELL = "steam";
 
+const parseType = (v: string): PriceType =>
+  (PRICE_TYPES.find((t) => t.value === v)?.value ?? "min") as PriceType;
+
 export function parsePriceFilters(sp: RawParams, sourceSlugs: string[]): PriceFilters {
   const pick = (v: string, fallback: string) => (sourceSlugs.includes(v) ? v : fallback);
-  const type = (PRICE_TYPES.find((t) => t.value === str(sp.type))?.value ?? "min") as PriceType;
   const sort = SORT_KEYS.includes(str(sp.sort) as SortKey) ? (str(sp.sort) as SortKey) : "profitPct";
   const dir = str(sp.dir) === "asc" ? "asc" : "desc";
   const page = Math.max(1, parseInt(str(sp.page), 10) || 1);
@@ -61,7 +64,8 @@ export function parsePriceFilters(sp: RawParams, sourceSlugs: string[]): PriceFi
       str(sp.sell),
       sourceSlugs.includes(DEFAULT_SELL) ? DEFAULT_SELL : (sourceSlugs[1] ?? sourceSlugs[0] ?? ""),
     ),
-    type,
+    buyType: parseType(str(sp.buyType)),
+    sellType: parseType(str(sp.sellType)),
     q: str(sp.q).slice(0, 100),
     minPrice: str(sp.minPrice).slice(0, 12),
     maxPrice: str(sp.maxPrice).slice(0, 12),
@@ -78,7 +82,8 @@ export function buildPriceQuery(f: PriceFilters, overrides: Partial<PriceFilters
   const p = new URLSearchParams();
   if (m.buy !== DEFAULT_BUY) p.set("buy", m.buy);
   if (m.sell !== DEFAULT_SELL) p.set("sell", m.sell);
-  if (m.type !== "min") p.set("type", m.type);
+  if (m.buyType !== "min") p.set("buyType", m.buyType);
+  if (m.sellType !== "min") p.set("sellType", m.sellType);
   if (m.q) p.set("q", m.q);
   if (m.minPrice) p.set("minPrice", m.minPrice);
   if (m.maxPrice) p.set("maxPrice", m.maxPrice);
