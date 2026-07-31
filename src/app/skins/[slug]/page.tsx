@@ -5,6 +5,7 @@ import { ArrowRight, TrendingDown, TrendingUp } from "lucide-react";
 import { SourceIcon } from "@/components/source-icon";
 import { SkinPriceChart } from "@/components/skin-price-chart";
 import { SkinOffers } from "@/components/skin-offers";
+import { SkinSearchBox } from "@/components/skin-search-box";
 import { Button } from "@/components/ui/button";
 import { formatMoney, formatPct } from "@/lib/deal-math";
 import { fxFactor } from "@/lib/currency";
@@ -252,11 +253,18 @@ export default async function SkinPage({ params }: { params: Params }) {
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
       <JsonLd data={data} faq={faq} />
 
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-center gap-3">
         <Link href="/" className="text-lg font-semibold">
           Skin<span className="text-primary">Ledger</span>
         </Link>
-        <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/app/prices" />}>
+        <SkinSearchBox className="order-last w-full sm:order-none sm:ml-6 sm:max-w-sm" />
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link href="/app/prices" />}
+          className="sm:ml-auto"
+        >
           Таблица сравнения
         </Button>
       </header>

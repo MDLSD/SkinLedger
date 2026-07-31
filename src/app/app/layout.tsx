@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { logoutAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
+import { SkinSearchBox } from "@/components/skin-search-box";
 
 const nav = [
   { href: "/app", label: "Дашборд" },
@@ -41,7 +42,9 @@ export default async function AppLayout({
               </Link>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-3 text-sm">
+          {/* Поиск по каталогу: ведёт на публичные страницы предметов */}
+          <SkinSearchBox className="order-last w-full min-w-56 sm:order-none sm:ml-auto sm:max-w-xs" />
+          <div className="flex items-center gap-3 text-sm sm:ml-0">
             <span className="hidden text-muted-foreground sm:inline">
               {session.user.email}
             </span>
