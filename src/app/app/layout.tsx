@@ -1,17 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { logoutAction } from "@/lib/actions/auth";
-import { Button } from "@/components/ui/button";
-import { SkinSearchBox } from "@/components/skin-search-box";
+import { SiteHeader } from "@/components/site-header";
 
-const nav = [
-  { href: "/app", label: "Дашборд" },
-  { href: "/app/deals", label: "Сделки" },
-  { href: "/app/prices", label: "Таблица" },
-  { href: "/app/import", label: "Импорт" },
-  { href: "/app/settings", label: "Настройки" },
-];
 
 export default async function AppLayout({
   children,
@@ -26,36 +16,7 @@ export default async function AppLayout({
     // выход за край на ширину скроллбара. Клип-контейнер не является
     // скролл-контейнером, поэтому position: sticky внутри продолжает работать.
     <div className="flex min-h-screen flex-col overflow-x-clip">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/app" className="text-lg font-semibold">
-            Skin<span className="text-primary">Ledger</span>
-          </Link>
-          <nav className="flex gap-4 text-sm text-muted-foreground">
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="transition-colors hover:text-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          {/* Поиск по каталогу: ведёт на публичные страницы предметов */}
-          <SkinSearchBox className="order-last w-full min-w-56 sm:order-none sm:ml-auto sm:max-w-xs" />
-          <div className="flex items-center gap-3 text-sm sm:ml-0">
-            <span className="hidden text-muted-foreground sm:inline">
-              {session.user.email}
-            </span>
-            <form action={logoutAction}>
-              <Button variant="outline" size="sm" type="submit">
-                Выйти
-              </Button>
-            </form>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
       <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </main>

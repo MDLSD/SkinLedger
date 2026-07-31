@@ -5,8 +5,8 @@ import { ArrowRight, TrendingDown, TrendingUp } from "lucide-react";
 import { SourceIcon } from "@/components/source-icon";
 import { SkinPriceChart } from "@/components/skin-price-chart";
 import { SkinOffers } from "@/components/skin-offers";
-import { SkinSearchBox } from "@/components/skin-search-box";
-import { Button } from "@/components/ui/button";
+import { SiteHeader } from "@/components/site-header";
+import { displayCurrency } from "@/lib/display-currency";
 import { formatMoney, formatPct } from "@/lib/deal-math";
 import { fxFactor } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
@@ -14,13 +14,9 @@ import { netSellRevenue } from "@/lib/prices/profit";
 import { loadItemPage, RARITY_RU, WEAR_RU, type ItemPageData } from "@/lib/prices/item-page";
 
 // Публичная зона (ТЗ 5): страница индексируется, поэтому рендер серверный, а
-// не клиентский — бот должен видеть цены в HTML. Ревалидация по времени
-// (ТЗ 7.1, ориентир 15–60 минут): цены всё равно обновляет крон.
-export const revalidate = 1800;
-
-// Публичная страница считает в рублях: аудитория русскоязычная, а
-// авторизованного пользователя с его валютой здесь может и не быть.
-const PUBLIC_CURRENCY = "RUB";
+// не клиентский — бот должен видеть цены в HTML (ТЗ 7.1 допускает SSR либо
+// ISR). Кэш по времени пришлось снять: валюта отображения живёт в cookie
+// переключателя в шапке, а cookie делает рендер динамическим.
 
 type Params = Promise<{ slug: string }>;
 
@@ -193,7 +189,7 @@ export default async function SkinPage({ params }: { params: Params }) {
   const [data, ratesResult] = await Promise.all([loadItemPage(slug), getRates()]);
   if (!data) notFound();
 
-  const cur = PUBLIC_CURRENCY;
+  const cur = await displayCurrency();
   const fx = fxFactor("USD", cur, ratesResult.rates);
   const money = (usd: number) => (fx == null ? formatMoney(usd, "USD") : formatMoney(usd * fx, cur));
   const signed = (usd: number) =>
@@ -250,24 +246,12 @@ export default async function SkinPage({ params }: { params: Params }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
+    <>
+      <SiteHeader />
+      <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
       <JsonLd data={data} faq={faq} />
 
-      <header className="mb-6 flex flex-wrap items-center gap-3">
-        <Link href="/" className="text-lg font-semibold">
-          Skin<span className="text-primary">Ledger</span>
-        </Link>
-        <SkinSearchBox className="order-last w-full sm:order-none sm:ml-6 sm:max-w-sm" />
-        <Button
-          variant="outline"
-          size="sm"
-          nativeButton={false}
-          render={<Link href="/app/prices" />}
-          className="sm:ml-auto"
-        >
-          Таблица сравнения
-        </Button>
-      </header>
+
 
       {/* Крошки (ТЗ 7.3) */}
       <nav className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
@@ -673,6 +657,7 @@ export default async function SkinPage({ params }: { params: Params }) {
           )}
         </main>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
