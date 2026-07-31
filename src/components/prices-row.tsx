@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   ArrowLeftRight,
   Check,
@@ -90,6 +91,35 @@ function PriceCell({
   );
 }
 
+/** Превью предмета: ссылка на публичную страницу, если у предмета есть slug. */
+function SkinThumb({
+  slug,
+  image,
+  name,
+}: {
+  slug: string | null;
+  image: string | null;
+  name: string;
+}) {
+  const box = "block h-10 w-14 shrink-0 rounded bg-muted/40 object-contain";
+  const img = image ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={image} alt="" className={box} loading="lazy" />
+  ) : (
+    <span className={box} />
+  );
+  if (!slug) return img;
+  return (
+    <Link
+      href={`/skins/${slug}`}
+      title={`Открыть страницу «${name}»`}
+      className="shrink-0 rounded transition-opacity hover:opacity-80"
+    >
+      {img}
+    </Link>
+  );
+}
+
 export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colSpan }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -112,17 +142,9 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
         {/* Предмет: клик по названию копирует market_hash_name */}
         <TableCell className="max-w-[420px]">
           <span className="flex items-center gap-3">
-            {r.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={r.image}
-                alt=""
-                className="h-10 w-14 shrink-0 rounded bg-muted/40 object-contain"
-                loading="lazy"
-              />
-            ) : (
-              <span className="block h-10 w-14 shrink-0 rounded bg-muted/40" />
-            )}
+            {/* Картинка ведёт на страницу предмета (ТЗ 3.4); клик по названию
+                оставлен под копирование market_hash_name. */}
+            <SkinThumb slug={r.slug} image={r.image} name={r.marketHashName} />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="truncate">{r.titleTop}</span>

@@ -151,6 +151,7 @@ export async function loadComparison(
 
     rows.push({
       marketHashName: bq.marketHashName,
+      slug: null,
       image: null,
       titleTop: "",
       titleMain: bq.marketHashName,
@@ -200,6 +201,7 @@ export async function loadComparison(
     where: { marketHashName: { in: names } },
     select: {
       marketHashName: true,
+      slug: true,
       image: true,
       kind: true,
       weapon: true,
@@ -215,6 +217,7 @@ export async function loadComparison(
     const it = itemMap.get(r.marketHashName);
     if (!it) continue;
     r.image = it.image ?? null;
+    r.slug = it.slug;
     r.stattrak = it.stattrak;
     r.souvenir = it.souvenir;
     if (it.kind === "skin") {

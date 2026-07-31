@@ -181,6 +181,7 @@ export function buildPriceQuery(f: PriceFilters, overrides: Partial<PriceFilters
 
 export type ComparisonRow = {
   marketHashName: string;
+  slug: string | null; // ЧПУ публичной страницы предмета
   image: string | null;
   // Две строки названия, как в референсе: «AK-47» сверху, «Elite Build
   // (Battle-Scarred)» снизу. Для не-скинов сверху вид предмета.
