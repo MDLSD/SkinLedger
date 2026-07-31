@@ -26,9 +26,32 @@ export type BestPair = {
 export type Variant = {
   slug: string;
   marketHashName: string;
-  label: string; // «Factory New», «StatTrak™ Minimal Wear» …
+  label: string; // «Немного поношенное»
+  prefix: string | null; // «StatTrak™» / «Souvenir»
   price: number | null;
   current: boolean;
+};
+
+/** Экстремумы и изменение цены за период — блок «Изменение цен» референса. */
+export type PeriodStat = {
+  days: number | null;
+  label: string;
+  low: number | null;
+  high: number | null;
+  change: number | null; // абсолютное изменение медианы
+  changePct: number | null;
+};
+
+/** Лучший ордер покупки на площадке (глубину стакана источник не отдаёт). */
+export type OrderLevel = { slug: string; title: string; price: number };
+
+/** Карточка похожего предмета: то же оружие или коллекция. */
+export type SimilarItem = {
+  slug: string;
+  weapon: string | null;
+  name: string;
+  image: string | null;
+  price: number | null;
 };
 
 /** Точка графика: время + цена по каждой площадке (null — нет котировки). */
@@ -56,12 +79,55 @@ export type ItemPageData = {
   changes: { d1: number | null; d7: number | null; d30: number | null };
   best: BestPair | null;
   variants: Variant[];
+  /** Что известно о предмете: правая колонка «Обзор предмета» референса. */
+  overview: {
+    kindLabel: string;
+    weapon: string | null;
+    rarity: string | null;
+    skinName: string | null;
+    wear: string | null;
+    priceRange: [number, number] | null;
+    stattrakAvailable: boolean;
+    souvenirAvailable: boolean;
+  };
+  periods: PeriodStat[];
+  orders: OrderLevel[];
+  similar: SimilarItem[];
   /** Вся история сразу: пресеты периода переключаются на клиенте без запроса. */
   chart: { points: ChartPoint[]; sources: { slug: string; title: string }[] };
   /** Тонкая страница (ТЗ 7.6): цены меньше чем на двух площадках → noindex. */
   thin: boolean;
   /** Момент выборки: от него считаются периоды на графике (в рендере Date.now нельзя). */
   now: number;
+};
+
+/** Русские названия износа — как в референсе. */
+export const WEAR_RU: Record<string, string> = {
+  "Factory New": "Прямо с завода",
+  "Minimal Wear": "Немного поношенное",
+  "Field-Tested": "После полевых испытаний",
+  "Well-Worn": "Поношенное",
+  "Battle-Scarred": "Закалённое в боях",
+};
+
+/** Русские названия редкости. Неизвестные значения отдаём как есть. */
+export const RARITY_RU: Record<string, string> = {
+  "Consumer Grade": "Ширпотреб",
+  "Industrial Grade": "Промышленное качество",
+  "Mil-Spec Grade": "Армейское качество",
+  Restricted: "Запрещённое",
+  Classified: "Засекреченное",
+  Covert: "Тайное",
+  Contraband: "Контрабанда",
+  "Extraordinary": "Экстраординарное",
+  Exotic: "Экзотическое",
+  Remarkable: "Примечательное",
+  "High Grade": "Высшего класса",
+  Superior: "Превосходное",
+  Master: "Мастерское",
+  Distinguished: "Заслуженное",
+  "Base Grade": "Базового класса",
+  Default: "Обычное",
 };
 
 const KIND_LABEL: Record<string, string> = {
@@ -86,18 +152,10 @@ function median(values: number[]): number | null {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-/** Подпись варианта: то, чем он отличается от собратьев по семейству. */
-function variantLabel(v: {
-  wear: string | null;
-  finish: string | null;
-  stattrak: boolean;
-  souvenir: boolean;
-}): string {
-  const parts = [];
-  if (v.stattrak) parts.push("StatTrak™");
-  if (v.souvenir) parts.push("Souvenir");
-  parts.push(v.wear ?? v.finish ?? "Без варианта");
-  return parts.join(" ");
+/** Подпись варианта: износ по-русски, а ST/Souvenir — отдельной меткой. */
+function variantLabel(v: { wear: string | null; finish: string | null }): string {
+  const w = v.wear ?? v.finish;
+  return w ? (WEAR_RU[w] ?? w) : "Без варианта";
 }
 
 /** Максимум линий на графике — ТЗ 3.4. */
@@ -167,6 +225,33 @@ export async function loadItemPage(slug: string): Promise<ItemPageData | null> {
       take: 40,
     }),
   ]);
+
+  // Похожие предметы: сначала та же коллекция, иначе то же оружие. Берём по
+  // одному варианту на семейство, чтобы не показывать пять износов подряд.
+  const similarRaw = await prisma.marketItem.findMany({
+    where: {
+      kind: item.kind,
+      familyId: { not: item.familyId },
+      stattrak: false,
+      souvenir: false,
+      ...(item.collection
+        ? { collection: item.collection }
+        : item.weapon
+          ? { weapon: item.weapon }
+          : { familyId: item.familyId }),
+    },
+    select: {
+      slug: true,
+      familyId: true,
+      weapon: true,
+      skinName: true,
+      stickerName: true,
+      marketHashName: true,
+      image: true,
+    },
+    orderBy: { marketHashName: "asc" },
+    take: 60,
+  });
 
   const sourceBySlug = new Map(sources.map((s) => [s.slug, s]));
 
@@ -256,6 +341,65 @@ export async function loadItemPage(slug: string): Promise<ItemPageData | null> {
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   })();
 
+  // Периоды для блока «Изменение цен»: экстремумы и изменение медианы.
+  const periodDefs: { days: number | null; label: string }[] = [
+    { days: 7, label: "7 дней" },
+    { days: 30, label: "30 дней" },
+    { days: 90, label: "90 дней" },
+    { days: null, label: "всё время" },
+  ];
+  const periods: PeriodStat[] = periodDefs.map(({ days: d, label }) => {
+    const cutoff = d == null ? 0 : now - d * 86400_000;
+    const slice = marketSeries.filter((p) => p.t >= cutoff && p.v != null);
+    const vals = slice.map((p) => p.v as number);
+    const first = vals.length ? vals[0] : null;
+    const change =
+      first != null && marketMedian != null ? marketMedian - first : null;
+    return {
+      days: d,
+      label,
+      low: vals.length ? Math.min(...vals) : null,
+      high: vals.length ? Math.max(...vals) : null,
+      change,
+      changePct: change != null && first ? (change / first) * 100 : null,
+    };
+  });
+
+  // «Лучшие ордера на покупку»: у нас по одному уровню с площадки (priceOrder).
+  const orders: OrderLevel[] = offers
+    .flatMap((o) => (o.order == null ? [] : [{ slug: o.slug, title: o.title, price: o.order }]))
+    .sort((a, b) => b.price - a.price);
+
+  const seenFamilies = new Set<string>();
+  const similarPicked = similarRaw.filter((x) => {
+    if (seenFamilies.has(x.familyId)) return false;
+    seenFamilies.add(x.familyId);
+    return true;
+  });
+  const similarPrices = new Map<string, number>();
+  if (similarPicked.length) {
+    const rows = await prisma.priceQuote.groupBy({
+      by: ["marketHashName"],
+      where: { marketHashName: { in: similarPicked.map((x) => x.marketHashName) } },
+      _min: { priceMin: true },
+    });
+    for (const r of rows) {
+      const v = num(r._min.priceMin);
+      if (v != null) similarPrices.set(r.marketHashName, v);
+    }
+  }
+  // Сначала те, по которым есть цена: карточка без цены бесполезна.
+  const similar: SimilarItem[] = similarPicked
+    .map((x) => ({
+      slug: x.slug,
+      weapon: x.weapon,
+      name: x.skinName ?? x.stickerName ?? x.marketHashName,
+      image: x.image,
+      price: similarPrices.get(x.marketHashName) ?? null,
+    }))
+    .sort((a, b) => (a.price == null ? 1 : 0) - (b.price == null ? 1 : 0))
+    .slice(0, 10);
+
   const familyPrices = new Map<string, number>();
   if (family.length > 1) {
     const rows = await prisma.priceQuote.groupBy({
@@ -273,6 +417,7 @@ export async function loadItemPage(slug: string): Promise<ItemPageData | null> {
     slug: f.slug,
     marketHashName: f.marketHashName,
     label: variantLabel(f),
+    prefix: f.stattrak ? "StatTrak™" : f.souvenir ? "Souvenir" : null,
     price: familyPrices.get(f.marketHashName) ?? null,
     current: f.marketHashName === item.marketHashName,
   }));
@@ -315,6 +460,19 @@ export async function loadItemPage(slug: string): Promise<ItemPageData | null> {
     },
     best,
     variants,
+    overview: {
+      kindLabel: item.kind === "skin" ? "Скин" : (KIND_LABEL[item.kind] ?? "Предмет"),
+      weapon: item.weapon,
+      rarity: item.rarity,
+      skinName: item.skinName ?? item.stickerName,
+      wear: item.wear,
+      priceRange: prices.length ? [prices[0], prices[prices.length - 1]] : null,
+      stattrakAvailable: family.some((f) => f.stattrak),
+      souvenirAvailable: family.some((f) => f.souvenir),
+    },
+    periods,
+    orders,
+    similar,
     chart: { points, sources: chartSources },
     thin: offers.length < 2,
     now,
