@@ -1,20 +1,25 @@
 // Быстрый поиск по каталогу для строки в шапке. В отличие от /api/skins
 // (весь индекс ~460 КБ для автокомплита в форме сделки) отдаёт только десяток
 // совпадений и живёт в публичной зоне: страницы предметов и так открыты.
+//
+// Выдача сгруппирована по семейству: один скин — одна строка с диапазоном цен
+// по всем его качествам, а не по строке на каждый износ.
 import "server-only";
 import { prisma } from "@/lib/prisma";
 
 export type QuickHit = {
+  /** Куда вести: вариант с минимальной ценой, иначе первый по алфавиту. */
   slug: string;
-  marketHashName: string;
-  title: string; // название без оружия: «Redline (Field-Tested)»
+  title: string; // «Dragon Lore» / «Dragon Lore (Foil)»
   weapon: string | null;
   image: string | null;
-  price: number | null; // минимальная цена по площадкам, USD
+  low: number | null; // минимальная цена среди вариантов, USD
+  high: number | null; // максимальная
+  variants: number; // сколько качеств/вариантов в семействе
 };
 
 export const MIN_QUERY = 2;
-export const MAX_HITS = 10;
+export const MAX_HITS = 8;
 
 /** Первая буква в верхний регистр: LIKE в SQLite не складывает кириллицу. */
 function capitalize(s: string): string {
@@ -27,8 +32,6 @@ export async function quickSearchSkins(raw: string): Promise<QuickHit[]> {
 
   // Ищем по словам, а не по строке целиком: «ak-47 blood» не встречается в
   // «AK-47 | Bloodsport (Minimal Wear)» подряд из-за разделителя « | ».
-  // Каждое слово должно найтись хоть где-то — в имени, русском названии
-  // скина или русском названии оружия.
   const tokens = q.split(/\s+/).filter(Boolean).slice(0, 6);
 
   const items = await prisma.marketItem.findMany({
@@ -43,63 +46,103 @@ export async function quickSearchSkins(raw: string): Promise<QuickHit[]> {
     },
     select: {
       slug: true,
+      familyId: true,
       marketHashName: true,
       kind: true,
       weapon: true,
       skinName: true,
       stickerName: true,
-      wear: true,
-      stattrak: true,
-      souvenir: true,
+      finish: true,
       image: true,
     },
-    // Короткие имена вперёд: «AK-47 | Redline (…)» полезнее, чем сувенирный
-    // вариант с длинным префиксом.
     orderBy: [{ marketHashName: "asc" }],
-    take: 60,
+    // Берём с запасом: варианты одного скина схлопнутся в одну строку.
+    take: 200,
   });
+  if (!items.length) return [];
 
-  // Цены тянем по всем кандидатам, а не по финальной десятке: предмет без цен
-  // ведёт на пустую страницу, поэтому такие уходят в конец выдачи.
   const prices = new Map<string, number>();
-  if (items.length) {
-    const rows = await prisma.priceQuote.groupBy({
-      by: ["marketHashName"],
-      where: { marketHashName: { in: items.map((r) => r.marketHashName) } },
-      _min: { priceMin: true },
-    });
-    for (const r of rows) {
-      const v = r._min.priceMin == null ? null : Number(r._min.priceMin);
-      if (v != null) prices.set(r.marketHashName, v);
-    }
+  const rows = await prisma.priceQuote.groupBy({
+    by: ["marketHashName"],
+    where: { marketHashName: { in: items.map((r) => r.marketHashName) } },
+    _min: { priceMin: true },
+  });
+  for (const r of rows) {
+    const v = r._min.priceMin == null ? null : Number(r._min.priceMin);
+    if (v != null) prices.set(r.marketHashName, v);
   }
 
-  const ranked = items
-    .map((it) => {
-      const name = it.marketHashName.toLowerCase();
-      // Чем раньше в имени встретилось первое слово и чем короче само имя,
-      // тем выше: «AK-47 | Redline (…)» полезнее сувенирного варианта.
-      const first = name.indexOf(tokens[0].toLowerCase());
-      const noPrice = prices.has(it.marketHashName) ? 0 : 1000;
-      return { it, score: noPrice + (first < 0 ? 999 : first) + name.length / 1000 };
-    })
-    .sort((a, b) => a.score - b.score)
-    .slice(0, MAX_HITS)
-    .map(({ it }) => it);
+  type Group = {
+    title: string;
+    weapon: string | null;
+    image: string | null;
+    slug: string;
+    cheapest: number | null;
+    low: number | null;
+    high: number | null;
+    variants: number;
+    pos: number; // где в названии встретилось первое слово запроса
+  };
 
-  return ranked.map((it) => {
-    const base = it.skinName ?? it.stickerName ?? it.marketHashName;
-    const suffix = it.wear ? ` (${it.wear})` : "";
-    const marks = [it.stattrak && "StatTrak™", it.souvenir && "Souvenir"]
-      .filter(Boolean)
-      .join(" ");
-    return {
-      slug: it.slug,
-      marketHashName: it.marketHashName,
-      title: [marks, `${base}${suffix}`].filter(Boolean).join(" "),
-      weapon: it.weapon,
-      image: it.image,
-      price: prices.get(it.marketHashName) ?? null,
-    };
-  });
+  const needle = tokens[0].toLowerCase();
+  const groups = new Map<string, Group>();
+
+  for (const it of items) {
+    // Стикеры различаются финишем, и он часть названия: «Dragon Lore (Foil)».
+    const base =
+      it.kind === "skin"
+        ? (it.skinName ?? it.marketHashName)
+        : (it.stickerName ?? it.marketHashName);
+    const title = it.kind === "skin" || !it.finish ? base : `${base} (${it.finish})`;
+    const key = `${it.familyId}|${title}`;
+    const price = prices.get(it.marketHashName) ?? null;
+    const pos = it.marketHashName.toLowerCase().indexOf(needle);
+
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, {
+        title,
+        weapon: it.weapon,
+        image: it.image,
+        slug: it.slug,
+        cheapest: price,
+        low: price,
+        high: price,
+        variants: 1,
+        pos: pos < 0 ? 999 : pos,
+      });
+      continue;
+    }
+    g.variants += 1;
+    if (!g.image && it.image) g.image = it.image;
+    if (price != null) {
+      g.low = g.low == null ? price : Math.min(g.low, price);
+      g.high = g.high == null ? price : Math.max(g.high, price);
+      // Ведём на самый дешёвый вариант: у него точно есть цены на странице.
+      if (g.cheapest == null || price < g.cheapest) {
+        g.cheapest = price;
+        g.slug = it.slug;
+      }
+    }
+    if (pos >= 0) g.pos = Math.min(g.pos, pos);
+  }
+
+  return [...groups.values()]
+    .sort((a, b) => {
+      // Сначала то, по чему есть цены: остальное ведёт на пустую страницу.
+      const priced = (a.low == null ? 1 : 0) - (b.low == null ? 1 : 0);
+      if (priced) return priced;
+      if (a.pos !== b.pos) return a.pos - b.pos;
+      return a.title.length - b.title.length;
+    })
+    .slice(0, MAX_HITS)
+    .map((g) => ({
+      slug: g.slug,
+      title: g.title,
+      weapon: g.weapon,
+      image: g.image,
+      low: g.low,
+      high: g.high,
+      variants: g.variants,
+    }));
 }

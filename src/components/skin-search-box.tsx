@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
 import { formatMoney } from "@/lib/deal-math";
+import { useTypedPlaceholder } from "@/components/use-typed-placeholder";
 
 type Hit = {
   slug: string;
-  marketHashName: string;
   title: string;
   weapon: string | null;
   image: string | null;
-  price: number | null;
+  low: number | null;
+  high: number | null;
+  variants: number;
 };
 
 const MIN_QUERY = 2;
@@ -37,6 +39,9 @@ export function SkinSearchBox({ className = "" }: { className?: string }) {
   const hits = ready ? result.hits : [];
   const loading = query.length >= MIN_QUERY && !ready;
   const activeIdx = hits.length ? Math.min(active, hits.length - 1) : 0;
+  // Та же анимация подсказки, что в форме сделки: названия печатаются и
+  // стираются, пока поле пустое и не в фокусе.
+  const placeholder = useTypedPlaceholder(!open && q === "");
 
   // Клик мимо — закрываем список.
   useEffect(() => {
@@ -97,7 +102,7 @@ export function SkinSearchBox({ className = "" }: { className?: string }) {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKey}
-        placeholder="Поиск скина…"
+        placeholder={placeholder}
         aria-label="Поиск скина"
         className="h-9 w-full rounded-lg border border-border bg-card pr-3 pl-9 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60"
       />
@@ -125,21 +130,30 @@ export function SkinSearchBox({ className = "" }: { className?: string }) {
                       <img
                         src={h.image}
                         alt=""
-                        className="h-8 w-11 shrink-0 rounded bg-muted/40 object-contain"
+                        className="h-10 w-14 shrink-0 rounded bg-muted/40 object-contain"
                         loading="lazy"
                       />
                     ) : (
-                      <span className="block h-8 w-11 shrink-0 rounded bg-muted/40" />
+                      <span className="block h-10 w-14 shrink-0 rounded bg-muted/40" />
                     )}
                     <span className="min-w-0 flex-1">
                       {h.weapon && (
                         <span className="block text-[10px] text-muted-foreground">{h.weapon}</span>
                       )}
-                      <span className="block truncate text-xs">{h.title}</span>
+                      <span className="block truncate text-sm">{h.title}</span>
+                      <span className="block truncate text-xs tabular-nums text-primary">
+                        {h.low == null
+                          ? "нет цен"
+                          : h.high != null && h.high !== h.low
+                            ? `${formatMoney(h.low, "USD")} — ${formatMoney(h.high, "USD")}`
+                            : formatMoney(h.low, "USD")}
+                      </span>
                     </span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                      {h.price != null ? formatMoney(h.price, "USD") : ""}
-                    </span>
+                    {h.variants > 1 && (
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {h.variants} вар.
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
