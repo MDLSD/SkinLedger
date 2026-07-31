@@ -1,15 +1,22 @@
-import { redirect } from "next/navigation";
+import { setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
+import { redirect } from "@/i18n/navigation";
 import { SiteHeader } from "@/components/site-header";
-
+import { toLocale } from "@/i18n/routing";
 
 export default async function AppLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }) {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  setRequestLocale(locale);
+
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect({ href: "/login", locale });
 
   return (
     // overflow-x-clip нужен страницам во всю ширину (см. /app/prices): срезает

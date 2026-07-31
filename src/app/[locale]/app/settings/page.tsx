@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
+import { redirect } from "@/i18n/navigation";
 import { prisma } from "@/lib/prisma";
 import { getRates } from "@/lib/rates";
 import { CURRENCY_SYMBOL, fxFactor } from "@/lib/currency";
@@ -10,12 +11,28 @@ import { PasswordSettings } from "@/components/password-settings";
 import { PlatformSettings } from "@/components/platform-settings";
 import { DeleteAccount } from "@/components/delete-account";
 import { CURRENCIES } from "@/lib/validation";
+import { toLocale } from "@/i18n/routing";
 
-export const metadata: Metadata = { title: "Настройки — SkinLedger" };
+type Params = Promise<{ locale: string }>;
 
-export default async function SettingsPage() {
+export async function generateMetadata({
+  params,
+}: {
+  params: Params;
+}): Promise<Metadata> {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  const t = await getTranslations({ locale, namespace: "meta" });
+  return { title: t("settings") };
+}
+
+export default async function SettingsPage({ params }: { params: Params }) {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  setRequestLocale(locale);
+
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) redirect({ href: "/login", locale });
 
   const [user, { rates, updatedAt, source }, platformRows] = await Promise.all([
     prisma.user.findUniqueOrThrow({

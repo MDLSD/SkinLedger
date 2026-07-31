@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, TrendingDown, TrendingUp } from "lucide-react";
+import { setRequestLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
+import { localePrefix, routing, toLocale } from "@/i18n/routing";
 import { SourceIcon } from "@/components/source-icon";
 import { SkinPriceChart } from "@/components/skin-price-chart";
 import { SkinOffers } from "@/components/skin-offers";
@@ -18,20 +20,25 @@ import { loadItemPage, RARITY_RU, WEAR_RU, type ItemPageData } from "@/lib/price
 // ISR). Кэш по времени пришлось снять: валюта отображения живёт в cookie
 // переключателя в шапке, а cookie делает рендер динамическим.
 
-type Params = Promise<{ slug: string }>;
+type Params = Promise<{ locale: string; slug: string }>;
 
 const SITE = process.env.AUTH_URL ?? "http://localhost:3000";
 
 const ruRarity = (r: string | null) => (r ? (RARITY_RU[r] ?? r) : null);
 const ruWear = (w: string | null) => (w ? (WEAR_RU[w] ?? w) : null);
 
+/** Абсолютный адрес страницы предмета в конкретной локали. */
+const itemUrl = (locale: string, slug: string) =>
+  `${SITE}${localePrefix(locale)}/skins/${slug}`;
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const { slug } = await params;
+  const { locale: rawLocale, slug } = await params;
+  const locale = toLocale(rawLocale);
   const data = await loadItemPage(slug);
   if (!data) return { title: "Предмет не найден — SkinLedger" };
 
   const name = data.item.marketHashName;
-  const url = `${SITE}/skins/${data.item.slug}`;
+  const url = itemUrl(locale, data.item.slug);
   const priceLine =
     data.market.low != null
       ? `от ${formatMoney(data.market.low, "USD")} на ${data.offers.length} площадках`
@@ -42,7 +49,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     description:
       `${name}: ${priceLine}. Сравнение цен по площадкам, история, ` +
       `лучшая связка для перепродажи с учётом комиссий.`,
-    alternates: { canonical: url },
+    // hreflang: обе версии страницы существуют по разным адресам, и без
+    // languages поисковик считал бы их дублями друг друга.
+    alternates: {
+      canonical: url,
+      languages: Object.fromEntries(
+        routing.locales.map((l) => [l, itemUrl(l, data.item.slug)]),
+      ),
+    },
     // Тонкие страницы не индексируем (ТЗ 7.6): цена меньше чем на двух
     // площадках — это пустая страница, а массив таких вредит всему домену.
     robots: data.thin ? { index: false, follow: true } : undefined,
@@ -118,8 +132,16 @@ function Delta({ abs, pct }: { abs: React.ReactNode; pct: number | null }) {
 }
 
 /** Schema.org: Product + AggregateOffer, крошки и FAQ (ТЗ 7.3). */
-function JsonLd({ data, faq }: { data: ItemPageData; faq: { q: string; a: string }[] }) {
-  const url = `${SITE}/skins/${data.item.slug}`;
+function JsonLd({
+  data,
+  faq,
+  locale,
+}: {
+  data: ItemPageData;
+  faq: { q: string; a: string }[];
+  locale: string;
+}) {
+  const url = itemUrl(locale, data.item.slug);
   const prices = data.offers.map((o) => o.price);
   const product = {
     "@context": "https://schema.org",
@@ -185,7 +207,10 @@ function JsonLd({ data, faq }: { data: ItemPageData; faq: { q: string; a: string
 }
 
 export default async function SkinPage({ params }: { params: Params }) {
-  const { slug } = await params;
+  const { locale: rawLocale, slug } = await params;
+  const locale = toLocale(rawLocale);
+  setRequestLocale(locale);
+
   const [data, ratesResult] = await Promise.all([loadItemPage(slug), getRates()]);
   if (!data) notFound();
 
@@ -249,7 +274,7 @@ export default async function SkinPage({ params }: { params: Params }) {
     <>
       <SiteHeader />
       <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-      <JsonLd data={data} faq={faq} />
+      <JsonLd data={data} faq={faq} locale={locale} />
 
 
 

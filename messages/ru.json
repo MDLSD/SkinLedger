@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "title": "SkinLedger — учёт арбитража скинов CS2",
+    "description": "Узнай, сколько ты реально зарабатываешь на арбитраже скинов: учёт сделок, комиссий и прибыли.",
+    "login": "Вход — SkinLedger",
+    "register": "Регистрация — SkinLedger",
+    "deals": "Сделки — SkinLedger",
+    "import": "Импорт — SkinLedger",
+    "prices": "Таблица — SkinLedger",
+    "settings": "Настройки — SkinLedger"
+  },
+  "common": {
+    "language": "Язык",
+    "localeName": {
+      "ru": "Русский",
+      "en": "English"
+    }
+  }
+}

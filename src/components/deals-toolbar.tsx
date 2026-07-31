@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/native-select";
 import { Button } from "@/components/ui/button";

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 // CSP выдаётся не отсюда, а из src/proxy.ts: nonce должен быть свой на каждый
 // запрос, а статический заголовок этого не умеет. Здесь — только заголовки,
@@ -35,4 +36,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Плагин находит src/i18n/request.ts и подключает его к рендеру.
+const withNextIntl = createNextIntlPlugin();
+
+export default withNextIntl(nextConfig);

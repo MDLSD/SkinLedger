@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { connection } from "next/server";
 import {
   BarChart3,
@@ -8,7 +7,10 @@ import {
   ListFilter,
   Wallet,
 } from "lucide-react";
+import { setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
+import { Link } from "@/i18n/navigation";
+import { toLocale } from "@/i18n/routing";
 import { WaitlistForm } from "@/components/waitlist-form";
 
 const FEATURES = [
@@ -49,7 +51,15 @@ const CTA_PRIMARY =
 const CTA_GHOST =
   "inline-flex h-11 items-center justify-center rounded-xl border border-white/15 px-6 text-sm font-medium text-white transition hover:bg-white/10";
 
-export default async function LandingPage() {
+export default async function LandingPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  setRequestLocale(locale);
+
   // CSP с nonce требует динамического рендера: nonce проставляется при SSR
   // из заголовка запроса, а у страницы, собранной на билде, запроса нет.
   await connection();

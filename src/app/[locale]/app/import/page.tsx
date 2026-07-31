@@ -1,13 +1,30 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
+import { redirect } from "@/i18n/navigation";
 import { ImportDeals } from "@/components/import-deals";
+import { toLocale } from "@/i18n/routing";
 
-export const metadata: Metadata = { title: "Импорт — SkinLedger" };
+type Params = Promise<{ locale: string }>;
 
-export default async function ImportPage() {
+export async function generateMetadata({
+  params,
+}: {
+  params: Params;
+}): Promise<Metadata> {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  const t = await getTranslations({ locale, namespace: "meta" });
+  return { title: t("import") };
+}
+
+export default async function ImportPage({ params }: { params: Params }) {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  setRequestLocale(locale);
+
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) redirect({ href: "/login", locale });
 
   return (
     <div className="max-w-3xl space-y-6">

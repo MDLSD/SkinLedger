@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { Search } from "lucide-react";
 import { buildPriceQuery, type PriceFilters } from "@/lib/prices/compare";
 

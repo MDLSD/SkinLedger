@@ -1,24 +1,42 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
+import { redirect } from "@/i18n/navigation";
 import { prisma } from "@/lib/prisma";
 import { DealsClient } from "@/components/deals-client";
 import { RatesNotice } from "@/components/rates-notice";
 import { loadUserDeals } from "@/lib/deal-query";
 import { PAGE_SIZE, parseDealFilters } from "@/lib/deal-list";
 import type { PlatformDTO } from "@/lib/types";
+import { toLocale } from "@/i18n/routing";
 
-export const metadata: Metadata = { title: "Сделки — SkinLedger" };
-
+type Params = Promise<{ locale: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Params;
+}): Promise<Metadata> {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  const t = await getTranslations({ locale, namespace: "meta" });
+  return { title: t("deals") };
+}
+
 export default async function DealsPage({
+  params,
   searchParams,
 }: {
+  params: Params;
   searchParams: SearchParams;
 }) {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  setRequestLocale(locale);
+
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) redirect({ href: "/login", locale });
   const userId = session.user.id;
   const filters = parseDealFilters(await searchParams);
 

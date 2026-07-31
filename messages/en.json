@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "title": "SkinLedger — CS2 skin arbitrage tracker",
+    "description": "Find out what you actually earn on skin arbitrage: deals, fees and profit in one ledger.",
+    "login": "Sign in — SkinLedger",
+    "register": "Sign up — SkinLedger",
+    "deals": "Deals — SkinLedger",
+    "import": "Import — SkinLedger",
+    "prices": "Table — SkinLedger",
+    "settings": "Settings — SkinLedger"
+  },
+  "common": {
+    "language": "Language",
+    "localeName": {
+      "ru": "Русский",
+      "en": "English"
+    }
+  }
+}

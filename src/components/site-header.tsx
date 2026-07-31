@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { auth } from "@/auth";
+import { Link } from "@/i18n/navigation";
 import { prisma } from "@/lib/prisma";
 import { logoutAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { SkinSearchBox } from "@/components/skin-search-box";
 import { CurrencySwitcher } from "@/components/currency-switcher";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { displayCurrency } from "@/lib/display-currency";
 
 // Единая шапка для всех страниц, кроме лендинга: у него своя, с кнопками
@@ -51,6 +52,7 @@ export async function SiteHeader() {
 
         <div className="flex items-center gap-3 text-sm">
           <CurrencySwitcher current={currency} />
+          <LanguageSwitcher />
           {session?.user ? (
             <>
               <span className="hidden text-muted-foreground lg:inline">

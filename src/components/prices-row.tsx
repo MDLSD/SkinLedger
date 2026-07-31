@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   ArrowLeftRight,
   Check,
@@ -18,6 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Link } from "@/i18n/navigation";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { SourceIcon } from "@/components/source-icon";
 import { formatMoney, formatPct } from "@/lib/deal-math";

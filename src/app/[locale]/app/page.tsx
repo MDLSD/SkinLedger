@@ -1,5 +1,6 @@
-import { redirect } from "next/navigation";
+import { setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
+import { redirect } from "@/i18n/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatMoney, formatPct } from "@/lib/deal-math";
 import { dealFxRate } from "@/lib/currency";
@@ -11,7 +12,9 @@ import { DashboardPeriod } from "@/components/dashboard-period";
 import { Hint } from "@/components/hint";
 import { RatesNotice } from "@/components/rates-notice";
 import { loadAllByCursor } from "@/lib/db-batch";
+import { toLocale } from "@/i18n/routing";
 
+type Params = Promise<{ locale: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 // Только поля, которые реально участвуют в агрегатах.
@@ -35,12 +38,18 @@ const DASH_SELECT = {
 } as const;
 
 export default async function DashboardPage({
+  params,
   searchParams,
 }: {
+  params: Params;
   searchParams: SearchParams;
 }) {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  setRequestLocale(locale);
+
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) redirect({ href: "/login", locale });
   const userId = session.user.id;
   const f = parseDealFilters(await searchParams);
   const range = periodRange(f);

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ArrowDown, ArrowUp } from "lucide-react";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
+import { Link, redirect } from "@/i18n/navigation";
+import { toLocale } from "@/i18n/routing";
 import { prisma } from "@/lib/prisma";
 import { PricesSidebar } from "@/components/prices-sidebar";
 import { PricesFilterBar } from "@/components/prices-filterbar";
@@ -21,9 +22,19 @@ import {
 } from "@/lib/prices/compare";
 import { loadComparison } from "@/lib/prices/compare-load";
 
-export const metadata: Metadata = { title: "Таблица — SkinLedger" };
-
+type Params = Promise<{ locale: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Params;
+}): Promise<Metadata> {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  const t = await getTranslations({ locale, namespace: "meta" });
+  return { title: t("prices") };
+}
 
 // Сортируемый заголовок: клик по активному переключает направление,
 // по остальным — ставит сортировку по убыванию.
@@ -60,9 +71,19 @@ function SortLink({
   );
 }
 
-export default async function PricesPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function PricesPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
+  const { locale: rawLocale } = await params;
+  const locale = toLocale(rawLocale);
+  setRequestLocale(locale);
+
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  if (!session?.user?.id) redirect({ href: "/login", locale });
 
   const sources = await prisma.marketSource.findMany({
     where: { isActive: true },

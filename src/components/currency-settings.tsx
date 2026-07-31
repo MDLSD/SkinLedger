@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/native-select";
 import { setBaseCurrencyAction } from "@/lib/actions/settings";
