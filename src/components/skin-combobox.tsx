@@ -1,5 +1,8 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
+import { withDynamicKeys, type DynamicTranslator } from "@/i18n/dynamic";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTypedPlaceholder } from "@/components/use-typed-placeholder";
 import { Input } from "@/components/ui/input";
@@ -15,23 +18,21 @@ function familyLabel(f: SkinFamily): string {
   return f.label;
 }
 
-// Подпись вида предмета (для не-скинов).
-const KIND_LABELS: Record<string, string> = {
-  sticker: "Стикер",
-  agent: "Агент",
-  case: "Кейс",
-  capsule: "Капсула",
-  container: "Контейнер",
-  keychain: "Брелок",
-  patch: "Нашивка",
-  graffiti: "Граффити",
-  music_kit: "Музыкальный набор",
-  collectible: "Коллекционный предмет",
-};
-
-// Подпись под названием: тип у не-скинов, рус. алиас у скинов.
-function familySubtitle(f: SkinFamily): string | null {
-  if (f.kind !== "skin") return KIND_LABELS[f.kind] ?? null;
+/**
+ * Подпись под названием: вид предмета у не-скинов, локализованный алиас
+ * у скинов. Русский алиас показываем только в русской локали — в английской
+ * он был бы шумом рядом с английским названием.
+ */
+function familySubtitle(
+  f: SkinFamily,
+  t: DynamicTranslator,
+  locale: string,
+): string | null {
+  if (f.kind !== "skin") {
+    const key = `kind.${f.kind}`;
+    return t.has(key) ? t(key) : null;
+  }
+  if (locale !== "ru") return null;
   return f.r && f.r !== f.s ? f.r : null;
 }
 
@@ -42,6 +43,9 @@ type Props = {
 };
 
 export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
+  const t = useTranslations("combobox");
+  const tc = withDynamicKeys(useTranslations("catalog"));
+  const locale = useLocale();
   const families = useSkinsIndex();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -79,7 +83,7 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
 
   // Анимация подсказки: та же, что в поиске по каталогу в шапке.
   const animate = !open && !value && families !== null;
-  const typed = useTypedPlaceholder(animate);
+  const typed = useTypedPlaceholder(animate, t("searchIdle"));
 
   const pick = (f: SkinFamily) => {
     onSelect(f);
@@ -88,7 +92,7 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
   };
 
   const displayValue = open ? query : value ? familyLabel(value) : query;
-  const placeholder = families === null ? "Загрузка справочника…" : typed;
+  const placeholder = families === null ? t("loadingCatalog") : typed;
 
   return (
     <div ref={boxRef} className="relative">
@@ -149,9 +153,9 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
                 />
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate">{familyLabel(f)}</span>
-                  {familySubtitle(f) && (
+                  {familySubtitle(f, tc, locale) && (
                     <span className="truncate text-xs text-muted-foreground">
-                      {familySubtitle(f)}
+                      {familySubtitle(f, tc, locale)}
                     </span>
                   )}
                 </span>
@@ -162,7 +166,7 @@ export function SkinCombobox({ value, onSelect, autoFocus }: Props) {
       )}
       {open && debounced.trim().length > 0 && results.length === 0 && (
         <div className="absolute z-50 mt-1 w-full rounded-lg border bg-popover px-3 py-2 text-sm text-muted-foreground shadow-md">
-          Ничего не найдено
+          {t("nothingFound")}
         </div>
       )}
     </div>

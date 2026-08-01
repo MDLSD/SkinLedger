@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { useErrorMessage } from "@/i18n/error-message";
 import { useActionState, useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
@@ -13,7 +15,9 @@ export function GoalSettings({
   current: number | null;
   currency: string;
 }) {
+  const t = useTranslations("settings");
   const router = useRouter();
+  const errorMessage = useErrorMessage();
   const [state, action, pending] = useActionState<SettingsState, FormData>(
     setMonthlyGoalAction,
     {},
@@ -26,20 +30,20 @@ export function GoalSettings({
     <form action={action} className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1.5 text-sm">
         <span className="text-muted-foreground">
-          Цель чистой прибыли в месяц ({currency})
+          {t("goalLabel", { currency })}
         </span>
         <NumberInput
           name="monthlyGoal"
           defaultValue={current ?? ""}
-          placeholder="напр. 30000"
+          placeholder={t("goalPlaceholder")}
           className="w-48"
         />
       </label>
       <Button type="submit" disabled={pending}>
-        {pending ? "Сохранение…" : "Сохранить"}
+        {pending ? t("saving") : t("save")}
       </Button>
-      {state.success && <span className="text-sm text-emerald-400">Сохранено</span>}
-      {state.error && <span className="text-sm text-red-400">{state.error}</span>}
+      {state.success && <span className="text-sm text-emerald-400">{t("saved")}</span>}
+      {state.error && <span className="text-sm text-red-400">{errorMessage(state.error, state.errorValues)}</span>}
     </form>
   );
 }

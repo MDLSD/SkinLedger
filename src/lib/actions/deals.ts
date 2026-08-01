@@ -1,5 +1,7 @@
 "use server";
 
+import type { ErrorKey, ErrorValues } from "@/lib/error-keys";
+
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +10,7 @@ import { dealSchema, type DealInput } from "@/lib/validation";
 import { fxFactor } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
 
-export type DealFormState = { error?: string; success?: boolean };
+export type DealFormState = { error?: ErrorKey; errorValues?: ErrorValues; success?: boolean };
 
 // Доменная ошибка: её текст безопасно показывать пользователю.
 // Всё остальное (в т.ч. ошибки Prisma с именами моделей/полей) наружу
@@ -29,7 +31,7 @@ function logSafe(where: string, e: unknown): void {
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
-  if (!session?.user?.id) throw new DealError("Не авторизован");
+  if (!session?.user?.id) throw new DealError("notAuthorized");
   return session.user.id;
 }
 
@@ -41,7 +43,7 @@ async function assertPlatformVisible(platformId: string, userId: string) {
   const platform = await prisma.platform.findFirst({
     where: { id: platformId, OR: [{ isCustom: false }, { userId }] },
   });
-  if (!platform) throw new DealError("Площадка не найдена");
+  if (!platform) throw new DealError("platformNotFound");
 }
 
 // Резолвим ссылку на каноничный предмет каталога по семейству + варианту
@@ -53,7 +55,7 @@ async function resolveItem(d: DealInput) {
     const item = await prisma.marketItem.findFirst({
       where: { familyId: d.skinFamilyId, kind: "sticker", finish: d.finish ?? null },
     });
-    if (!item) throw new DealError("Выбранный вариант стикера не найден в справочнике");
+    if (!item) throw new DealError("stickerVariantNotFound");
     return {
       itemId: item.id,
       itemName: item.stickerName ?? item.marketHashName,
@@ -67,7 +69,7 @@ async function resolveItem(d: DealInput) {
     const item = await prisma.marketItem.findFirst({
       where: { familyId: d.skinFamilyId, kind: d.itemKind },
     });
-    if (!item) throw new DealError("Выбранный предмет не найден в справочнике");
+    if (!item) throw new DealError("itemNotFound");
     return {
       itemId: item.id,
       itemName: item.skinName ?? item.marketHashName,
@@ -84,7 +86,7 @@ async function resolveItem(d: DealInput) {
       souvenir: d.souvenir,
     },
   });
-  if (!item) throw new DealError("Выбранный вариант скина не найден в справочнике");
+  if (!item) throw new DealError("skinVariantNotFound");
   return {
     itemId: item.id,
     itemName: item.skinName ? `${item.weapon} | ${item.skinName}` : (item.weapon ?? ""),
@@ -125,7 +127,7 @@ export async function saveDealAction(
     const sellFx = fxFactor(sellCur, baseCurrency, rates);
     // Без курса сохранять нельзя: 1:1 занизил бы сумму в разы и осел бы в БД.
     if (buyFx == null || sellFx == null) {
-      return { error: "Курс валюты недоступен — попробуйте позже" };
+      return { error: "fxUnavailable" };
     }
     parsed.data.buyFxRate = buyFx;
     parsed.data.sellFxRate = sellFx;
@@ -158,7 +160,7 @@ export async function saveDealAction(
         where: { id: dealId, userId },
         data,
       });
-      if (count !== 1) return { error: "Сделка не найдена" };
+      if (count !== 1) return { error: "dealNotFound" };
     } else {
       await prisma.deal.create({ data });
     }
@@ -183,7 +185,7 @@ export async function saveDealAction(
   } catch (e) {
     logSafe("saveDealAction", e);
     return {
-      error: e instanceof DealError ? e.message : "Не удалось сохранить сделку",
+      error: e instanceof DealError ? e.message : "dealSaveFailed",
     };
   }
 }
@@ -196,7 +198,7 @@ export async function deleteAllDealsAction(
     const userId = await requireUserId();
     // Явное подтверждение из формы — защита от случайного сабмита.
     if (formData.get("confirm")?.toString() !== "yes") {
-      return { error: "Удаление не подтверждено" };
+      return { error: "deleteNotConfirmed" };
     }
     await prisma.deal.deleteMany({ where: { userId } });
 
@@ -205,7 +207,7 @@ export async function deleteAllDealsAction(
     return { success: true };
   } catch (e) {
     logSafe("deleteAllDealsAction", e);
-    return { error: "Не удалось удалить сделки" };
+    return { error: "dealsDeleteFailed" };
   }
 }
 
@@ -216,19 +218,19 @@ export async function deleteDealAction(
   try {
     const userId = await requireUserId();
     const dealId = formData.get("dealId")?.toString();
-    if (!dealId) return { error: "Сделка не указана" };
+    if (!dealId) return { error: "dealNotSpecified" };
 
     // Проверка владения и удаление — один запрос, без зазора между ними.
     const { count } = await prisma.deal.deleteMany({
       where: { id: dealId, userId },
     });
-    if (count !== 1) return { error: "Сделка не найдена" };
+    if (count !== 1) return { error: "dealNotFound" };
 
     revalidatePath("/app/deals");
     revalidatePath("/app");
     return { success: true };
   } catch (e) {
     logSafe("deleteDealAction", e);
-    return { error: "Не удалось удалить сделку" };
+    return { error: "dealDeleteFailed" };
   }
 }

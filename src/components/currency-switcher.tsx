@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "@/i18n/navigation";
 import {
@@ -15,6 +17,7 @@ import { BASE_CURRENCIES } from "@/lib/validation";
 
 /** Валюта отображения в шапке. У вошедшего это же — валюта учёта в настройках. */
 export function CurrencySwitcher({ current }: { current: string }) {
+  const t = useTranslations("common");
   const router = useRouter();
   const [value, setValue] = useState(current);
   const [pending, startTransition] = useTransition();
@@ -36,7 +39,7 @@ export function CurrencySwitcher({ current }: { current: string }) {
     >
       <SelectTrigger
         className={`h-9 w-24 ${pending ? "opacity-60" : ""}`}
-        aria-label="Валюта"
+        aria-label={t("currency")}
       >
         <SelectValue />
       </SelectTrigger>

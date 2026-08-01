@@ -1,5 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { withDynamicKeys } from "@/i18n/dynamic";
+
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { Input } from "@/components/ui/input";
@@ -20,6 +23,8 @@ type Props = {
 };
 
 export function DealsToolbar({ filters, platforms }: Props) {
+  const t = useTranslations("dealsToolbar");
+  const td = withDynamicKeys(t);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -50,25 +55,25 @@ export function DealsToolbar({ filters, platforms }: Props) {
     <div className="space-y-2">
     <div className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1 text-xs text-muted-foreground">
-        Поиск
+        {t("search")}
         <Input
           className="h-8 w-48"
-          placeholder="Название скина"
+          placeholder={t("searchPlaceholder")}
           value={q}
           onChange={(e) => onQ(e.target.value)}
         />
       </label>
 
       <label className="grid gap-1 text-xs text-muted-foreground">
-        Период
+        {t("period")}
         <NativeSelect
           className="w-36"
           value={filters.period}
           onChange={(e) => go({ period: e.target.value as DealFilters["period"] })}
         >
           {PERIOD_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+            <option key={o} value={o}>
+              {td(`periodOption.${o}`)}
             </option>
           ))}
         </NativeSelect>
@@ -76,7 +81,7 @@ export function DealsToolbar({ filters, platforms }: Props) {
 
       {filters.period === "custom" && (
         <label className="grid gap-1 text-xs text-muted-foreground">
-          Даты
+          {t("dates")}
           <DateRangePicker
             from={filters.from}
             to={filters.to}
@@ -86,28 +91,28 @@ export function DealsToolbar({ filters, platforms }: Props) {
       )}
 
       <label className="grid gap-1 text-xs text-muted-foreground">
-        Статус
+        {t("status")}
         <NativeSelect
           className="w-40"
           value={filters.status}
           onChange={(e) => go({ status: e.target.value })}
         >
           {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+            <option key={o} value={o}>
+              {td(`statusOption.${o}`)}
             </option>
           ))}
         </NativeSelect>
       </label>
 
       <label className="grid gap-1 text-xs text-muted-foreground">
-        Площадка
+        {t("platform")}
         <NativeSelect
           className="w-48"
           value={filters.platform}
           onChange={(e) => go({ platform: e.target.value })}
         >
-          <option value="all">Все площадки</option>
+          <option value="all">{t("allPlatforms")}</option>
           {platforms.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -124,15 +129,14 @@ export function DealsToolbar({ filters, platforms }: Props) {
             router.replace(pathname, { scroll: false })
           }
         >
-          Сбросить
+          {t("reset")}
         </Button>
       )}
     </div>
 
       {filters.period !== "all" && filters.status !== "holding" && (
         <p className="text-xs text-muted-foreground">
-          Период отбирает сделки по дате продажи — так же, как дашборд. Сделки
-          в холде показаны независимо от периода: у них нет даты закрытия.
+          {t("periodNote")}
         </p>
       )}
     </div>

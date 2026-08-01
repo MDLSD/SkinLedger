@@ -63,25 +63,38 @@ export function holdingDays(
   return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
 }
 
-const currencySymbols: Record<string, string> = {
-  RUB: "₽",
-  USD: "$",
-  EUR: "€",
-  CNY: "¥",
-};
-
-export function formatMoney(value: number, currency = "RUB", signed = false): string {
+/**
+ * Деньги в формате локали. Символ и расстановка знаков идут из Intl, а не из
+ * своей таблицы символов: у русского это «1 500 ₽», у английского «₽1,500» —
+ * позиция символа и разделители у локалей разные, вручную это не собрать.
+ *
+ * `minimumFractionDigits: 0` оставлен намеренно: со стандартными для валюты
+ * двумя знаками все суммы получили бы хвост «,00».
+ */
+export function formatMoney(
+  value: number,
+  currency = "RUB",
+  locale = "ru",
+  signed = false,
+): string {
   const sign = signed && value > 0 ? "+" : "";
-  const num = new Intl.NumberFormat("ru-RU", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value);
-  return `${sign}${num} ${currencySymbols[currency] ?? currency}`;
+  return (
+    sign +
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value)
+  );
 }
 
-export function formatPct(value: number): string {
-  return `${new Intl.NumberFormat("ru-RU", {
+/** Проценты хранятся как 12.5 (а не 0.125), поэтому делим перед выводом. */
+export function formatPct(value: number, locale = "ru"): string {
+  return new Intl.NumberFormat(locale, {
+    style: "percent",
     minimumFractionDigits: 0,
     maximumFractionDigits: 1,
-  }).format(value)} %`;
+  }).format(value / 100);
 }

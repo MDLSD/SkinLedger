@@ -1,5 +1,7 @@
 "use server";
 
+import type { ErrorKey, ErrorValues } from "@/lib/error-keys";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -7,17 +9,17 @@ import { prisma } from "@/lib/prisma";
 
 // profileId возвращается, чтобы клиент сразу переключился в только что
 // созданный шаблон и дальнейшие правки писались уже в него.
-export type ProfileState = { error?: string; profileId?: string };
+export type ProfileState = { error?: ErrorKey; profileId?: string; errorValues?: ErrorValues };
 
 const MAX_PROFILES = 20;
 
 // query — строка параметров таблицы («?buy=…&sell=…»), её же кладём в адрес.
 const profileSchema = z.object({
-  name: z.string().trim().min(1, "Введите название").max(40, "Не длиннее 40 символов"),
+  name: z.string().trim().min(1, "nameRequired").max(40, "nameMax40"),
   query: z
     .string()
     .max(2000)
-    .refine((v) => v === "" || v.startsWith("?"), "Некорректные параметры"),
+    .refine((v) => v === "" || v.startsWith("?"), "paramsInvalid"),
 });
 
 async function requireUserId(): Promise<string | null> {
@@ -31,7 +33,7 @@ export async function savePriceProfile(
   formData: FormData,
 ): Promise<ProfileState> {
   const userId = await requireUserId();
-  if (!userId) return { error: "Не авторизован" };
+  if (!userId) return { error: "notAuthorized" };
 
   const parsed = profileSchema.safeParse({
     name: formData.get("name"),
@@ -47,7 +49,7 @@ export async function savePriceProfile(
   if (!existing) {
     const count = await prisma.priceProfile.count({ where: { userId } });
     if (count >= MAX_PROFILES) {
-      return { error: `Больше ${MAX_PROFILES} шаблонов не сохранить` };
+      return { error: "profileLimit", errorValues: { max: MAX_PROFILES } };
     }
   }
 

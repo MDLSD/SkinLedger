@@ -1,8 +1,10 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
+
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
-import { ru } from "date-fns/locale";
+import { enUS, ru } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +50,8 @@ type Props = {
 };
 
 export function DateRangePicker({ from, to, onChange }: Props) {
+  const t = useTranslations("datePicker");
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>({
     from: fromISO(from),
@@ -92,7 +96,7 @@ export function DateRangePicker({ from, to, onChange }: Props) {
   const label =
     fromISO(from) && fromISO(to)
       ? `${toRu(fromISO(from))} – ${toRu(fromISO(to))}`
-      : "Выберите даты";
+      : t("pickDates");
 
   const apply = () => {
     if (!range?.from) return;
@@ -127,23 +131,23 @@ export function DateRangePicker({ from, to, onChange }: Props) {
           numberOfMonths={1}
           month={month}
           onMonthChange={setMonth}
-          locale={ru}
+          locale={locale === "ru" ? ru : enUS}
           className="p-0 [--cell-size:--spacing(6)]"
           autoFocus
         />
         <div className="mt-2 space-y-2 border-t pt-2">
           <div className="flex items-center justify-center gap-1.5">
             <Input
-              aria-label="Дата начала"
-              placeholder="дд.мм.гггг"
+              aria-label={t("dateFrom")}
+              placeholder={t("datePlaceholder")}
               className="h-7 w-[92px] px-1 text-center text-xs"
               value={fromText}
               onChange={(e) => onText("from")(e.target.value)}
             />
             <span className="text-muted-foreground">–</span>
             <Input
-              aria-label="Дата конца"
-              placeholder="дд.мм.гггг"
+              aria-label={t("dateTo")}
+              placeholder={t("datePlaceholder")}
               className="h-7 w-[92px] px-1 text-center text-xs"
               value={toText}
               onChange={(e) => onText("to")(e.target.value)}
@@ -155,7 +159,7 @@ export function DateRangePicker({ from, to, onChange }: Props) {
             onClick={apply}
             disabled={!range?.from}
           >
-            Применить
+            {t("apply")}
           </Button>
         </div>
       </PopoverContent>

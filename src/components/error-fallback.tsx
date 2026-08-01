@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useState } from "react";
 import { Check, Copy, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,9 +16,10 @@ export function ErrorFallback({
 }: {
   error: Error & { digest?: string };
 }) {
+  const t = useTranslations("errorPage");
   const [copied, setCopied] = useState(false);
   const details = [
-    error.message && `Ошибка: ${error.message}`,
+    error.message && t("errorLine", { message: error.message }),
     error.digest && `ID: ${error.digest}`,
   ]
     .filter(Boolean)
@@ -39,9 +42,9 @@ export function ErrorFallback({
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Что-то пошло не так</h1>
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <p className="max-w-sm text-muted-foreground">
-          Произошла непредвиденная ошибка. Попробуйте перезагрузить страницу.
+          {t("description")}
         </p>
       </div>
 
@@ -51,7 +54,7 @@ export function ErrorFallback({
             <div className="min-w-0 space-y-1 text-xs">
               {error.message && (
                 <p className="break-words">
-                  <span className="text-muted-foreground">Код ошибки: </span>
+                  <span className="text-muted-foreground">{t("code")} </span>
                   <span className="font-mono text-destructive">{error.message}</span>
                 </p>
               )}
@@ -64,8 +67,8 @@ export function ErrorFallback({
             <button
               type="button"
               onClick={copy}
-              title="Скопировать"
-              aria-label="Скопировать детали ошибки"
+              title={t("copy")}
+              aria-label={t("copyDetails")}
               className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {copied ? (
@@ -79,14 +82,14 @@ export function ErrorFallback({
       )}
 
       <div className="flex flex-wrap justify-center gap-2">
-        <Button onClick={() => window.location.reload()}>Перезагрузить</Button>
+        <Button onClick={() => window.location.reload()}>{t("reload")}</Button>
         <Button variant="outline" onClick={copy}>
-          {copied ? "Скопировано" : "Сообщить"}
+          {copied ? t("copied") : t("report")}
         </Button>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Если проблема повторяется, обратитесь в поддержку.
+        {t("support")}
       </p>
     </div>
   );

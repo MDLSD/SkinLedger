@@ -1,9 +1,10 @@
 // Предупреждение о состоянии курсов валют. Раньше о запасных курсах знала
 // только страница настроек, хотя по ним считается весь дашборд и список.
+import { getFormatter, getTranslations } from "next-intl/server";
 import type { RatesSource } from "@/lib/rates";
 import { MAX_DEAL_ROWS } from "@/lib/db-batch";
 
-export function RatesNotice({
+export async function RatesNotice({
   source,
   unresolvedFx = 0,
   truncated = false,
@@ -13,22 +14,26 @@ export function RatesNotice({
   unresolvedFx?: number;
   /** Выборка упёрлась в потолок — часть сделок не попала в расчёт. */
   truncated?: boolean;
-  /** Что именно произошло со сделками без курса на этой странице. */
-  excludedLabel: string;
+  /**
+   * Что именно произошло со сделками без курса на этой странице:
+   * ключ перевода («скрыто» в списке, «не учтено» на дашборде).
+   */
+  excludedLabel: "hidden" | "excluded";
 }) {
+  const t = await getTranslations("rates");
+  const format = await getFormatter();
+
   const lines: string[] = [];
   if (source === "cache") {
-    lines.push("Курсы валют не обновились — показаны последние загруженные.");
+    lines.push(t("stale"));
   } else if (source === "fallback") {
-    lines.push("Парсер курсов недоступен — суммы посчитаны по запасным курсам.");
+    lines.push(t("fallback"));
   }
   if (unresolvedFx > 0) {
-    lines.push(`${unresolvedFx} ${excludedLabel}: нет курса валюты.`);
+    lines.push(t(`noFx.${excludedLabel}`, { count: unresolvedFx }));
   }
   if (truncated) {
-    lines.push(
-      `Сделок больше ${MAX_DEAL_ROWS.toLocaleString("ru-RU")} — в расчёт вошли не все.`,
-    );
+    lines.push(t("truncated", { max: format.number(MAX_DEAL_ROWS) }));
   }
   if (lines.length === 0) return null;
 

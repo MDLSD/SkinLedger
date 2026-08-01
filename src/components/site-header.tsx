@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { Link } from "@/i18n/navigation";
 import { prisma } from "@/lib/prisma";
@@ -12,14 +13,15 @@ import { displayCurrency } from "@/lib/display-currency";
 // регистрации. Приватные пункты меню показываем всем — гостя они уведут на
 // вход, а разная навигация на публичной и приватной странице путала бы.
 const NAV = [
-  { href: "/app", label: "Дашборд" },
-  { href: "/app/deals", label: "Сделки" },
-  { href: "/app/prices", label: "Таблица" },
-  { href: "/app/import", label: "Импорт" },
-  { href: "/app/settings", label: "Настройки" },
-];
+  { href: "/app", key: "dashboard" },
+  { href: "/app/deals", key: "deals" },
+  { href: "/app/prices", key: "prices" },
+  { href: "/app/import", key: "import" },
+  { href: "/app/settings", key: "settings" },
+] as const;
 
 export async function SiteHeader() {
+  const t = await getTranslations("nav");
   const session = await auth();
   const user = session?.user?.id
     ? await prisma.user.findUnique({
@@ -43,7 +45,7 @@ export async function SiteHeader() {
               href={item.href}
               className="transition-colors hover:text-foreground"
             >
-              {item.label}
+              {t(item.key)}
             </Link>
           ))}
         </nav>
@@ -60,13 +62,13 @@ export async function SiteHeader() {
               </span>
               <form action={logoutAction}>
                 <Button variant="outline" size="sm" type="submit">
-                  Выйти
+                  {t("signOut")}
                 </Button>
               </form>
             </>
           ) : (
             <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/login" />}>
-              Войти
+              {t("signIn")}
             </Button>
           )}
         </div>

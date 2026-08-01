@@ -1,5 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { withDynamicKeys } from "@/i18n/dynamic";
+
 import { useActionState, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import {
@@ -95,11 +98,13 @@ function SourceSelect({
 }
 
 function TypeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations("prices");
+  const td = withDynamicKeys(t);
   return (
     <Select
       value={value}
       onValueChange={(v) => onChange(v as string)}
-      items={PRICE_TYPES.map((t) => ({ label: t.label, value: t.value }))}
+      items={PRICE_TYPES.map((pt) => ({ label: td(`type.${pt.value}`), value: pt.value }))}
     >
       <SelectTrigger className="h-10 w-full min-w-0">
         <SelectValue />
@@ -109,12 +114,12 @@ function TypeSelect({ value, onChange }: { value: string; onChange: (v: string) 
         align="end"
         className="w-[22rem] max-w-[calc(100vw-2rem)] p-1"
       >
-        {PRICE_TYPES.map((t) => (
-          <SelectItem key={t.value} value={t.value} disabled={!t.field} className="py-1.5">
-            {t.label}
-            {!t.field && (
+        {PRICE_TYPES.map((pt) => (
+          <SelectItem key={pt.value} value={pt.value} disabled={!pt.field} className="py-1.5">
+            {td(`type.${pt.value}`)}
+            {!pt.field && (
               <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                Недоступно
+                {t("unavailable")}
               </span>
             )}
           </SelectItem>
@@ -190,6 +195,7 @@ function SideSection({
   sources: SourceOption[];
   go: Go;
 }) {
+  const t = useTranslations("prices");
   const buy = side === "buy";
   return (
     <section className="space-y-3">
@@ -206,7 +212,7 @@ function SideSection({
           />
         </label>
         <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-          Тип цены
+          {t("priceType")}
           <TypeSelect
             value={buy ? filters.buyType : filters.sellType}
             onChange={(v) =>
@@ -219,32 +225,32 @@ function SideSection({
           />
         </label>
         <RangeField
-          label="Мин. цена"
+          label={t("minPrice")}
           value={buy ? filters.buyMinPrice : filters.sellMinPrice}
           placeholder="0"
           unit="$"
           onCommit={(v) => go(buy ? { buyMinPrice: v } : { sellMinPrice: v })}
         />
         <RangeField
-          label="Макс. цена"
+          label={t("maxPrice")}
           value={buy ? filters.buyMaxPrice : filters.sellMaxPrice}
           placeholder="∞"
           unit="$"
           onCommit={(v) => go(buy ? { buyMaxPrice: v } : { sellMaxPrice: v })}
         />
         <RangeField
-          label="Мин. количество"
+          label={t("minQty")}
           value={buy ? filters.buyMinQty : filters.sellMinQty}
           placeholder="0"
-          unit="шт"
+          unit={t("pcs")}
           decimal={false}
           onCommit={(v) => go(buy ? { buyMinQty: v } : { sellMinQty: v })}
         />
         <RangeField
-          label="Макс. количество"
+          label={t("maxQty")}
           value={buy ? filters.buyMaxQty : filters.sellMaxQty}
           placeholder="∞"
-          unit="шт"
+          unit={t("pcs")}
           decimal={false}
           onCommit={(v) => go(buy ? { buyMaxQty: v } : { sellMaxQty: v })}
         />
@@ -254,6 +260,7 @@ function SideSection({
 }
 
 export function PricesSidebar({ filters, sources, profiles }: Props) {
+  const t = useTranslations("prices");
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
@@ -332,7 +339,7 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
         <button
           onClick={() => setOpen(true)}
           className="flex size-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground lg:mt-6 lg:ml-3"
-          title="Показать настройки"
+          title={t("showSettings")}
         >
           <ChevronRight className="size-5" />
         </button>
@@ -345,11 +352,11 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
       <div className="flex h-full flex-col rounded-lg border border-border bg-card lg:rounded-none lg:border-0">
         <div className="flex items-center gap-2 border-b border-border px-4 py-3 lg:pl-8">
           <SlidersHorizontal className="size-5 text-primary" />
-          <h2 className="flex-1 text-sm font-semibold">Настройки таблицы</h2>
+          <h2 className="flex-1 text-sm font-semibold">{t("tableSettings")}</h2>
           <button
             onClick={() => setOpen(false)}
             className="text-muted-foreground transition-colors hover:text-foreground"
-            title="Свернуть"
+            title={t("collapse")}
           >
             <ChevronLeft className="size-5" />
           </button>
@@ -359,7 +366,7 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
           {/* Шаблон профиля: сохранённый набор настроек целиком */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Шаблон профиля
+              {t("profileTemplate")}
             </h3>
             <div className="flex items-center gap-2">
               <Select
@@ -387,7 +394,7 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
               <button
                 type="button"
                 onClick={() => setNaming((v) => !v)}
-                title="Сохранить текущие настройки как шаблон"
+                title={t("saveAsTemplate")}
                 className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
               >
                 {naming ? <X className="size-5" /> : <Plus className="size-5" />}
@@ -395,7 +402,7 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
               {activeProfile && (
                 <button
                   type="button"
-                  title={`Удалить шаблон «${activeProfile.name}»`}
+                  title={t("deleteTemplate", { name: activeProfile.name })}
                   onClick={async () => {
                     await deletePriceProfile(activeProfile.id);
                     // Убираем ссылку на удалённый шаблон из адреса.
@@ -419,25 +426,25 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
                   name="name"
                   autoFocus
                   maxLength={40}
-                  placeholder="Название шаблона"
+                  placeholder={t("templateName")}
                   className="h-10"
                 />
                 <Button type="submit" size="sm" disabled={saving} className="h-10 shrink-0">
-                  Сохранить
+                  {t("save")}
                 </Button>
               </form>
             )}
             {saveState.error && <p className="text-xs text-destructive">{saveState.error}</p>}
             <p className="text-[11px] text-muted-foreground">
               {activeProfile
-                ? "Изменения фильтров сохраняются в этот шаблон. «+» создаст новый и вернёт этому прежние настройки."
-                : "Настройте фильтры и нажмите «+», чтобы сохранить их шаблоном."}
+                ? t("templateActiveNote")
+                : t("templateEmptyNote")}
             </p>
           </section>
 
           <SideSection
-            title="Сайт для закупки"
-            sourceLabel="Откуда покупаем"
+            title={t("buySite")}
+            sourceLabel={t("buyFrom")}
             side="buy"
             filters={filters}
             sources={sources}
@@ -449,15 +456,15 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
             <button
               onClick={() => go(swapSides(filters))}
               className="flex size-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground"
-              title="Поменять покупку и продажу местами"
+              title={t("swap")}
             >
               <ArrowUpDown className="size-5" />
             </button>
           </div>
 
           <SideSection
-            title="Сайт для продажи"
-            sourceLabel="Куда продаём"
+            title={t("sellSite")}
+            sourceLabel={t("sellTo")}
             side="sell"
             filters={filters}
             sources={sources}
@@ -476,7 +483,7 @@ export function PricesSidebar({ filters, sources, profiles }: Props) {
               )
             }
           >
-            Сбросить все фильтры
+            {t("resetAll")}
           </Button>
         </div>
       </div>

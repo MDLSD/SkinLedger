@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { useErrorMessage } from "@/i18n/error-message";
 import { useActionState, useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
@@ -9,7 +11,9 @@ import { BASE_CURRENCIES } from "@/lib/validation";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 export function CurrencySettings({ current }: { current: string }) {
+  const t = useTranslations("settings");
   const router = useRouter();
+  const errorMessage = useErrorMessage();
   const [state, action, pending] = useActionState(setBaseCurrencyAction, {});
 
   useEffect(() => {
@@ -19,7 +23,7 @@ export function CurrencySettings({ current }: { current: string }) {
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1.5 text-sm">
-        <span className="text-muted-foreground">Основная валюта отчётов</span>
+        <span className="text-muted-foreground">{t("baseCurrency")}</span>
         <NativeSelect name="baseCurrency" defaultValue={current} className="w-48">
           {BASE_CURRENCIES.map((c) => (
             <option key={c} value={c}>
@@ -29,12 +33,12 @@ export function CurrencySettings({ current }: { current: string }) {
         </NativeSelect>
       </label>
       <Button type="submit" disabled={pending}>
-        {pending ? "Сохранение…" : "Сохранить"}
+        {pending ? t("saving") : t("save")}
       </Button>
       {state.success && (
-        <span className="text-sm text-emerald-400">Сохранено</span>
+        <span className="text-sm text-emerald-400">{t("saved")}</span>
       )}
-      {state.error && <span className="text-sm text-red-400">{state.error}</span>}
+      {state.error && <span className="text-sm text-red-400">{errorMessage(state.error, state.errorValues)}</span>}
     </form>
   );
 }

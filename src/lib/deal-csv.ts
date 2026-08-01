@@ -5,33 +5,78 @@ import type { DealDTO } from "@/lib/types";
 
 export const BOM = "﻿";
 
-// Ключи соответствуют полям формы/валидации; заголовки — человекочитаемые RU.
-export const CSV_COLUMNS = [
-  { key: "itemName", header: "Название" },
-  { key: "itemQuality", header: "Качество" },
-  { key: "quantity", header: "Количество" },
-  { key: "buyPlatform", header: "Площадка покупки" },
-  { key: "buyPrice", header: "Цена покупки" },
-  { key: "buyCurrency", header: "Валюта покупки" },
-  { key: "buyFeePct", header: "Комиссия покупки, %" },
-  { key: "buyDate", header: "Дата покупки" },
-  { key: "status", header: "Статус" },
-  { key: "sellPlatform", header: "Площадка продажи" },
-  { key: "sellPrice", header: "Цена продажи" },
-  { key: "sellCurrency", header: "Валюта продажи" },
-  { key: "sellFeePct", header: "Комиссия продажи, %" },
-  { key: "sellDate", header: "Дата продажи" },
-  { key: "note", header: "Комментарий" },
+/**
+ * Заголовки шаблона по локалям.
+ *
+ * Живут в коде, а не в messages/*.json, намеренно: `deal-import.ts` заводит их
+ * синонимами колонок прямо на загрузке модуля — чтобы выгруженный файл
+ * импортировался обратно. Из json их пришлось бы тянуть асинхронно, а правка
+ * перевода молча ломала бы распознавание колонок при импорте.
+ * Английские подписи совпадают с уже существующими синонимами в ALIASES.
+ */
+export const CSV_KEYS = [
+  "itemName", "itemQuality", "quantity",
+  "buyPlatform", "buyPrice", "buyCurrency", "buyFeePct", "buyDate",
+  "status",
+  "sellPlatform", "sellPrice", "sellCurrency", "sellFeePct", "sellDate",
+  "note",
 ] as const;
 
-export type CsvKey = (typeof CSV_COLUMNS)[number]["key"];
+export type CsvKey = (typeof CSV_KEYS)[number];
 
-export const STATUS_RU: Record<string, string> = {
-  holding: "в холде",
-  sold: "продано",
+export const CSV_HEADERS: Record<string, Record<CsvKey, string>> = {
+  ru: {
+    itemName: "Название",
+    itemQuality: "Качество",
+    quantity: "Количество",
+    buyPlatform: "Площадка покупки",
+    buyPrice: "Цена покупки",
+    buyCurrency: "Валюта покупки",
+    buyFeePct: "Комиссия покупки, %",
+    buyDate: "Дата покупки",
+    status: "Статус",
+    sellPlatform: "Площадка продажи",
+    sellPrice: "Цена продажи",
+    sellCurrency: "Валюта продажи",
+    sellFeePct: "Комиссия продажи, %",
+    sellDate: "Дата продажи",
+    note: "Комментарий",
+  },
+  en: {
+    itemName: "Item name",
+    itemQuality: "Quality",
+    quantity: "Quantity",
+    buyPlatform: "Buy platform",
+    buyPrice: "Buy price",
+    buyCurrency: "Buy currency",
+    buyFeePct: "Buy fee, %",
+    buyDate: "Buy date",
+    status: "Status",
+    sellPlatform: "Sell platform",
+    sellPrice: "Sell price",
+    sellCurrency: "Sell currency",
+    sellFeePct: "Sell fee, %",
+    sellDate: "Sell date",
+    note: "Note",
+  },
 };
 
-// Разбор статуса из CSV: принимаем RU-подписи, англ. enum и синонимы.
+/** Подписи статуса в выгрузке. Английские совпадают с enum — обратный импорт их и ждёт. */
+export const CSV_STATUS: Record<string, Record<string, string>> = {
+  ru: { holding: "в холде", sold: "продано" },
+  en: { holding: "holding", sold: "sold" },
+};
+
+/** Примечания в строках файла-примера. */
+const EXAMPLE_NOTES: Record<string, [string, string]> = {
+  ru: ["первая сделка", "жду роста"],
+  en: ["first deal", "waiting for a pump"],
+};
+
+const headersFor = (locale: string) => CSV_HEADERS[locale] ?? CSV_HEADERS.ru;
+const statusFor = (locale: string) => CSV_STATUS[locale] ?? CSV_STATUS.ru;
+
+// Разбор статуса из CSV: принимаем подписи обеих локалей, англ. enum и синонимы.
 export function parseStatus(raw: string): string | null {
   const s = raw.trim().toLowerCase();
   if (!s) return null; // пусто → выведем из наличия продажи
@@ -64,9 +109,10 @@ function csvCell(value: string, delimiter: string): string {
   return v;
 }
 
-function dealToRow(d: DealDTO): Record<CsvKey, string> {
+function dealToRow(d: DealDTO, locale: string): Record<CsvKey, string> {
+  // Десятичный разделитель — по локали: RU-Excel ждёт запятую, EN — точку.
   const n = (v: number | null | undefined) =>
-    v == null ? "" : String(v).replace(".", ","); // RU-десятичная запятая
+    v == null ? "" : locale === "ru" ? String(v).replace(".", ",") : String(v);
   return {
     itemName: d.itemName,
     itemQuality: d.itemQuality ?? "",
@@ -76,7 +122,7 @@ function dealToRow(d: DealDTO): Record<CsvKey, string> {
     buyCurrency: d.buyCurrency,
     buyFeePct: n(d.buyFeePct),
     buyDate: d.buyDate,
-    status: STATUS_RU[d.status] ?? d.status,
+    status: statusFor(locale)[d.status] ?? d.status,
     sellPlatform: d.sellPlatformName ?? "",
     sellPrice: n(d.sellPrice),
     sellCurrency: d.sellCurrency ?? "",
@@ -87,22 +133,24 @@ function dealToRow(d: DealDTO): Record<CsvKey, string> {
 }
 
 /** Сериализовать сделки в CSV-строку (с BOM), разделитель `;`. */
-export function serializeDeals(deals: DealDTO[]): string {
+export function serializeDeals(deals: DealDTO[], locale = "ru"): string {
   const delimiter = ";";
-  const header = CSV_COLUMNS.map((c) => csvCell(c.header, delimiter)).join(
-    delimiter,
-  );
+  const titles = headersFor(locale);
+  const header = CSV_KEYS.map((k) => csvCell(titles[k], delimiter)).join(delimiter);
   const rows = deals.map((d) => {
-    const row = dealToRow(d);
-    return CSV_COLUMNS.map((c) => csvCell(row[c.key], delimiter)).join(delimiter);
+    const row = dealToRow(d, locale);
+    return CSV_KEYS.map((k) => csvCell(row[k], delimiter)).join(delimiter);
   });
   return BOM + [header, ...rows].join("\r\n") + "\r\n";
 }
 
 /** Пример-шаблон (заголовок + 2 демонстрационные строки). */
-export function exampleCsv(): string {
+export function exampleCsv(locale = "ru"): string {
   const delimiter = ";";
-  const header = CSV_COLUMNS.map((c) => c.header).join(delimiter);
+  const titles = headersFor(locale);
+  const status = statusFor(locale);
+  const notes = EXAMPLE_NOTES[locale] ?? EXAMPLE_NOTES.ru;
+  const header = CSV_KEYS.map((k) => titles[k]).join(delimiter);
   const rows = [
     [
       "AK-47 | Redline",
@@ -113,13 +161,13 @@ export function exampleCsv(): string {
       "RUB",
       "5",
       "2026-06-01",
-      "продано",
+      status.sold,
       "Steam",
       "2100",
       "RUB",
       "13",
       "2026-06-10",
-      "первая сделка",
+      notes[0],
     ],
     [
       "Glock-18 | Water Elemental",
@@ -130,13 +178,13 @@ export function exampleCsv(): string {
       "USD",
       "2.5",
       "2026-06-15",
-      "в холде",
+      status.holding,
       "",
       "",
       "",
       "",
       "",
-      "жду роста",
+      notes[1],
     ],
   ];
   const body = rows.map((r) => r.join(delimiter)).join("\r\n");

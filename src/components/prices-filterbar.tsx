@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useRef, useState } from "react";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { NumberInput } from "@/components/number-input";
@@ -8,6 +10,7 @@ import { buildPriceQuery, type PriceFilters } from "@/lib/prices/compare";
 type Props = { filters: PriceFilters };
 
 export function PricesFilterBar({ filters }: Props) {
+  const t = useTranslations("prices");
   const router = useRouter();
   const pathname = usePathname();
 
@@ -37,7 +40,7 @@ export function PricesFilterBar({ filters }: Props) {
   return (
     <div className="flex flex-wrap items-end gap-3">
       <label className="grid gap-1 text-xs text-muted-foreground">
-        Маржа ≥ %
+        {t("marginAtLeast")}
         <NumberInput
           className="h-8 w-24"
           placeholder="0"
@@ -50,7 +53,7 @@ export function PricesFilterBar({ filters }: Props) {
       </label>
 
       <label className="grid gap-1 text-xs text-muted-foreground">
-        Продаж/30д ≥
+        {t("salesAtLeast")}
         <NumberInput
           className="h-8 w-24"
           decimal={false}

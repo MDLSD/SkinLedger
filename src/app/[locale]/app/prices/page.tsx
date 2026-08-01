@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
 import { Link, redirect } from "@/i18n/navigation";
 import { toLocale } from "@/i18n/routing";
@@ -81,6 +81,8 @@ export default async function PricesPage({
   const { locale: rawLocale } = await params;
   const locale = toLocale(rawLocale);
   setRequestLocale(locale);
+  const t = await getTranslations("prices");
+  const format = await getFormatter();
 
   const session = await auth();
   if (!session?.user?.id) redirect({ href: "/login", locale });
@@ -133,11 +135,13 @@ export default async function PricesPage({
           таблицы стоят на месте, прокручивается только тело таблицы. */}
       <div className="flex min-w-0 flex-1 flex-col gap-4 lg:-my-6 lg:h-[calc(100dvh-var(--app-header-h))] lg:py-6 lg:pr-8">
         <div>
-          <h1 className="text-xl font-semibold">Таблица</h1>
+          <h1 className="text-xl font-semibold">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Купить на <span className="text-foreground">{buyTitle}</span> → продать на{" "}
-            <span className="text-foreground">{sellTitle}</span>. Прибыль с учётом комиссий площадок,
-            в долларах.
+            {t.rich("subtitle", {
+              buy: buyTitle,
+              sell: sellTitle,
+              s: (chunks) => <span className="text-foreground">{chunks}</span>,
+            })}
           </p>
         </div>
 
@@ -145,22 +149,23 @@ export default async function PricesPage({
 
         {!hasData ? (
           <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-            Цены ещё не загружены. Запустите{" "}
-            <code className="text-foreground">npm run prices:ingest</code>.
+            {t.rich("noPrices", {
+              code: (chunks) => <code className="text-foreground">{chunks}</code>,
+            })}
           </p>
         ) : result.matched === 0 ? (
           <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-            Нет предметов, торгующихся на обеих площадках одновременно. Попробуйте другую пару.
+            {t("noCommonItems")}
           </p>
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
               <span className="font-semibold text-primary">
-                [{result.total.toLocaleString("ru-RU")}]
+                [{format.number(result.total)}]
               </span>{" "}
-              Предметов найдено
+              {t("itemsFound")}
               {result.total !== result.matched &&
-                ` из ${result.matched.toLocaleString("ru-RU")} общих`}
+                ` ${t("ofTotal", { total: format.number(result.matched) })}`}
             </p>
 
             {/* Скроллится сам контейнер таблицы (её первый div), иначе липкая
@@ -178,7 +183,7 @@ export default async function PricesPage({
                   <TableHead>
                     <span className="flex items-center gap-3">
                       <PricesSearch filters={filters} />
-                      <SortLink k="name" label="Название" filters={filters} />
+                      <SortLink k="name" label={t("colName")} filters={filters} />
                     </span>
                   </TableHead>
                   <TableHead>
@@ -199,13 +204,13 @@ export default async function PricesPage({
                   </TableHead>
                   <TableHead>
                     <span className="flex items-center gap-2">
-                      <SortLink k="profitPct" label="Прибыль" filters={filters} />
+                      <SortLink k="profitPct" label={t("colProfit")} filters={filters} />
                       <SortLink k="profit" label={cur === "USD" ? "$" : CURRENCY_SYMBOL[cur] ?? cur} filters={filters} />
                     </span>
                   </TableHead>
-                  <TableHead>Обновлено</TableHead>
+                  <TableHead>{t("colUpdated")}</TableHead>
                   <TableHead>
-                    <SortLink k="liq" label="Продажи [30д]" filters={filters} />
+                    <SortLink k="liq" label={t("colSales30d")} filters={filters} />
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -238,7 +243,7 @@ export default async function PricesPage({
                 aria-disabled={result.page <= 1}
                 className={result.page <= 1 ? "pointer-events-none opacity-50" : ""}
               >
-                Назад
+                {t("prev")}
               </Button>
               <span className="text-sm text-muted-foreground">
                 {result.page} / {result.pageCount}
@@ -251,7 +256,7 @@ export default async function PricesPage({
                 aria-disabled={result.page >= result.pageCount}
                 className={result.page >= result.pageCount ? "pointer-events-none opacity-50" : ""}
               >
-                Вперёд
+                {t("next")}
               </Button>
             </div>
           )}

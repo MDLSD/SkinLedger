@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+/**
+ * Сообщения схем — это КЛЮЧИ перевода из неймспейса `errors`, а не готовый
+ * текст. Схемы лежат на уровне модуля и разделяются клиентом и сервером,
+ * поэтому язык им взять неоткуда; перевод делает тот, кто показывает ошибку —
+ * через `useErrorMessage()` (src/i18n/error-message.ts).
+ */
+
 export const CURRENCIES = ["RUB", "USD", "EUR", "CNY"] as const;
 export const BASE_CURRENCIES = ["RUB", "USD", "EUR"] as const;
 export const DEAL_STATUSES = ["holding", "sold"] as const;
@@ -13,23 +20,23 @@ export type BaseCurrency = (typeof BASE_CURRENCIES)[number];
 export type DealStatus = (typeof DEAL_STATUSES)[number];
 
 export const registerSchema = z.object({
-  email: z.email("Некорректный email"),
-  password: z.string().min(8, "Пароль — минимум 8 символов"),
+  email: z.email("email"),
+  password: z.string().min(8, "passwordMin"),
 });
 
 export const loginSchema = z.object({
-  email: z.email("Некорректный email"),
-  password: z.string().min(1, "Введите пароль"),
+  email: z.email("email"),
+  password: z.string().min(1, "passwordRequired"),
 });
 
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Введите текущий пароль"),
-    newPassword: z.string().min(8, "Новый пароль — минимум 8 символов"),
+    currentPassword: z.string().min(1, "currentPasswordRequired"),
+    newPassword: z.string().min(8, "newPasswordMin"),
   })
   .refine((d) => d.currentPassword !== d.newPassword, {
     path: ["newPassword"],
-    message: "Новый пароль совпадает с текущим",
+    message: "newPasswordSame",
   });
 
 // --- Сделки ---
@@ -53,17 +60,17 @@ const decimalOnly = (v: unknown) =>
 const requiredPrice = (msg: string) =>
   z.preprocess(
     decimalOnly,
-    z.coerce.number({ error: msg }).positive(msg).max(MAX_PRICE, "Слишком большая сумма"),
+    z.coerce.number({ error: msg }).positive(msg).max(MAX_PRICE, "amountTooLarge"),
   );
 
 const feePct = z.coerce
-  .number({ error: "Комиссия — число от 0 до 100" })
-  .min(0, "Комиссия не может быть меньше 0")
-  .max(100, "Комиссия не может быть больше 100");
+  .number({ error: "feeRange" })
+  .min(0, "feeMin")
+  .max(100, "feeMax");
 
 const fxRate = z.coerce
-  .number({ error: "Курс должен быть числом" })
-  .positive("Курс должен быть больше 0");
+  .number({ error: "fxNumber" })
+  .positive("fxPositive");
 
 // Границы даты сделки. Верхняя проверяется в refine, а не через .max(): значение
 // в .max() зафиксировалось бы на момент старта процесса, и на долгоживущем
@@ -72,45 +79,45 @@ const MIN_DEAL_DATE = new Date("2010-01-01T00:00:00.000Z");
 const dealDate = (msg: string) =>
   z.coerce
     .date({ error: msg })
-    .min(MIN_DEAL_DATE, "Дата раньше 2010 года")
-    .refine((d) => d.getTime() <= Date.now() + 86_400_000, "Дата в будущем");
+    .min(MIN_DEAL_DATE, "dateTooEarly")
+    .refine((d) => d.getTime() <= Date.now() + 86_400_000, "dateInFuture");
 
 export const dealSchema = z
   .object({
-    itemName: z.string().trim().min(1, "Укажите название скина").max(200),
+    itemName: z.string().trim().min(1, "itemNameRequired").max(200),
     itemQuality: z.preprocess(
       emptyToUndef,
       z.string().trim().max(100).optional(),
     ),
     quantity: z.coerce
-      .number({ error: "Количество — целое число от 1" })
-      .int("Количество — целое число")
-      .min(1, "Количество — минимум 1")
-      .max(MAX_QUANTITY, "Слишком большое количество"),
+      .number({ error: "quantityRange" })
+      .int("quantityInt")
+      .min(1, "quantityMin")
+      .max(MAX_QUANTITY, "quantityTooLarge"),
     // Частичная продажа: сколько штук продано (остаток → в холд).
     // Пусто/отсутствует = продано всё количество.
     sellQuantity: optionalNumber(
-      z.coerce.number().int("Продано — целое число").min(1, "Продано — минимум 1"),
+      z.coerce.number().int("soldInt").min(1, "soldMin"),
     ),
 
-    buyPlatformId: z.string().min(1, "Выберите площадку покупки"),
-    buyPrice: requiredPrice("Цена покупки должна быть больше 0"),
+    buyPlatformId: z.string().min(1, "buyPlatformRequired"),
+    buyPrice: requiredPrice("buyPricePositive"),
     buyCurrency: z.enum(CURRENCIES),
     // Курс к базовой валюте вычисляет сервер из парсера; форма его не шлёт.
     buyFxRate: optionalNumber(fxRate),
     buyFeePct: feePct,
-    buyDate: dealDate("Укажите дату покупки"),
+    buyDate: dealDate("buyDateRequired"),
 
     status: z.enum(DEAL_STATUSES),
 
     sellPlatformId: z.preprocess(emptyToUndef, z.string().optional()),
-    sellPrice: optionalNumber(requiredPrice("Цена продажи должна быть больше 0")),
+    sellPrice: optionalNumber(requiredPrice("sellPricePositive")),
     sellCurrency: z.preprocess(emptyToUndef, z.enum(CURRENCIES).optional()),
     sellFxRate: optionalNumber(fxRate),
     sellFeePct: optionalNumber(feePct),
     sellDate: z.preprocess(
       emptyToUndef,
-      dealDate("Укажите дату продажи").optional(),
+      dealDate("sellDateRequired").optional(),
     ),
 
     note: z.preprocess(emptyToUndef, z.string().trim().max(2000).optional()),
@@ -124,17 +131,16 @@ export const dealSchema = z
   })
   .superRefine((d, ctx) => {
     if (d.status === "holding") return;
-    const label = "продажи";
     if (!d.sellPlatformId)
-      ctx.addIssue({ code: "custom", path: ["sellPlatformId"], message: `Выберите площадку ${label}` });
+      ctx.addIssue({ code: "custom", path: ["sellPlatformId"], message: "sellPlatformRequired" });
     if (d.sellPrice == null)
-      ctx.addIssue({ code: "custom", path: ["sellPrice"], message: `Укажите цену ${label}` });
+      ctx.addIssue({ code: "custom", path: ["sellPrice"], message: "sellPriceRequired" });
     if (d.sellDate == null)
-      ctx.addIssue({ code: "custom", path: ["sellDate"], message: `Укажите дату ${label}` });
+      ctx.addIssue({ code: "custom", path: ["sellDate"], message: "sellDateRequired" });
     if (d.sellDate && d.sellDate < d.buyDate)
-      ctx.addIssue({ code: "custom", path: ["sellDate"], message: "Дата продажи не может быть раньше даты покупки" });
+      ctx.addIssue({ code: "custom", path: ["sellDate"], message: "sellDateBeforeBuy" });
     if (d.sellQuantity != null && d.sellQuantity > d.quantity)
-      ctx.addIssue({ code: "custom", path: ["sellQuantity"], message: "Продано не может быть больше количества" });
+      ctx.addIssue({ code: "custom", path: ["sellQuantity"], message: "soldExceedsQuantity" });
   });
 
 export type DealInput = z.infer<typeof dealSchema>;

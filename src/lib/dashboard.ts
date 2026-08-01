@@ -63,18 +63,16 @@ export type DashboardData = {
 };
 
 // Корзины по сроку холда (дней) для «маржа vs время холда».
+// `label` — ключ перевода (charts.holdBin.*), подпись ставит компонент графика.
 const HOLD_BINS: { label: string; max: number }[] = [
-  { label: "≤ 7 дн", max: 7 },
-  { label: "8–30 дн", max: 30 },
-  { label: "31–60 дн", max: 60 },
-  { label: "> 60 дн", max: Infinity },
+  { label: "d7", max: 7 },
+  { label: "d30", max: 30 },
+  { label: "d60", max: 60 },
+  { label: "more", max: Infinity },
 ];
 const DEAD_CAPITAL_DAYS = 60;
 
-const MONTHS_RU = [
-  "янв", "фев", "мар", "апр", "май", "июн",
-  "июл", "авг", "сен", "окт", "ноя", "дек",
-];
+
 
 function inRange(d: Date | null, range: { gte?: Date; lte?: Date } | null): boolean {
   if (!d) return false;
@@ -178,7 +176,8 @@ export function computeDashboard(
       const [y, m] = key.split("-").map(Number);
       return {
         key,
-        label: `${MONTHS_RU[m - 1]} ${String(y).slice(2)}`,
+        // Метка месяца собирается по локали в компоненте графика.
+        label: `${y}-${String(m).padStart(2, "0")}`,
         profit: roundMoney(v.profit),
         // ROI на вложенный капитал за месяц — главное число для арбитража:
         // прибыль месяца к себестоимости проданного в этом месяце.

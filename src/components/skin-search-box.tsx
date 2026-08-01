@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { Loader2, Search } from "lucide-react";
@@ -24,6 +26,8 @@ const MIN_QUERY = 2;
  * чтобы не дёргать базу на каждое нажатие.
  */
 export function SkinSearchBox({ className = "" }: { className?: string }) {
+  const t = useTranslations("search");
+  const locale = useLocale();
   const router = useRouter();
   const [q, setQ] = useState("");
   // Результат храним вместе с запросом, под который он получен: тогда
@@ -41,7 +45,7 @@ export function SkinSearchBox({ className = "" }: { className?: string }) {
   const activeIdx = hits.length ? Math.min(active, hits.length - 1) : 0;
   // Та же анимация подсказки, что в форме сделки: названия печатаются и
   // стираются, пока поле пустое и не в фокусе.
-  const placeholder = useTypedPlaceholder(!open && q === "");
+  const placeholder = useTypedPlaceholder(!open && q === "", t("searchSkin"));
 
   // Клик мимо — закрываем список.
   useEffect(() => {
@@ -103,7 +107,7 @@ export function SkinSearchBox({ className = "" }: { className?: string }) {
         onFocus={() => setOpen(true)}
         onKeyDown={onKey}
         placeholder={placeholder}
-        aria-label="Поиск скина"
+        aria-label={t("searchSkin")}
         className="h-9 w-full rounded-lg border border-border bg-card pr-3 pl-9 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/60"
       />
 
@@ -111,7 +115,7 @@ export function SkinSearchBox({ className = "" }: { className?: string }) {
         <div className="absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
           {hits.length === 0 ? (
             <p className="px-3 py-3 text-xs text-muted-foreground">
-              {loading ? "Ищем…" : "Ничего не нашли"}
+              {loading ? t("searching") : t("nothingFound")}
             </p>
           ) : (
             <ul className="max-h-96 overflow-y-auto py-1">
@@ -143,15 +147,15 @@ export function SkinSearchBox({ className = "" }: { className?: string }) {
                       <span className="block truncate text-sm">{h.title}</span>
                       <span className="block truncate text-xs tabular-nums text-primary">
                         {h.low == null
-                          ? "нет цен"
+                          ? t("noPrices")
                           : h.high != null && h.high !== h.low
-                            ? `${formatMoney(h.low, "USD")} — ${formatMoney(h.high, "USD")}`
-                            : formatMoney(h.low, "USD")}
+                            ? `${formatMoney(h.low, "USD", locale)} — ${formatMoney(h.high, "USD", locale)}`
+                            : formatMoney(h.low, "USD", locale)}
                       </span>
                     </span>
                     {h.variants > 1 && (
                       <span className="shrink-0 text-[10px] text-muted-foreground">
-                        {h.variants} вар.
+                        {t("variants", { n: h.variants })}
                       </span>
                     )}
                   </button>

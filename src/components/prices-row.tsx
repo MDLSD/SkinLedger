@@ -1,5 +1,8 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
+import { withDynamicKeys, type DynamicTranslator } from "@/i18n/dynamic";
+
 import { useEffect, useState } from "react";
 import {
   ArrowLeftRight,
@@ -48,13 +51,13 @@ type Props = {
 };
 
 /** «3 мин», «6 ч», «2 д» — свежесть котировки. */
-function ago(d: Date, now: number): string {
+function ago(d: Date, now: number, t: DynamicTranslator): string {
   const min = Math.max(0, Math.round((now - new Date(d).getTime()) / 60000));
-  if (min < 1) return "только что";
-  if (min < 60) return `${min} мин`;
+  if (min < 1) return t("agoJustNow");
+  if (min < 60) return t("agoMinutes", { n: min });
   const h = Math.round(min / 60);
-  if (h < 24) return `${h} ч`;
-  return `${Math.round(h / 24)} д`;
+  if (h < 24) return t("agoHours", { n: h });
+  return t("agoDays", { n: Math.round(h / 24) });
 }
 
 /** Цена: мелко USD над ценой в валюте пользователя, справа — предложения. */
@@ -69,22 +72,23 @@ function PriceCell({
   factor: number | null;
   offers: number | null;
 }) {
+  const locale = useLocale();
   const single = factor == null || cur === "USD";
   return (
     <span className="flex items-end justify-between gap-3">
       <span className="tabular-nums">
         {!single && (
           <span className="block text-xs text-muted-foreground">
-            {formatMoney(usd, "USD")}
+            {formatMoney(usd, "USD", locale)}
           </span>
         )}
         <span className="block text-sm font-medium">
-          {single ? formatMoney(usd, "USD") : formatMoney(usd * factor, cur)}
+          {single ? formatMoney(usd, "USD", locale) : formatMoney(usd * factor, cur, locale)}
         </span>
       </span>
       {offers != null && (
         <span className="text-xs tabular-nums text-muted-foreground">
-          {offers.toLocaleString("ru-RU")}
+          {offers.toLocaleString(locale)}
         </span>
       )}
     </span>
@@ -101,6 +105,7 @@ function SkinThumb({
   image: string | null;
   name: string;
 }) {
+  const t = useTranslations("prices");
   const box = "block h-10 w-14 shrink-0 rounded bg-muted/40 object-contain";
   const img = image ? (
     // eslint-disable-next-line @next/next/no-img-element
@@ -112,7 +117,7 @@ function SkinThumb({
   return (
     <Link
       href={`/skins/${slug}`}
-      title={`Открыть страницу «${name}»`}
+      title={t("openItemPage", { name })}
       className="shrink-0 rounded transition-opacity hover:opacity-80"
     >
       {img}
@@ -121,6 +126,9 @@ function SkinThumb({
 }
 
 export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colSpan }: Props) {
+  const t = useTranslations("prices");
+  const tc = withDynamicKeys(useTranslations("catalog"));
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const pos = r.profit > 0;
@@ -147,7 +155,9 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
             <SkinThumb slug={r.slug} image={r.image} name={r.marketHashName} />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="truncate">{r.titleTop}</span>
+                <span className="truncate">
+                  {tc.has(`kind.${r.titleTop}`) ? tc(`kind.${r.titleTop}`) : r.titleTop}
+                </span>
                 {r.stattrak && (
                   <span className="rounded bg-[#cf6a32]/20 px-1 text-[10px] font-medium text-[#cf6a32]">
                     ST
@@ -162,7 +172,7 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
               <button
                 type="button"
                 onClick={copyName}
-                title={`Скопировать «${r.marketHashName}»`}
+                title={t("copyName", { name: r.marketHashName })}
                 className="group flex max-w-full items-center gap-1.5 text-left text-sm hover:text-primary"
               >
                 <span className="truncate">{r.titleMain}</span>
@@ -184,7 +194,7 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
             className={`block w-full px-4 py-3 text-left transition-colors hover:bg-muted/40 ${
               open ? "bg-muted/30" : ""
             }`}
-            title="Показать график и стакан"
+            title={t("showChart")}
           >
             <PriceCell usd={r.buyPrice} cur={cur} factor={fx} offers={r.buyOffers} />
           </button>
@@ -196,7 +206,7 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
             className={`block w-full px-4 py-3 text-left transition-colors hover:bg-muted/40 ${
               open ? "bg-muted/30" : ""
             }`}
-            title="Показать график и стакан"
+            title={t("showChart")}
           >
             <PriceCell usd={r.sellPrice} cur={cur} factor={fx} offers={r.sellOffers} />
           </button>
@@ -206,11 +216,11 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
         <TableCell className={`tabular-nums ${tone}`}>
           <span className="flex items-center gap-1.5 text-xs">
             {pos ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
-            {formatPct(r.profitPct)}
+            {formatPct(r.profitPct, locale)}
           </span>
           <span className="flex items-center gap-1.5 text-sm font-medium">
             <ArrowLeftRight className="size-3.5 opacity-70" />
-            {fx == null ? formatMoney(r.profit, "USD", true) : formatMoney(r.profit * fx, cur, true)}
+            {fx == null ? formatMoney(r.profit, "USD", locale, true) : formatMoney(r.profit * fx, cur, locale, true)}
           </span>
         </TableCell>
 
@@ -218,11 +228,11 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
         <TableCell className="text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <SourceIcon slug={buy} title={buyTitle} className="size-3.5 text-[7px]" />
-            {ago(r.buyFetchedAt, now)}
+            {ago(r.buyFetchedAt, now, withDynamicKeys(t))}
           </span>
           <span className="mt-1 flex items-center gap-1.5">
             <SourceIcon slug={sell} title={sellTitle} className="size-3.5 text-[7px]" />
-            {ago(r.sellFetchedAt, now)}
+            {ago(r.sellFetchedAt, now, withDynamicKeys(t))}
           </span>
         </TableCell>
 
@@ -232,13 +242,13 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
             <span className="flex flex-col items-center gap-1">
               <SourceIcon slug={buy} title={buyTitle} className="size-4 text-[8px]" />
               <span className="text-muted-foreground">
-                {r.buySales != null ? r.buySales.toLocaleString("ru-RU") : "—"}
+                {r.buySales != null ? r.buySales.toLocaleString(locale) : "—"}
               </span>
             </span>
             <span className="flex flex-col items-center gap-1">
               <SourceIcon slug={sell} title={sellTitle} className="size-4 text-[8px]" />
               <span className="text-muted-foreground">
-                {r.liquidity != null ? r.liquidity.toLocaleString("ru-RU") : "—"}
+                {r.liquidity != null ? r.liquidity.toLocaleString(locale) : "—"}
               </span>
             </span>
           </span>
@@ -342,9 +352,11 @@ function SourcePanel({
   cur: string;
   fx: number | null;
 }) {
+  const t = useTranslations("prices");
+  const locale = useLocale();
   const [tab, setTab] = useState<"sales" | "orders">("sales");
   const money = (usd: number) =>
-    fx == null || cur === "USD" ? formatMoney(usd, "USD") : formatMoney(usd * fx, cur);
+    fx == null || cur === "USD" ? formatMoney(usd, "USD", locale) : formatMoney(usd * fx, cur, locale);
 
   return (
     <div className="bg-card">
@@ -355,10 +367,10 @@ function SourcePanel({
           <span className="max-w-24 truncate">{title}</span>
         </span>
         <Tab active={tab === "sales"} onClick={() => setTab("sales")}>
-          Продажи
+          {t("sales")}
         </Tab>
         <Tab active={tab === "orders"} onClick={() => setTab("orders")}>
-          Ордера
+          {t("orders")}
         </Tab>
         <span className="ml-auto flex items-center gap-1">
           {PERIODS.map((p) => (
@@ -382,15 +394,15 @@ function SourcePanel({
         {/* График продаж */}
         <div className="h-56">
           {loading ? (
-            <Centered>Загрузка…</Centered>
+            <Centered>{t("loading")}</Centered>
           ) : error ? (
-            <Centered>Не удалось загрузить историю</Centered>
+            <Centered>{t("historyFailed")}</Centered>
           ) : tab === "orders" ? (
             <Centered>
-              История ордеров не собирается — источник отдаёт только текущую цену ордера
+              {t("noOrderHistory")}
             </Centered>
           ) : !detail || detail.points.length === 0 ? (
-            <Centered>Нет данных за период</Centered>
+            <Centered>{t("noDataForPeriod")}</Centered>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={detail.points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -434,7 +446,7 @@ function SourcePanel({
                     return (
                       <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
                         <div className="text-muted-foreground">
-                          {new Date(pt.t).toLocaleString("ru-RU", {
+                          {new Date(pt.t).toLocaleString(locale, {
                             day: "2-digit",
                             month: "2-digit",
                             hour: "2-digit",
@@ -464,7 +476,7 @@ function SourcePanel({
         <div className="space-y-1 text-xs">
           <div className="flex items-center gap-1.5 font-medium" style={{ color: SELL_COLOR }}>
             <span className="size-2 rounded-[2px]" style={{ background: SELL_COLOR }} />
-            Запросы на продажу
+            {t("sellOrders")}
           </div>
           <BookRows level={detail?.sell ?? null} color={SELL_COLOR} money={money} />
 
@@ -473,7 +485,7 @@ function SourcePanel({
             style={{ color: BUY_COLOR }}
           >
             <span className="size-2 rounded-[2px]" style={{ background: BUY_COLOR }} />
-            Запросы на покупку
+            {t("buyOrders")}
           </div>
           <BookRows level={detail?.buy ?? null} color={BUY_COLOR} money={money} />
         </div>
@@ -481,16 +493,16 @@ function SourcePanel({
 
       {/* Статистика продаж за период */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
-        <span>Статистика продаж</span>
+        <span>{t("salesStats")}</span>
         <span className="ml-auto flex flex-wrap gap-x-4 tabular-nums">
           <span>
-            Мин: <span className="text-foreground">{detail?.min != null ? money(detail.min) : "—"}</span>
+            {t("min")} <span className="text-foreground">{detail?.min != null ? money(detail.min) : "—"}</span>
           </span>
           <span>
-            Макс: <span className="text-foreground">{detail?.max != null ? money(detail.max) : "—"}</span>
+            {t("max")} <span className="text-foreground">{detail?.max != null ? money(detail.max) : "—"}</span>
           </span>
           <span>
-            Средняя:{" "}
+            {t("avg")}{" "}
             <span className="text-foreground">{detail?.avg != null ? money(detail.avg) : "—"}</span>
           </span>
         </span>
@@ -509,6 +521,8 @@ function BookRows({
   color: string;
   money: (usd: number) => string;
 }) {
+  const t = useTranslations("prices");
+  const locale = useLocale();
   const rows = [0, 1, 2, 3, 4];
   const at = 2; // известный уровень — в середине, как в референсе
   return (
@@ -521,14 +535,14 @@ function BookRows({
             style={{ background: `${color}1a` }}
           >
             <span className="text-foreground">
-              {level.count != null ? level.count.toLocaleString("ru-RU") : "—"}
+              {level.count != null ? level.count.toLocaleString(locale) : "—"}
             </span>
             <span style={{ color }}>{money(level.price)}</span>
           </div>
         ) : (
           <div key={i} className="flex items-center justify-between px-1.5 py-0.5 text-muted-foreground/60">
             <span>—</span>
-            <span>Нет данных</span>
+            <span>{t("noData")}</span>
           </div>
         ),
       )}

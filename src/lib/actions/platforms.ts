@@ -1,21 +1,23 @@
 "use server";
 
+import type { ErrorKey, ErrorValues } from "@/lib/error-keys";
+
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-export type PlatformState = { error?: string; success?: boolean };
+export type PlatformState = { error?: ErrorKey; success?: boolean; errorValues?: ErrorValues };
 
 const MAX_PLATFORMS = 50;
 
 const feePct = z.coerce
-  .number({ error: "Комиссия — число 0–100" })
-  .min(0, "Комиссия 0–100 %")
-  .max(100, "Комиссия 0–100 %");
+  .number({ error: "feeRange100" })
+  .min(0, "feeRange100")
+  .max(100, "feeRange100");
 
 const platformSchema = z.object({
-  name: z.string().trim().min(1, "Укажите название").max(60, "Слишком длинное название"),
+  name: z.string().trim().min(1, "nameRequired").max(60, "nameTooLong"),
   buyFeePct: feePct,
   sellFeePct: feePct,
 });
@@ -59,10 +61,10 @@ export async function createPlatformAction(
 
     const own = await prisma.platform.count({ where: { userId, isCustom: true } });
     if (own >= MAX_PLATFORMS) {
-      return { error: `Достигнут лимит площадок (${MAX_PLATFORMS})` };
+      return { error: "platformLimit", errorValues: { max: MAX_PLATFORMS } };
     }
     if (await nameTaken(userId, parsed.data.name)) {
-      return { error: "Площадка с таким названием уже есть" };
+      return { error: "platformNameTaken" };
     }
 
     await prisma.platform.create({
@@ -78,7 +80,7 @@ export async function createPlatformAction(
     revalidatePath("/app/deals");
     return { success: true };
   } catch {
-    return { error: "Не удалось создать площадку" };
+    return { error: "platformCreateFailed" };
   }
 }
 
@@ -96,9 +98,9 @@ export async function updatePlatformAction(
     const existing = await prisma.platform.findFirst({
       where: { id, userId, isCustom: true },
     });
-    if (!existing) return { error: "Площадка не найдена" };
+    if (!existing) return { error: "platformNotFound" };
     if (await nameTaken(userId, parsed.data.name, id)) {
-      return { error: "Площадка с таким названием уже есть" };
+      return { error: "platformNameTaken" };
     }
 
     await prisma.platform.update({
@@ -113,7 +115,7 @@ export async function updatePlatformAction(
     revalidatePath("/app/deals");
     return { success: true };
   } catch {
-    return { error: "Не удалось сохранить площадку" };
+    return { error: "platformSaveFailed" };
   }
 }
 
@@ -127,14 +129,14 @@ export async function deletePlatformAction(
     const existing = await prisma.platform.findFirst({
       where: { id, userId, isCustom: true },
     });
-    if (!existing) return { error: "Площадка не найдена" };
+    if (!existing) return { error: "platformNotFound" };
 
     // Нельзя удалить площадку, на которую ссылаются сделки (FK Restrict).
     const used = await prisma.deal.count({
       where: { OR: [{ buyPlatformId: id }, { sellPlatformId: id }] },
     });
     if (used > 0) {
-      return { error: `Площадка используется в ${used} сделках — сначала измените их.` };
+      return { error: "platformInUse", errorValues: { count: used } };
     }
 
     await prisma.platform.delete({ where: { id } });
@@ -142,6 +144,6 @@ export async function deletePlatformAction(
     revalidatePath("/app/deals");
     return { success: true };
   } catch {
-    return { error: "Не удалось удалить площадку" };
+    return { error: "platformDeleteFailed" };
   }
 }

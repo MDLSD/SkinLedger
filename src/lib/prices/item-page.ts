@@ -26,7 +26,7 @@ export type BestPair = {
 export type Variant = {
   slug: string;
   marketHashName: string;
-  label: string; // «Немного поношенное»
+  label: string | null; // ключ износа/финиша, null — вариантов нет
   prefix: string | null; // «StatTrak™» / «Souvenir»
   price: number | null;
   current: boolean;
@@ -101,47 +101,38 @@ export type ItemPageData = {
   now: number;
 };
 
-/** Русские названия износа — как в референсе. */
-export const WEAR_RU: Record<string, string> = {
-  "Factory New": "Прямо с завода",
-  "Minimal Wear": "Немного поношенное",
-  "Field-Tested": "После полевых испытаний",
-  "Well-Worn": "Поношенное",
-  "Battle-Scarred": "Закалённое в боях",
-};
+/**
+ * Ключи износа/редкости/вида — они же значения из каталога.
+ * Подписи лежат в messages (`item.wear.*`, `item.rarity.*`, `item.kind.*`):
+ * в английской локали износ по требованию остаётся латиницей
+ * («Minimal Wear»), в русской — переводится.
+ */
+export const WEAR_KEYS = [
+  "Factory New",
+  "Minimal Wear",
+  "Field-Tested",
+  "Well-Worn",
+  "Battle-Scarred",
+] as const;
 
-/** Русские названия редкости. Неизвестные значения отдаём как есть. */
-export const RARITY_RU: Record<string, string> = {
-  "Consumer Grade": "Ширпотреб",
-  "Industrial Grade": "Промышленное качество",
-  "Mil-Spec Grade": "Армейское качество",
-  Restricted: "Запрещённое",
-  Classified: "Засекреченное",
-  Covert: "Тайное",
-  Contraband: "Контрабанда",
-  "Extraordinary": "Экстраординарное",
-  Exotic: "Экзотическое",
-  Remarkable: "Примечательное",
-  "High Grade": "Высшего класса",
-  Superior: "Превосходное",
-  Master: "Мастерское",
-  Distinguished: "Заслуженное",
-  "Base Grade": "Базового класса",
-  Default: "Обычное",
-};
-
-const KIND_LABEL: Record<string, string> = {
-  sticker: "Стикер",
-  agent: "Агент",
-  case: "Кейс",
-  capsule: "Капсула",
-  container: "Контейнер",
-  keychain: "Брелок",
-  patch: "Патч",
-  graffiti: "Граффити",
-  music_kit: "Музыкальный набор",
-  collectible: "Коллекционный предмет",
-};
+export const RARITY_KEYS = [
+  "Consumer Grade",
+  "Industrial Grade",
+  "Mil-Spec Grade",
+  "Restricted",
+  "Classified",
+  "Covert",
+  "Contraband",
+  "Extraordinary",
+  "Exotic",
+  "Remarkable",
+  "High Grade",
+  "Superior",
+  "Master",
+  "Distinguished",
+  "Base Grade",
+  "Default",
+] as const;
 
 const num = (v: unknown): number | null => (v == null ? null : Number(v));
 
@@ -152,10 +143,12 @@ function median(values: number[]): number | null {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-/** Подпись варианта: износ по-русски, а ST/Souvenir — отдельной меткой. */
-function variantLabel(v: { wear: string | null; finish: string | null }): string {
-  const w = v.wear ?? v.finish;
-  return w ? (WEAR_RU[w] ?? w) : "Без варианта";
+/**
+ * Ключ варианта: сырое значение износа/финиша, либо null — «без варианта».
+ * Подпись подставляет страница, у неё есть переводчик.
+ */
+function variantLabel(v: { wear: string | null; finish: string | null }): string | null {
+  return v.wear ?? v.finish;
 }
 
 /** Максимум линий на графике — ТЗ 3.4. */
@@ -342,11 +335,12 @@ export async function loadItemPage(slug: string): Promise<ItemPageData | null> {
   })();
 
   // Периоды для блока «Изменение цен»: экстремумы и изменение медианы.
+  // `label` — ключ перевода периода (item.period.*), не готовый текст.
   const periodDefs: { days: number | null; label: string }[] = [
-    { days: 7, label: "7 дней" },
-    { days: 30, label: "30 дней" },
-    { days: 90, label: "90 дней" },
-    { days: null, label: "всё время" },
+    { days: 7, label: "d7" },
+    { days: 30, label: "d30" },
+    { days: 90, label: "d90" },
+    { days: null, label: "all" },
   ];
   const periods: PeriodStat[] = periodDefs.map(({ days: d, label }) => {
     const cutoff = d == null ? 0 : now - d * 86400_000;
@@ -437,7 +431,8 @@ export async function loadItemPage(slug: string): Promise<ItemPageData | null> {
     item: {
       marketHashName: item.marketHashName,
       slug: item.slug,
-      titleTop: item.kind === "skin" ? (item.weapon ?? "") : (KIND_LABEL[item.kind] ?? ""),
+      // У скина сверху оружие, у прочего — ключ вида; подпись ставит страница.
+      titleTop: item.kind === "skin" ? (item.weapon ?? "") : item.kind,
       titleMain,
       image: item.image,
       weapon: item.weapon,
@@ -461,7 +456,8 @@ export async function loadItemPage(slug: string): Promise<ItemPageData | null> {
     best,
     variants,
     overview: {
-      kindLabel: item.kind === "skin" ? "Скин" : (KIND_LABEL[item.kind] ?? "Предмет"),
+      // Ключ вида предмета; подпись подставляет страница.
+      kindLabel: item.kind,
       weapon: item.weapon,
       rarity: item.rarity,
       skinName: item.skinName ?? item.stickerName,

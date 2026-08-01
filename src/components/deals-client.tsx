@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { ArrowDown, ArrowUp, Check, ChevronsUpDown, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -61,29 +62,28 @@ function formatDate(d: string | null) {
 // Цена за штуку в валюте сделки — ровно то, что вводил пользователь.
 // В самой колонке стоит итог по партии с комиссией, поэтому цену показываем
 // отдельной строкой, а не вместо неё.
-function unitPrice(price: number | null, currency: string, quantity: number) {
+function unitPrice(
+  price: number | null,
+  currency: string,
+  quantity: number,
+  locale: string,
+) {
   if (price == null) return null;
-  return `${quantity > 1 ? `${quantity} × ` : ""}${formatMoney(price, currency)} · `;
+  return `${quantity > 1 ? `${quantity} × ` : ""}${formatMoney(price, currency, locale)} · `;
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "sold") return <Badge>Продано</Badge>;
-  return <Badge variant="secondary">В холде</Badge>;
+  const t = useTranslations("deals");
+  if (status === "sold") return <Badge>{t("statusSold")}</Badge>;
+  return <Badge variant="secondary">{t("statusHolding")}</Badge>;
 }
 
 const TRADE_LOCK_DAYS = 7;
 
-function plurDays(n: number) {
-  const a = n % 10;
-  const b = n % 100;
-  if (a === 1 && b !== 11) return "день";
-  if (a >= 2 && a <= 4 && (b < 10 || b >= 20)) return "дня";
-  return "дней";
-}
-
 // Маркер трейд-бана Steam (7 дней после покупки/обмена на площадке): показывает,
 // сколько ждать до продажи, или что предмет уже можно продавать.
 function TradeLock({ buyDate }: { buyDate: string }) {
+  const t = useTranslations("deals");
   const bought = new Date(`${buyDate}T00:00:00`).getTime();
   const elapsed = Math.floor((Date.now() - bought) / 86_400_000);
   const left = TRADE_LOCK_DAYS - elapsed;
@@ -91,17 +91,20 @@ function TradeLock({ buyDate }: { buyDate: string }) {
     return (
       <span
         className="inline-flex items-center gap-1 text-xs text-amber-400"
-        title={`Трейд-бан ещё ${left} ${plurDays(left)}`}
+        title={t("tradeBanLeft", { count: left })}
       >
         <Lock className="size-3" />
-        {left} {plurDays(left)}
+        {t("daysShort", { count: left })}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-emerald-400" title="Трейд-бан снят">
+    <span
+      className="inline-flex items-center gap-1 text-xs text-emerald-400"
+      title={t("tradeBanOver")}
+    >
       <Check className="size-3" />
-      можно продавать
+      {t("canSell")}
     </span>
   );
 }
@@ -152,6 +155,7 @@ function SortHeader({
 }
 
 function DeleteButton({ deal }: { deal: DealDTO }) {
+  const t = useTranslations("deals");
   const router = useRouter();
   const [state, formAction, pending] = useActionState(deleteDealAction, {});
 
@@ -166,21 +170,21 @@ function DeleteButton({ deal }: { deal: DealDTO }) {
           <Button variant="ghost" size="sm" className="text-destructive" />
         }
       >
-        Удалить
+        {t("delete")}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Удалить сделку?</AlertDialogTitle>
+          <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            «{deal.itemName}» будет удалена безвозвратно.
+            {t("deleteBody", { name: deal.itemName })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
           <form action={formAction}>
             <input type="hidden" name="dealId" value={deal.id} />
             <AlertDialogAction variant="destructive" type="submit" disabled={pending}>
-              Удалить
+              {t("delete")}
             </AlertDialogAction>
           </form>
         </AlertDialogFooter>
@@ -190,6 +194,7 @@ function DeleteButton({ deal }: { deal: DealDTO }) {
 }
 
 function DeleteAllButton({ total }: { total: number }) {
+  const t = useTranslations("deals");
   const router = useRouter();
   const [state, formAction, pending] = useActionState(deleteAllDealsAction, {});
 
@@ -202,22 +207,21 @@ function DeleteAllButton({ total }: { total: number }) {
       <AlertDialogTrigger
         render={<Button variant="outline" className="text-destructive" />}
       >
-        Удалить все
+        {t("deleteAll")}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Удалить все сделки?</AlertDialogTitle>
+          <AlertDialogTitle>{t("deleteAllTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            Будут безвозвратно удалены все ваши сделки ({total}). Это действие
-            нельзя отменить.
+            {t("deleteAllBody", { total })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
           <form action={formAction}>
             <input type="hidden" name="confirm" value="yes" />
             <AlertDialogAction variant="destructive" type="submit" disabled={pending}>
-              Удалить все
+              {t("deleteAll")}
             </AlertDialogAction>
           </form>
         </AlertDialogFooter>
@@ -238,6 +242,8 @@ function DealCard({
   onSell: () => void;
   onEdit: () => void;
 }) {
+  const t = useTranslations("deals");
+  const locale = useLocale();
   const p = profit(deal);
   const m = marginPct(deal);
   const sellRevenue = sellRevenueBase(deal);
@@ -266,25 +272,26 @@ function DealCard({
 
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <div className="text-xs text-muted-foreground">Покупка</div>
-          <div>{formatMoney(buyCostBase(deal), baseCurrency)}</div>
+          <div className="text-xs text-muted-foreground">{t("buy")}</div>
+          <div>{formatMoney(buyCostBase(deal), baseCurrency, locale)}</div>
           <div className="text-xs text-muted-foreground">
-            {unitPrice(deal.buyPrice, deal.buyCurrency, deal.quantity)}
+            {unitPrice(deal.buyPrice, deal.buyCurrency, deal.quantity, locale)}
             {deal.buyPlatformName} · {formatDate(deal.buyDate)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-muted-foreground">Продажа</div>
+          <div className="text-xs text-muted-foreground">{t("sell")}</div>
           {sellRevenue == null ? (
             <span className="text-muted-foreground">—</span>
           ) : (
             <>
-              <div>{formatMoney(sellRevenue, baseCurrency)}</div>
+              <div>{formatMoney(sellRevenue, baseCurrency, locale)}</div>
               <div className="text-xs text-muted-foreground">
                 {unitPrice(
                   deal.sellPrice,
                   deal.sellCurrency ?? deal.buyCurrency,
                   deal.quantity,
+                  locale,
                 )}
                 {deal.sellPlatformName} · {formatDate(deal.sellDate)}
               </div>
@@ -294,26 +301,26 @@ function DealCard({
       </div>
 
       <div className="flex items-center gap-3 text-sm">
-        <span className="text-muted-foreground">Прибыль</span>
+        <span className="text-muted-foreground">{t("profit")}</span>
         <span className={`font-medium ${profitColor}`}>
-          {p == null ? "—" : formatMoney(p, baseCurrency, true)}
+          {p == null ? "—" : formatMoney(p, baseCurrency, locale, true)}
         </span>
         <span className="text-muted-foreground">
-          {m == null ? "" : `· ${formatPct(m)}`}
+          {m == null ? "" : `· ${formatPct(m, locale)}`}
         </span>
         <span className="ml-auto text-xs text-muted-foreground">
-          {holdingDays(deal.buyDate, deal.sellDate)} дн.
+          {t("daysShort", { count: holdingDays(deal.buyDate, deal.sellDate) })}
         </span>
       </div>
 
       <div className="flex flex-wrap gap-1">
         {deal.status === "holding" && (
           <Button variant="outline" size="sm" onClick={onSell}>
-            Продано
+            {t("sold")}
           </Button>
         )}
         <Button variant="ghost" size="sm" onClick={onEdit}>
-          Изменить
+          {t("edit")}
         </Button>
         <DeleteButton deal={deal} />
       </div>
@@ -342,12 +349,18 @@ export function DealsClient({
   totalAll,
   pageCount,
 }: Props) {
+  const t = useTranslations("deals");
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const goPage = (page: number) =>
     router.replace(pathname + buildDealQuery(filters, { page }), {
       scroll: false,
     });
+  // Локаль параметром: пути под /api не локализуются, а заголовки колонок
+  // и десятичный разделитель в выгрузке зависят от языка.
+  const exportQuery = buildDealQuery(filters);
+  const exportHref = `/api/deals/export${exportQuery ? `${exportQuery}&` : "?"}locale=${locale}`;
   const [dialog, setDialog] = useState<{
     open: boolean;
     deal: DealDTO | null;
@@ -364,7 +377,7 @@ export function DealsClient({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Сделки</h1>
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <div className="flex flex-wrap items-center gap-2">
           {totalAll > 0 && <DeleteAllButton total={totalAll} />}
           {total > 0 && (
@@ -373,16 +386,13 @@ export function DealsClient({
               // Рендерится как <a> (скачивание файла), а не нативный <button>.
               nativeButton={false}
               render={
-                <a
-                  href={`/api/deals/export${buildDealQuery(filters)}`}
-                  download
-                />
+                <a href={exportHref} download />
               }
             >
-              Экспорт CSV
+              {t("exportCsv")}
             </Button>
           )}
-          <Button onClick={openCreate}>Добавить сделку</Button>
+          <Button onClick={openCreate}>{t("addDeal")}</Button>
         </div>
       </div>
 
@@ -392,8 +402,8 @@ export function DealsClient({
         <p className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
           {total === 0 && filters.status === "all" && filters.platform === "all" &&
           filters.period === "all" && !filters.q
-            ? "Пока нет сделок. Добавьте первую — и увидите прибыль ещё до сохранения."
-            : "Под фильтры ничего не подошло. Измените или сбросьте фильтры."}
+            ? t("emptyNoDeals")
+            : t("emptyNoMatch")}
         </p>
       ) : (
         <>
@@ -403,25 +413,25 @@ export function DealsClient({
             <TableHeader>
               <TableRow>
                 <TableHead>
-                  <SortHeader col="item" label="Скин" filters={filters} />
+                  <SortHeader col="item" label={t("colItem")} filters={filters} />
                 </TableHead>
                 <TableHead>
-                  <SortHeader col="buyPrice" label="Покупка" filters={filters} />
+                  <SortHeader col="buyPrice" label={t("buy")} filters={filters} />
                 </TableHead>
                 <TableHead>
-                  <SortHeader col="sellPrice" label="Продажа" filters={filters} />
+                  <SortHeader col="sellPrice" label={t("sell")} filters={filters} />
                 </TableHead>
                 <TableHead className="text-right">
-                  <SortHeader col="profit" label="Прибыль" filters={filters} align="right" />
+                  <SortHeader col="profit" label={t("profit")} filters={filters} align="right" />
                 </TableHead>
                 <TableHead className="text-right">
-                  <SortHeader col="margin" label="Маржа" filters={filters} align="right" />
+                  <SortHeader col="margin" label={t("margin")} filters={filters} align="right" />
                 </TableHead>
                 <TableHead className="text-right">
-                  <SortHeader col="days" label="Дней" filters={filters} align="right" />
+                  <SortHeader col="days" label={t("colDays")} filters={filters} align="right" />
                 </TableHead>
                 <TableHead>
-                  <SortHeader col="status" label="Статус" filters={filters} />
+                  <SortHeader col="status" label={t("colStatus")} filters={filters} />
                 </TableHead>
                 <TableHead />
               </TableRow>
@@ -449,9 +459,9 @@ export function DealsClient({
                     <TableCell>
                       {/* Вся партия с комиссией — в том же масштабе, что «Прибыль».
                           Цена за штуку ушла второй строкой к площадке и дате. */}
-                      <div>{formatMoney(buyCostBase(deal), baseCurrency)}</div>
+                      <div>{formatMoney(buyCostBase(deal), baseCurrency, locale)}</div>
                       <div className="text-xs text-muted-foreground">
-                        {unitPrice(deal.buyPrice, deal.buyCurrency, deal.quantity)}
+                        {unitPrice(deal.buyPrice, deal.buyCurrency, deal.quantity, locale)}
                         {deal.buyPlatformName} · {formatDate(deal.buyDate)}
                       </div>
                     </TableCell>
@@ -460,12 +470,13 @@ export function DealsClient({
                         <span className="text-muted-foreground">—</span>
                       ) : (
                         <>
-                          <div>{formatMoney(sellRevenue, baseCurrency)}</div>
+                          <div>{formatMoney(sellRevenue, baseCurrency, locale)}</div>
                           <div className="text-xs text-muted-foreground">
                             {unitPrice(
                               deal.sellPrice,
                               deal.sellCurrency ?? deal.buyCurrency,
                               deal.quantity,
+                              locale,
                             )}
                             {deal.sellPlatformName} · {formatDate(deal.sellDate)}
                           </div>
@@ -479,7 +490,7 @@ export function DealsClient({
                         <span
                           className={p >= 0 ? "text-emerald-400" : "text-red-400"}
                         >
-                          {formatMoney(p, baseCurrency, true)}
+                          {formatMoney(p, baseCurrency, locale, true)}
                         </span>
                       )}
                     </TableCell>
@@ -487,7 +498,7 @@ export function DealsClient({
                       {m == null ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
-                        formatPct(m)
+                        formatPct(m, locale)
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -508,7 +519,7 @@ export function DealsClient({
                           size="sm"
                           onClick={() => openSell(deal)}
                         >
-                          Продано
+                          {t("sold")}
                         </Button>
                       )}{" "}
                       <Button
@@ -516,7 +527,7 @@ export function DealsClient({
                         size="sm"
                         onClick={() => openEdit(deal)}
                       >
-                        Изменить
+                        {t("edit")}
                       </Button>
                       <DeleteButton deal={deal} />
                     </TableCell>
@@ -544,8 +555,11 @@ export function DealsClient({
       {total > 0 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Показаны {(filters.page - 1) * PAGE_SIZE + 1}–
-            {Math.min(filters.page * PAGE_SIZE, total)} из {total}
+            {t("shownRange", {
+              from: (filters.page - 1) * PAGE_SIZE + 1,
+              to: Math.min(filters.page * PAGE_SIZE, total),
+              total,
+            })}
           </span>
           {pageCount > 1 && (
             <div className="flex items-center gap-2">
@@ -555,10 +569,10 @@ export function DealsClient({
                 disabled={filters.page <= 1}
                 onClick={() => goPage(filters.page - 1)}
               >
-                Назад
+                {t("prev")}
               </Button>
               <span>
-                Стр. {filters.page} из {pageCount}
+                {t("pageOf", { page: filters.page, pages: pageCount })}
               </span>
               <Button
                 variant="outline"
@@ -566,7 +580,7 @@ export function DealsClient({
                 disabled={filters.page >= pageCount}
                 onClick={() => goPage(filters.page + 1)}
               >
-                Вперёд
+                {t("next")}
               </Button>
             </div>
           )}
@@ -577,10 +591,10 @@ export function DealsClient({
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {dialog.deal ? "Редактирование сделки" : "Новая сделка"}
+              {dialog.deal ? t("editDeal") : t("newDeal")}
             </DialogTitle>
             <DialogDescription>
-              Прибыль считается автоматически по мере заполнения.
+              {t("dialogHint")}
             </DialogDescription>
           </DialogHeader>
           {dialog.open && (

@@ -1,5 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { useErrorMessage } from "@/i18n/error-message";
+
 import { useActionState, useEffect } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
@@ -38,6 +41,7 @@ export function PlatformSettings({
   custom: PlatformDTO[];
   seeded: { name: string; buyFee: number; sellFee: number }[];
 }) {
+  const t = useTranslations("platforms");
   return (
     <div className="space-y-5">
       {custom.length > 0 && (
@@ -52,14 +56,14 @@ export function PlatformSettings({
 
       <details className="text-sm">
         <summary className="cursor-pointer text-muted-foreground">
-          Встроенные площадки (для справки)
+          {t("builtIn")}
         </summary>
         <table className="mt-2 text-sm">
           <thead className="text-xs text-muted-foreground">
             <tr>
-              <th className="pr-6 text-left font-normal">Площадка</th>
-              <th className="pr-4 text-right font-normal">Покупка</th>
-              <th className="text-right font-normal">Продажа</th>
+              <th className="pr-6 text-left font-normal">{t("platform")}</th>
+              <th className="pr-4 text-right font-normal">{t("buy")}</th>
+              <th className="text-right font-normal">{t("sell")}</th>
             </tr>
           </thead>
           <tbody>
@@ -87,21 +91,22 @@ function Fields({
   buyFee?: number;
   sellFee?: number;
 }) {
+  const t = useTranslations("platforms");
   return (
     <>
       <div className="grid gap-1.5">
-        <Label className="text-xs text-muted-foreground">Название</Label>
+        <Label className="text-xs text-muted-foreground">{t("name")}</Label>
         <Input name="name" defaultValue={name} required maxLength={60} />
       </div>
       <div className="grid w-24 gap-1.5">
-        <Label className="text-xs text-muted-foreground">Покупка, %</Label>
+        <Label className="text-xs text-muted-foreground">{t("buyPct")}</Label>
         <NumberInput
           name="buyFeePct"
           defaultValue={buyFee ?? 0}
         />
       </div>
       <div className="grid w-24 gap-1.5">
-        <Label className="text-xs text-muted-foreground">Продажа, %</Label>
+        <Label className="text-xs text-muted-foreground">{t("sellPct")}</Label>
         <NumberInput
           name="sellFeePct"
           defaultValue={sellFee ?? 0}
@@ -112,7 +117,9 @@ function Fields({
 }
 
 function PlatformRow({ platform }: { platform: PlatformDTO }) {
+  const t = useTranslations("platforms");
   const router = useRouter();
+  const errorMessage = useErrorMessage();
   const [state, action, pending] = useActionState<PlatformState, FormData>(
     updatePlatformAction,
     {},
@@ -126,18 +133,20 @@ function PlatformRow({ platform }: { platform: PlatformDTO }) {
       <input type="hidden" name="id" value={platform.id} />
       <Fields name={platform.name} buyFee={platform.buyFee} sellFee={platform.sellFee} />
       <Button type="submit" variant="outline" disabled={pending}>
-        {pending ? "…" : "Сохранить"}
+        {pending ? "…" : t("save")}
       </Button>
       <DeletePlatform id={platform.id} name={platform.name} />
       {state.error && (
-        <span className="w-full text-sm text-red-400">{state.error}</span>
+        <span className="w-full text-sm text-red-400">{errorMessage(state.error, state.errorValues)}</span>
       )}
     </form>
   );
 }
 
 function AddPlatformForm() {
+  const t = useTranslations("platforms");
   const router = useRouter();
+  const errorMessage = useErrorMessage();
   const [state, action, pending] = useActionState<PlatformState, FormData>(
     createPlatformAction,
     {},
@@ -150,17 +159,19 @@ function AddPlatformForm() {
     <form action={action} className="flex flex-wrap items-end gap-2 border-t pt-4">
       <Fields />
       <Button type="submit" disabled={pending}>
-        {pending ? "…" : "Добавить площадку"}
+        {pending ? "…" : t("add")}
       </Button>
       {state.error && (
-        <span className="w-full text-sm text-red-400">{state.error}</span>
+        <span className="w-full text-sm text-red-400">{errorMessage(state.error, state.errorValues)}</span>
       )}
     </form>
   );
 }
 
 function DeletePlatform({ id, name }: { id: string; name: string }) {
+  const t = useTranslations("platforms");
   const router = useRouter();
+  const errorMessage = useErrorMessage();
   const [state, action, pending] = useActionState<PlatformState, FormData>(
     deletePlatformAction,
     {},
@@ -175,29 +186,28 @@ function DeletePlatform({ id, name }: { id: string; name: string }) {
         <AlertDialogTrigger
           render={<Button variant="ghost" className="text-destructive" />}
         >
-          Удалить
+          {t("delete")}
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Удалить площадку «{name}»?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteTitle", { name })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Действие нельзя отменить. Если площадка используется в сделках,
-              удаление будет отклонено.
+              {t("deleteBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <form action={action}>
               <input type="hidden" name="id" value={id} />
               <AlertDialogAction variant="destructive" type="submit" disabled={pending}>
-                Удалить
+                {t("delete")}
               </AlertDialogAction>
             </form>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       {state.error && (
-        <span className="w-full text-sm text-red-400">{state.error}</span>
+        <span className="w-full text-sm text-red-400">{errorMessage(state.error, state.errorValues)}</span>
       )}
     </>
   );

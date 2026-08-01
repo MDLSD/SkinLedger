@@ -7,15 +7,16 @@ export const PAGE_SIZE = 50;
 // Какое поле котировки сравнивать на обеих площадках. field: null — тип цены
 // есть в интерфейсе, но данных под него источник пока не отдаёт (в списке такой
 // пункт неактивен с пометкой «Недоступно»).
+// `value` — и значение в URL, и ключ перевода подписи (неймспейс prices.type).
 export const PRICE_TYPES = [
-  { value: "min", label: "Мин. цена", field: "priceMin" },
-  { value: "minHold", label: "Мин. цена (холд)", field: null },
-  { value: "minNoHold", label: "Мин. цена (без холда)", field: null },
-  { value: "avg30", label: "Средняя цена за 30 дней", field: "priceAvg30" },
-  { value: "median30", label: "Медианная цена за 30 дней", field: "priceMedian30" },
-  { value: "corridor50_7", label: "Коридор цены 50% за 7 дней", field: null },
-  { value: "corridor70_30", label: "Коридор цены 70% за 30 дней", field: null },
-  { value: "order", label: "Ордер покупки (авто-бай)", field: "priceOrder" },
+  { value: "min", field: "priceMin" },
+  { value: "minHold", field: null },
+  { value: "minNoHold", field: null },
+  { value: "avg30", field: "priceAvg30" },
+  { value: "median30", field: "priceMedian30" },
+  { value: "corridor50_7", field: null },
+  { value: "corridor70_30", field: null },
+  { value: "order", field: "priceOrder" },
 ] as const;
 export type PriceType = (typeof PRICE_TYPES)[number]["value"];
 export type PriceField = "priceMin" | "priceOrder" | "priceAvg30" | "priceMedian30";
@@ -30,16 +31,10 @@ export const PRICE_FIELD: Record<PriceType, PriceField | null> = {
   order: "priceOrder",
 };
 
-export const SORT_COLUMNS = [
-  { key: "name", label: "Скин" },
-  { key: "buy", label: "Покупка" },
-  { key: "sell", label: "Продажа" },
-  { key: "profit", label: "Прибыль" },
-  { key: "profitPct", label: "Маржа" },
-  { key: "liq", label: "Ликвидность" },
-] as const;
-export type SortKey = (typeof SORT_COLUMNS)[number]["key"];
-const SORT_KEYS = SORT_COLUMNS.map((c) => c.key) as SortKey[];
+// Только ключи: подписи колонок задаёт страница из переводов.
+export const SORT_COLUMNS = ["name", "buy", "sell", "profit", "profitPct", "liq"] as const;
+export type SortKey = (typeof SORT_COLUMNS)[number];
+const SORT_KEYS = SORT_COLUMNS as readonly SortKey[];
 
 export type PriceFilters = {
   buy: string; // slug площадки покупки

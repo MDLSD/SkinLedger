@@ -1,5 +1,7 @@
 "use server";
 
+import type { ErrorKey, ErrorValues } from "@/lib/error-keys";
+
 import bcrypt from "bcryptjs";
 import { AuthError, CredentialsSignin } from "next-auth";
 import { headers } from "next/headers";
@@ -10,8 +12,23 @@ import { checkLimit, recordFailure } from "@/lib/rate-limit";
 import { clientIpFromHeaders } from "@/lib/client-ip";
 import { changePasswordSchema, loginSchema, registerSchema } from "@/lib/validation";
 import { hashPassword } from "@/lib/password";
+import { getLocale } from "next-intl/server";
+import { localePrefix } from "@/i18n/routing";
 
-export type AuthFormState = { error?: string };
+/**
+ * `error` — КЛЮЧ перевода из неймспейса `errors`, а не готовая строка:
+ * язык знает только тот, кто показывает ошибку. `errorValues` — подстановки
+ * для ключей с плейсхолдерами (сколько ждать до следующей попытки).
+ */
+export type AuthFormState = {
+  error?: ErrorKey;
+  errorValues?: ErrorValues;
+};
+
+/** Адрес внутри текущей локали: после входа англичанин должен остаться на /en. */
+async function localeHref(path: string): Promise<string> {
+  return `${localePrefix(await getLocale())}${path}`;
+}
 
 // Лимит регистраций: ключ только по IP, чтобы смена email не обходила его.
 // bcrypt.hash дорог — это ещё и защита CPU от массовой регистрации.
@@ -54,7 +71,8 @@ export async function registerAction(
   const limit = checkLimit(ipKey, REGISTER_LIMIT);
   if (limit.limited) {
     return {
-      error: `Слишком много регистраций. Повторите через ${Math.ceil(limit.retryAfterSec / 60)} мин.`,
+      error: "registerTooMany",
+      errorValues: { minutes: Math.ceil(limit.retryAfterSec / 60) },
     };
   }
   // Считаем каждую попытку (не только успешные): массовую регистрацию
@@ -66,17 +84,17 @@ export async function registerAction(
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { error: "Пользователь с таким email уже зарегистрирован" };
+    return { error: "emailTaken" };
   }
 
   const passwordHash = await hashPassword(password);
   await prisma.user.create({ data: { email, passwordHash } });
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/app" });
+    await signIn("credentials", { email, password, redirectTo: await localeHref("/app") });
   } catch (e) {
     if (isRedirectError(e)) throw e;
-    return { error: "Аккаунт создан, но войти не удалось. Попробуйте войти вручную." };
+    return { error: "registeredButLoginFailed" };
   }
   return {};
 }
@@ -97,18 +115,16 @@ export async function loginAction(
     await signIn("credentials", {
       email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
-      redirectTo: "/app",
+      redirectTo: await localeHref("/app"),
     });
   } catch (e) {
     if (isRedirectError(e)) throw e;
     const retrySec = rateLimitRetrySec(e);
     if (retrySec != null) {
-      return {
-        error: `Слишком много попыток входа. Повторите через ${retrySec} с.`,
-      };
+      return { error: "loginTooMany", errorValues: { seconds: retrySec } };
     }
     if (e instanceof AuthError) {
-      return { error: "Неверный email или пароль" };
+      return { error: "invalidCredentials" };
     }
     throw e;
   }
@@ -116,7 +132,7 @@ export async function loginAction(
 }
 
 export async function logoutAction() {
-  await signOut({ redirectTo: "/login" });
+  await signOut({ redirectTo: await localeHref("/login") });
 }
 
 // Лимит на подбор пароля при удалении аккаунта (действие необратимое).
@@ -128,27 +144,27 @@ export async function deleteAccountAction(
   formData: FormData,
 ): Promise<AuthFormState> {
   const session = await auth();
-  if (!session?.user?.id) return { error: "Не авторизован" };
+  if (!session?.user?.id) return { error: "notAuthorized" };
   const userId = session.user.id;
 
   const password = formData.get("password")?.toString() ?? "";
-  if (!password) return { error: "Введите пароль для подтверждения" };
+  if (!password) return { error: "passwordRequiredToConfirm" };
 
   const key = `delacct:user:${userId}`;
   if (checkLimit(key, DELETE_LIMIT).limited) {
-    return { error: "Слишком много попыток. Повторите позже." };
+    return { error: "tooManyAttemptsLater" };
   }
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { passwordHash: true },
   });
-  if (!user) return { error: "Не авторизован" };
+  if (!user) return { error: "notAuthorized" };
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
     recordFailure(key, DELETE_WINDOW_MS);
-    return { error: "Пароль неверен" };
+    return { error: "wrongPassword" };
   }
 
   // Удаляем все данные пользователя явной транзакцией: сделки → свои
@@ -160,7 +176,7 @@ export async function deleteAccountAction(
   ]);
 
   // Пробрасывает redirect — очищает cookie и уводит на лендинг.
-  await signOut({ redirectTo: "/?deleted=1" });
+  await signOut({ redirectTo: await localeHref("/?deleted=1") });
   return {};
 }
 
@@ -174,7 +190,7 @@ export async function changePasswordAction(
   formData: FormData,
 ): Promise<AuthFormState> {
   const session = await auth();
-  if (!session?.user?.id) return { error: "Не авторизован" };
+  if (!session?.user?.id) return { error: "notAuthorized" };
   const userId = session.user.id;
 
   const parsed = changePasswordSchema.safeParse({
@@ -186,19 +202,19 @@ export async function changePasswordAction(
   const key = `changepw:user:${userId}`;
   const limit = checkLimit(key, CHANGE_PW_LIMIT);
   if (limit.limited) {
-    return { error: `Слишком много попыток. Повторите через ${limit.retryAfterSec} с.` };
+    return { error: "tooManyAttempts", errorValues: { seconds: limit.retryAfterSec } };
   }
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { passwordHash: true },
   });
-  if (!user) return { error: "Не авторизован" };
+  if (!user) return { error: "notAuthorized" };
 
   const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
   if (!valid) {
     recordFailure(key, CHANGE_PW_WINDOW_MS);
-    return { error: "Текущий пароль неверен" };
+    return { error: "currentPasswordWrong" };
   }
 
   // Смена пароля двигает рубеж действительности сессий: все выданные
@@ -212,6 +228,6 @@ export async function changePasswordAction(
     },
   });
 
-  await signOut({ redirectTo: "/login?changed=1" });
+  await signOut({ redirectTo: await localeHref("/login?changed=1") });
   return {};
 }

@@ -11,20 +11,6 @@ import {
   type PriceFilters,
 } from "./compare";
 
-// Верхняя строка названия у не-скинов: вид предмета вместо оружия.
-const KIND_LABEL: Record<string, string> = {
-  sticker: "Стикер",
-  agent: "Агент",
-  case: "Кейс",
-  capsule: "Капсула",
-  container: "Контейнер",
-  keychain: "Брелок",
-  patch: "Патч",
-  graffiti: "Граффити",
-  music_kit: "Музыкальный набор",
-  collectible: "Коллекционный предмет",
-};
-
 const numOrNull = (s: string): number | null => {
   if (!s.trim()) return null;
   const n = Number(s.replace(",", "."));
@@ -225,7 +211,8 @@ export async function loadComparison(
       const main = [it.skinName, it.wear && `(${it.wear})`].filter(Boolean).join(" ");
       r.titleMain = main || r.marketHashName;
     } else {
-      r.titleTop = KIND_LABEL[it.kind] ?? "";
+      // Ключ вида предмета; подпись подставляет компонент строки.
+      r.titleTop = it.kind;
       r.titleMain =
         it.stickerName ?? it.skinName ?? r.marketHashName.replace(/^Sticker \| /, "");
     }

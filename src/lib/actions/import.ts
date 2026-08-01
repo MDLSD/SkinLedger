@@ -10,6 +10,8 @@ import { dealData } from "@/lib/deal-data";
 import { dealSchema } from "@/lib/validation";
 import { fxFactor } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
+import { getTranslations } from "next-intl/server";
+import type { LocalizedMessage } from "@/lib/error-keys";
 import { canonicalPlatform, normalizePlatform } from "@/lib/platform-aliases";
 import { parseCsv } from "@/lib/deal-csv";
 import {
@@ -33,11 +35,11 @@ import {
 const IMPORT_LIMIT = 20;
 const IMPORT_WINDOW_MS = 10 * 60_000;
 
-async function importLimit(userId: string): Promise<string | null> {
+async function importLimit(userId: string): Promise<LocalizedMessage | null> {
   const key = `import:user:${userId}`;
   const limit = checkLimit(key, IMPORT_LIMIT);
   if (limit.limited) {
-    return `Слишком много импортов. Повторите через ${Math.ceil(limit.retryAfterSec / 60)} мин.`;
+    return { key: "importTooMany", values: { minutes: Math.ceil(limit.retryAfterSec / 60) } };
   }
   recordFailure(key, IMPORT_WINDOW_MS);
   return null;
@@ -45,6 +47,8 @@ async function importLimit(userId: string): Promise<string | null> {
 
 const MAX_BYTES = 5_000_000;
 const MAX_ROWS = 5000;
+// Площадка-заглушка для строк без неё. Хранится в БД, поэтому
+// не переводится: перевод менял бы имя записи при смене языка.
 const DEFAULT_PLATFORM = "Не указана";
 // Импорт создаёт площадки по названиям из файла. Без потолка одна ошибка
 // в сопоставлении колонок (например, площадка указывает на колонку заметок)
@@ -129,9 +133,9 @@ export async function analyzeImportAction(
   formData: FormData,
 ): Promise<AnalyzeState> {
   const session = await auth();
-  if (!session?.user?.id) return { error: "Не авторизован" };
+  if (!session?.user?.id) return { error: "notAuthorized" };
   const limited = await importLimit(session.user.id);
-  if (limited) return { error: limited };
+  if (limited) return { error: limited.key, errorValues: limited.values };
 
   const fileEntry = formData.get("file");
   const file = fileEntry instanceof File ? fileEntry : null;
@@ -139,10 +143,10 @@ export async function analyzeImportAction(
   const sheetSel = formData.get("sheet")?.toString() ?? "";
 
   if ((!file || file.size === 0) && !text.trim()) {
-    return { error: "Загрузите файл или вставьте текст таблицы" };
+    return { error: "importNoInput" };
   }
   if (file && file.size > MAX_BYTES) {
-    return { error: "Файл слишком большой (максимум 5 МБ)" };
+    return { error: "importFileTooBig" };
   }
 
   let matrix: string[][];
@@ -151,12 +155,12 @@ export async function analyzeImportAction(
   try {
     ({ matrix, sheetNames, sheet } = await readMatrix(file, text, sheetSel));
   } catch {
-    return { error: "Не удалось прочитать файл. Поддерживаются .xlsx, .csv и текст." };
+    return { error: "importUnreadable" };
   }
   matrix = matrix.filter((r) => r.some((c) => c.trim() !== ""));
-  if (matrix.length < 1) return { error: "Файл пустой" };
+  if (matrix.length < 1) return { error: "importEmptyFile" };
 
-  const notes: string[] = [];
+  const notes: LocalizedMessage[] = [];
   const headerRowIndex = detectHeaderRow(matrix);
   let headers: string[];
   let dataRows: string[][];
@@ -170,22 +174,25 @@ export async function analyzeImportAction(
     mapping = mapColumns(headers, dataRows.slice(0, 20));
     if (headerRowIndex > 0)
       notes.push(
-        `Заголовок найден на строке ${headerRowIndex + 1} — строки выше пропущены.`,
+        { key: "importHeaderAtRow", values: { row: headerRowIndex + 1 } },
       );
   } else {
     headerFound = false;
     dataRows = matrix.filter((r) => !isJunkRow(r));
     const ncols = dataRows.reduce((n, r) => Math.max(n, r.length), 0);
-    headers = Array.from({ length: ncols }, (_, i) => `Столбец ${i + 1}`);
+    // Синтетические подписи колонок, когда строки заголовков в файле нет.
+    // Уезжают в UI как готовый текст, поэтому переводим здесь.
+    const t = await getTranslations("import");
+    headers = Array.from({ length: ncols }, (_, i) => t("columnN", { n: i + 1 }));
     mapping = guessMappingByValues(dataRows.slice(0, 20));
     notes.push(
-      "Строка заголовков не найдена — колонки определены по значениям, проверьте сопоставление ниже.",
+      { key: "importNoHeaderRow" },
     );
   }
-  if (dataRows.length === 0) return { error: "Не нашлось строк с данными" };
+  if (dataRows.length === 0) return { error: "importNoDataRows" };
   if (dataRows.length > MAX_ROWS) {
     dataRows = dataRows.slice(0, MAX_ROWS);
-    notes.push(`Взяты первые ${MAX_ROWS} строк.`);
+    notes.push({ key: "importTruncated", values: { max: MAX_ROWS } });
   }
 
   const colVals = (col: number) =>
@@ -198,11 +205,12 @@ export async function analyzeImportAction(
     select: { baseCurrency: true },
   });
   const currency = currencyDetected ?? baseCurrency;
-  if (currencyDetected) notes.push(`Валюта определена по символам: ${currencyDetected}.`);
+  if (currencyDetected)
+    notes.push({ key: "importCurrencyDetected", values: { currency: currencyDetected } });
 
   const dateOrder =
     mapping.buyDate != null ? detectDateOrder(colVals(mapping.buyDate)) : "dmy";
-  if (dateOrder === "mdy") notes.push("Похоже, даты в формате ММ/ДД (US) — учтено.");
+  if (dateOrder === "mdy") notes.push({ key: "importDatesMdy" });
 
   const flagCol = detectFlagColumn(headers);
   // По умолчанию считаем цены итоговыми (комиссия учтена) — не применяем,
@@ -214,7 +222,7 @@ export async function analyzeImportAction(
     applyPlatformFees: false,
   };
 
-  if (sheetNames.length > 1) notes.push(`Импортируется лист «${sheet}».`);
+  if (sheetNames.length > 1) notes.push({ key: "importSheet", values: { sheet } });
 
   return {
     ok: true,
@@ -237,26 +245,26 @@ export async function commitImportAction(
   formData: FormData,
 ): Promise<CommitState> {
   const session = await auth();
-  if (!session?.user?.id) return { error: "Не авторизован" };
+  if (!session?.user?.id) return { error: "notAuthorized" };
   const userId = session.user.id;
   const limited = await importLimit(userId);
-  if (limited) return { error: limited };
+  if (limited) return { error: limited.key, errorValues: limited.values };
 
   let payload: { rows: string[][]; mapping: FieldMapping; options: ImportOptions };
   try {
     payload = JSON.parse(formData.get("payload")?.toString() ?? "");
   } catch {
-    return { error: "Некорректные данные импорта" };
+    return { error: "importBadPayload" };
   }
   const mapping = payload.mapping ?? {};
   const options = payload.options ?? { currency: "RUB", dateOrder: "dmy" };
 
   if (mapping.itemName == null || mapping.buyPrice == null) {
-    return { error: "Укажите колонки «Название» и «Цена покупки»" };
+    return { error: "importColumnsRequired" };
   }
   const parsedRows = rowsSchema.safeParse(payload.rows ?? []);
   if (!parsedRows.success) {
-    return { error: `Нет строк для импорта или их больше ${MAX_ROWS}` };
+    return { error: "importRowCountInvalid" };
   }
   const rows = parsedRows.data;
 
@@ -289,13 +297,13 @@ export async function commitImportAction(
     const canonical =
       canonicalPlatform(rawName) ?? (rawName.trim() || DEFAULT_PLATFORM);
     const parsed = platformNameSchema.safeParse(canonical);
-    if (!parsed.success) return { error: "Некорректное название площадки" };
+    if (!parsed.success) return { error: "importPlatformNameInvalid" };
     const name = parsed.data;
     const key = normalizePlatform(name);
     const existing = platformByNorm.get(key);
     if (existing) return existing;
     if (ownCount >= MAX_PLATFORMS) {
-      return { error: `Достигнут лимит площадок (${MAX_PLATFORMS})` };
+      return { error: "platformLimit" };
     }
     const created = await prisma.platform.create({
       data: {
@@ -314,7 +322,7 @@ export async function commitImportAction(
 
   let imported = 0;
   const createdIds: string[] = [];
-  const rowErrors: { row: number; message: string }[] = [];
+  const rowErrors: { row: number; message: LocalizedMessage }[] = [];
   let datesDefaulted = 0;
   let curDefaulted = 0;
   let feesApplied = 0;
@@ -325,7 +333,7 @@ export async function commitImportAction(
     try {
       const f = rowToFields(rows[idx], mapping, options);
       if (!f.itemName) {
-        rowErrors.push({ row: fileRow, message: "Пустое название" });
+        rowErrors.push({ row: fileRow, message: { key: "importRowNoName" } });
         continue;
       }
       // Площадки резолвятся ПОСЛЕ валидации строки: иначе битая строка всё
@@ -353,16 +361,20 @@ export async function commitImportAction(
 
       const parsed = dealSchema.safeParse(obj);
       if (!parsed.success) {
-        let msg = parsed.error.issues[0].message;
-        if (/раньше даты покупки/.test(msg))
-          msg += " (возможно, перепутан формат даты)";
-        rowErrors.push({ row: fileRow, message: msg });
+        // Сообщение схемы — это ключ перевода (см. lib/validation.ts).
+        // На «дата продажи раньше покупки» добавляем подсказку про формат:
+        // в импорте это чаще всего перепутанные ДД/ММ, а не ошибка ввода.
+        const key = parsed.error.issues[0].message;
+        rowErrors.push({
+          row: fileRow,
+          message: { key: key === "sellDateBeforeBuy" ? "sellDateBeforeBuyHint" : key },
+        });
         continue;
       }
 
       const buy = await resolvePlatform(f.buyPlatform);
       if ("error" in buy) {
-        rowErrors.push({ row: fileRow, message: buy.error });
+        rowErrors.push({ row: fileRow, message: { key: buy.error } });
         continue;
       }
       parsed.data.buyPlatformId = buy.id;
@@ -374,7 +386,7 @@ export async function commitImportAction(
       if (f.status !== "holding") {
         const sell = await resolvePlatform(f.sellPlatform);
         if ("error" in sell) {
-          rowErrors.push({ row: fileRow, message: sell.error });
+          rowErrors.push({ row: fileRow, message: { key: sell.error } });
           continue;
         }
         parsed.data.sellPlatformId = sell.id;
@@ -390,7 +402,7 @@ export async function commitImportAction(
       const sellCur = parsed.data.sellCurrency ?? parsed.data.buyCurrency;
       const sellFx = fxFactor(sellCur, baseCurrency, rates);
       if (buyFx == null || sellFx == null) {
-        rowErrors.push({ row: fileRow, message: "Нет курса валюты сделки" });
+        rowErrors.push({ row: fileRow, message: { key: "importRowNoFx" } });
         continue;
       }
       parsed.data.buyFxRate = buyFx;
@@ -400,22 +412,22 @@ export async function commitImportAction(
       createdIds.push(created.id);
       imported++;
     } catch {
-      rowErrors.push({ row: fileRow, message: "Не удалось импортировать строку" });
+      rowErrors.push({ row: fileRow, message: { key: "importRowFailed" } });
     }
   }
 
-  const warnings: string[] = [];
+  const warnings: LocalizedMessage[] = [];
   if (curDefaulted > 0)
     warnings.push(
-      `У ${curDefaulted} сделок валюта не указана — принято ${options.currency}.`,
+      { key: "importCurrencyDefaulted", values: { count: curDefaulted, currency: options.currency } },
     );
   if (datesDefaulted > 0)
     warnings.push(
-      `У ${datesDefaulted} сделок не было даты покупки — подставлена дата продажи или сегодняшняя.`,
+      { key: "importDatesDefaulted", values: { count: datesDefaulted } },
     );
   if (feesApplied > 0)
     warnings.push(
-      `Комиссия площадки применена к ${feesApplied} продажам (цены указаны без комиссии).`,
+      { key: "importFeesApplied", values: { count: feesApplied } },
     );
 
   if (imported > 0) {
@@ -444,14 +456,14 @@ export async function undoImportAction(
   formData: FormData,
 ): Promise<UndoState> {
   const session = await auth();
-  if (!session?.user?.id) return { error: "Не авторизован" };
+  if (!session?.user?.id) return { error: "notAuthorized" };
   let ids: string[];
   try {
     const parsed = undoIdsSchema.safeParse(JSON.parse(formData.get("ids")?.toString() ?? "[]"));
-    if (!parsed.success) return { error: "Нечего откатывать" };
+    if (!parsed.success) return { error: "undoNothing" };
     ids = parsed.data;
   } catch {
-    return { error: "Нет данных для отката" };
+    return { error: "undoNoData" };
   }
 
   let undone = 0;
@@ -464,7 +476,7 @@ export async function undoImportAction(
     }
   } catch (e) {
     console.error("undoImportAction", e);
-    return { error: "Не удалось откатить импорт" };
+    return { error: "undoFailed" };
   }
 
   revalidatePath("/app/deals");

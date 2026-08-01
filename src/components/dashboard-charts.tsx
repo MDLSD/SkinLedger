@@ -1,5 +1,8 @@
 "use client";
 
+import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { withDynamicKeys, type DynamicTranslator } from "@/i18n/dynamic";
+
 import {
   Bar,
   BarChart,
@@ -23,16 +26,19 @@ const LINE = "#60a5fa"; // голубой
 const GRID = "rgba(255,255,255,0.07)";
 const AXIS = "#92a1bf"; // приглушённый bluish
 
-function compact(v: number): string {
-  const a = Math.abs(v);
-  if (a >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} млн`;
-  if (a >= 1000) return `${Math.round(v / 1000)} к`;
-  return String(Math.round(v));
+/** Компактная подпись оси. Сокращения «млн»/«к» — из переводов. */
+function makeCompact(t: DynamicTranslator) {
+  return (v: number): string => {
+    const a = Math.abs(v);
+    if (a >= 1_000_000) return t("million", { v: (v / 1_000_000).toFixed(1) });
+    if (a >= 1000) return t("thousand", { v: Math.round(v / 1000) });
+    return String(Math.round(v));
+  };
 }
 
 // Тултип; recharts вызывает content с собственным типом props — принимаем
 // unknown и извлекаем нужное.
-function renderTip(currency: string) {
+function renderTip(currency: string, locale: string) {
   return (raw: unknown) => {
     const { active, payload, label } = raw as {
       active?: boolean;
@@ -45,7 +51,7 @@ function renderTip(currency: string) {
       <div className="rounded-md border bg-popover px-3 py-2 text-sm shadow-md">
         <div className="text-muted-foreground">{label}</div>
         <div className="font-medium" style={{ color: v >= 0 ? POS : NEG }}>
-          {formatMoney(v, currency, true)}
+          {formatMoney(v, currency, locale, true)}
         </div>
       </div>
     );
@@ -53,7 +59,7 @@ function renderTip(currency: string) {
 }
 
 // Тултип для процентных графиков (ROI, маржа); опц. вторая строка (кол-во).
-function renderPctTip(unit: string) {
+function renderPctTip(unit: string, dealsLabel: (n: number) => string) {
   return (raw: unknown) => {
     const { active, payload, label } = raw as {
       active?: boolean;
@@ -69,9 +75,7 @@ function renderPctTip(unit: string) {
         <div className="font-medium" style={{ color: v >= 0 ? POS : NEG }}>
           {v} % {unit}
         </div>
-        {count != null && (
-          <div className="text-xs text-muted-foreground">{count} сделок</div>
-        )}
+        {count != null && <div className="text-xs text-muted-foreground">{dealsLabel(count)}</div>}
       </div>
     );
   };
@@ -92,20 +96,43 @@ export function DashboardCharts({
   marginByHold,
   currency,
 }: Props) {
+  const t = useTranslations("charts");
+  const td = withDynamicKeys(t);
+  const locale = useLocale();
+  const format = useFormatter();
   const empty = monthly.length === 0;
+  const compact = makeCompact(td);
+  const dealsLabel = (n: number) => t("dealsCount", { count: n });
+
+  // Метки приходят машинными ("2026-06" и ключи корзин холда): месяц
+  // раскрывается по локали, корзины — из переводов.
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split("-").map(Number);
+    return format.dateTime(new Date(y, m - 1, 1), { month: "short", year: "2-digit" });
+  };
+  const withMonthLabels = <T extends { label: string }>(rows: T[]): T[] =>
+    rows.map((r) => ({ ...r, label: monthLabel(r.label) }));
+
+  const monthlyL = withMonthLabels(monthly);
+  const monthlyRoiL = withMonthLabels(monthlyRoi);
+  const cumulativeL = withMonthLabels(cumulative);
+  const marginByHoldL = marginByHold.map((r) => ({
+    ...r,
+    label: td(`holdBin.${r.label}`),
+  }));
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
-          Прибыль по месяцам
-          <Hint text="Чистая прибыль по месяцам (по дате продажи). Зелёные столбцы — плюс, красные — минус." />
+          {t("monthlyProfit")}
+          <Hint text={t("monthlyProfitHint")} />
         </h3>
         {empty ? (
           <Placeholder />
         ) : (
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <BarChart data={monthlyL} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis
                 dataKey="label"
@@ -123,10 +150,10 @@ export function DashboardCharts({
               <ReferenceLine y={0} stroke={AXIS} />
               <Tooltip
                 cursor={{ fill: "rgba(255,255,255,0.06)" }}
-                content={renderTip(currency)}
+                content={renderTip(currency, locale)}
               />
               <Bar dataKey="profit" radius={[4, 4, 0, 0]}>
-                {monthly.map((d, i) => (
+                {monthlyL.map((d, i) => (
                   <Cell key={i} fill={d.profit >= 0 ? POS : NEG} />
                 ))}
               </Bar>
@@ -137,14 +164,14 @@ export function DashboardCharts({
 
       <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
-          Кумулятивная прибыль
-          <Hint text="Накопленная прибыль нарастающим итогом по месяцам — общая динамика заработка." />
+          {t("cumulative")}
+          <Hint text={t("cumulativeHint")} />
         </h3>
         {empty ? (
           <Placeholder />
         ) : (
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={cumulative} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <LineChart data={cumulativeL} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis
                 dataKey="label"
@@ -160,7 +187,7 @@ export function DashboardCharts({
                 tickFormatter={compact}
               />
               <ReferenceLine y={0} stroke={AXIS} strokeDasharray="3 3" />
-              <Tooltip content={renderTip(currency)} />
+              <Tooltip content={renderTip(currency, locale)} />
               <Line
                 type="monotone"
                 dataKey="value"
@@ -176,21 +203,21 @@ export function DashboardCharts({
 
       <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
-          ROI по месяцам, %
-          <Hint text="Доходность вложенного капитала за каждый месяц: прибыль месяца ÷ себестоимость проданного в этом месяце × 100. Главное число для арбитража — важнее абсолютной прибыли." />
+          {t("monthlyRoi")}
+          <Hint text={t("monthlyRoiHint")} />
         </h3>
         {empty ? (
           <Placeholder />
         ) : (
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={monthlyRoi} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <BarChart data={monthlyRoiL} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 12 }} tickLine={false} axisLine={{ stroke: GRID }} />
               <YAxis tick={{ fill: AXIS, fontSize: 12 }} tickLine={false} axisLine={false} width={40} tickFormatter={(v) => `${v}`} />
               <ReferenceLine y={0} stroke={AXIS} />
-              <Tooltip cursor={{ fill: "rgba(255,255,255,0.06)" }} content={renderPctTip("ROI")} />
+              <Tooltip cursor={{ fill: "rgba(255,255,255,0.06)" }} content={renderPctTip(t("roiUnit"), dealsLabel)} />
               <Bar dataKey="roiPct" radius={[4, 4, 0, 0]}>
-                {monthlyRoi.map((d, i) => (
+                {monthlyRoiL.map((d, i) => (
                   <Cell key={i} fill={d.roiPct >= 0 ? POS : NEG} />
                 ))}
               </Bar>
@@ -201,24 +228,24 @@ export function DashboardCharts({
 
       <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-1 flex items-center gap-1 text-sm font-medium">
-          Маржа по сроку холда, %
-          <Hint text="Средняя маржа по группам срока удержания (≤7 / 8–30 / 31–60 / >60 дней). Помогает увидеть, не съедают ли длинные холды доходность." />
+          {t("marginByHold")}
+          <Hint text={t("marginByHoldHint")} />
         </h3>
         <p className="mb-2 text-xs text-muted-foreground">
-          Часто длинные холды съедают доходность
+          {t("marginByHoldNote")}
         </p>
         {empty ? (
           <Placeholder />
         ) : (
           <ResponsiveContainer width="100%" height={216}>
-            <BarChart data={marginByHold} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <BarChart data={marginByHoldL} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke={GRID} />
               <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 12 }} tickLine={false} axisLine={{ stroke: GRID }} />
               <YAxis tick={{ fill: AXIS, fontSize: 12 }} tickLine={false} axisLine={false} width={40} />
               <ReferenceLine y={0} stroke={AXIS} />
-              <Tooltip cursor={{ fill: "rgba(255,255,255,0.06)" }} content={renderPctTip("маржа")} />
+              <Tooltip cursor={{ fill: "rgba(255,255,255,0.06)" }} content={renderPctTip(t("marginUnit"), dealsLabel)} />
               <Bar dataKey="margin" radius={[4, 4, 0, 0]}>
-                {marginByHold.map((d, i) => (
+                {marginByHoldL.map((d, i) => (
                   <Cell key={i} fill={(d.margin ?? 0) >= 0 ? POS : NEG} />
                 ))}
               </Bar>
@@ -231,9 +258,10 @@ export function DashboardCharts({
 }
 
 function Placeholder() {
+  const t = useTranslations("charts");
   return (
     <div className="flex h-[240px] items-center justify-center text-sm text-muted-foreground">
-      Нет закрытых сделок за период
+      {t("empty")}
     </div>
   );
 }

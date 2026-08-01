@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
+
 import { useState } from "react";
 import { SourceIcon } from "@/components/source-icon";
 import { formatMoney } from "@/lib/deal-math";
@@ -25,10 +27,12 @@ export function SkinOffers({
   cur: string;
   fx: number | null;
 }) {
+  const t = useTranslations("offers");
+  const locale = useLocale();
   const [asc, setAsc] = useState(true);
   const [all, setAll] = useState(false);
   const money = (usd: number) =>
-    fx == null || cur === "USD" ? formatMoney(usd, "USD") : formatMoney(usd * fx, cur);
+    fx == null || cur === "USD" ? formatMoney(usd, "USD", locale) : formatMoney(usd * fx, cur, locale);
 
   const sorted = [...offers].sort((a, b) => (asc ? a.price - b.price : b.price - a.price));
   const shown = all ? sorted : sorted.slice(0, VISIBLE);
@@ -37,13 +41,13 @@ export function SkinOffers({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        Сортировать:
+        {t("sortBy")}
         <button
           type="button"
           onClick={() => setAsc((v) => !v)}
           className="rounded-lg border border-border px-2.5 py-1 text-foreground transition-colors hover:border-primary/60"
         >
-          {asc ? "От дешёвых к дорогим" : "От дорогих к дешёвым"}
+          {asc ? t("cheapFirst") : t("expensiveFirst")}
         </button>
       </div>
 
@@ -59,17 +63,17 @@ export function SkinOffers({
                 <span className="truncate text-sm font-medium">{o.title}</span>
                 {asc && i === 0 && (
                   <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
-                    дешевле всех
+                    {t("cheapest")}
                   </span>
                 )}
               </span>
               <span className="block text-xs text-muted-foreground">
-                {o.offers != null ? `${o.offers.toLocaleString("ru-RU")} предложений` : "—"}
-                {o.sales30d != null && ` · ${o.sales30d.toLocaleString("ru-RU")} продаж/30д`}
+                {o.offers != null ? t("offersCount", { count: o.offers }) : "—"}
+                {o.sales30d != null && ` · ${t("sales30d", { count: o.sales30d })}`}
               </span>
             </span>
             <span className="text-right tabular-nums">
-              <span className="block text-xs text-muted-foreground">Начиная от</span>
+              <span className="block text-xs text-muted-foreground">{t("startingAt")}</span>
               <span className="block text-sm font-semibold">{money(o.price)}</span>
             </span>
           </li>
@@ -82,7 +86,7 @@ export function SkinOffers({
           onClick={() => setAll(true)}
           className="w-full rounded-lg border border-border py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
-          Показать ещё {rest} {rest === 1 ? "площадку" : rest < 5 ? "площадки" : "площадок"}
+          {t("showMore", { count: rest })}
         </button>
       )}
     </div>

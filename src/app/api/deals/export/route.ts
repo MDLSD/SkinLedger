@@ -4,6 +4,7 @@ import { loadUserDeals } from "@/lib/deal-query";
 import { parseDealFilters } from "@/lib/deal-list";
 import { serializeDeals } from "@/lib/deal-csv";
 import { checkLimit, recordFailure } from "@/lib/rate-limit";
+import { toLocale } from "@/i18n/routing";
 
 const EXPORT_LIMIT = 30;
 const EXPORT_WINDOW_MS = 10 * 60_000;
@@ -31,7 +32,9 @@ export async function GET(request: NextRequest) {
   const filters = parseDealFilters(params);
   const { deals } = await loadUserDeals(session.user.id, filters);
 
-  const csv = serializeDeals(deals);
+  // Локаль параметром — под /api локализации маршрутов нет (см. template/route.ts).
+  const locale = toLocale(request.nextUrl.searchParams.get("locale") ?? "");
+  const csv = serializeDeals(deals, locale);
   const date = new Date().toISOString().slice(0, 10);
   return new Response(csv, {
     headers: {

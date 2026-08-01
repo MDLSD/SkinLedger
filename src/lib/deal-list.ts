@@ -4,30 +4,23 @@ import { DEAL_STATUSES } from "@/lib/validation";
 
 export const PAGE_SIZE = 50;
 
-export const PERIOD_OPTIONS = [
-  { value: "all", label: "Всё время" },
-  { value: "week", label: "Неделя" },
-  { value: "month", label: "Месяц" },
-  { value: "quarter", label: "Квартал" },
-  { value: "custom", label: "Период" },
-] as const;
-export type Period = (typeof PERIOD_OPTIONS)[number]["value"];
+// Подписи опций лежат в messages (dealsToolbar.period.* / .status.* /
+// deals.sort.*): здесь только значения, они же ключи перевода и значения в URL.
+export const PERIOD_OPTIONS = ["all", "week", "month", "quarter", "custom"] as const;
+export type Period = (typeof PERIOD_OPTIONS)[number];
 
-export const STATUS_OPTIONS = [
-  { value: "all", label: "Все статусы" },
-  { value: "holding", label: "В холде" },
-  { value: "sold", label: "Продано" },
-] as const;
+export const STATUS_OPTIONS = ["all", "holding", "sold"] as const;
 
+// Только ключи: подписи колонок берутся из переводов в самом компоненте.
 export const SORT_COLUMNS = [
-  { key: "item", label: "Скин" },
-  { key: "buyPrice", label: "Покупка" },
-  { key: "sellPrice", label: "Продажа" },
-  { key: "profit", label: "Прибыль" },
-  { key: "margin", label: "Маржа" },
-  { key: "days", label: "Дней" },
-  { key: "status", label: "Статус" },
-  { key: "buyDate", label: "Дата" },
+  { key: "item" },
+  { key: "buyPrice" },
+  { key: "sellPrice" },
+  { key: "profit" },
+  { key: "margin" },
+  { key: "days" },
+  { key: "status" },
+  { key: "buyDate" },
 ] as const;
 export type SortKey = (typeof SORT_COLUMNS)[number]["key"];
 
@@ -49,8 +42,9 @@ type RawParams = Record<string, string | string[] | undefined>;
 const str = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export function parseDealFilters(sp: RawParams): DealFilters {
-  const period = (PERIOD_OPTIONS.find((p) => p.value === str(sp.period))?.value ??
-    "all") as Period;
+  const period = ((PERIOD_OPTIONS as readonly string[]).includes(str(sp.period))
+    ? str(sp.period)
+    : "all") as Period;
   const status = ([...DEAL_STATUSES, "all"] as string[]).includes(str(sp.status))
     ? str(sp.status)
     : "all";

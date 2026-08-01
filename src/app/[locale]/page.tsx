@@ -7,44 +7,37 @@ import {
   ListFilter,
   Wallet,
 } from "lucide-react";
-import { setRequestLocale } from "next-intl/server";
+import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
 import { Link } from "@/i18n/navigation";
+import { withDynamicKeys } from "@/i18n/dynamic";
 import { toLocale } from "@/i18n/routing";
 import { WaitlistForm } from "@/components/waitlist-form";
 
+// Порядок карточек — здесь, тексты — в messages (landing.feature.*).
 const FEATURES = [
-  {
-    icon: Wallet,
-    title: "Настоящая прибыль",
-    text: "Учёт покупок и продаж с комиссиями площадок, курсами валют — видишь чистую прибыль, а не «на глаз».",
-  },
-  {
-    icon: BarChart3,
-    title: "Дашборд с графиками",
-    text: "Прибыль по месяцам, кумулятивная кривая, топ-5 прибыльных и убыточных, разбивка по площадкам продажи.",
-  },
-  {
-    icon: FileSpreadsheet,
-    title: "Гибкий импорт",
-    text: "Excel, CSV или текст из заметок — загружай таблицу как есть. Любые названия колонок, валюты и даты распознаются моментально, ничего не переименовывая.",
-  },
-  {
-    icon: Coins,
-    title: "Мультивалюта",
-    text: "RUB, USD, EUR, CNY с авто-курсом. Меняешь основную валюту — все сделки пересчитываются на лету.",
-  },
-  {
-    icon: Boxes,
-    title: "Каталог ~33 000 предметов",
-    text: "Скины, стикеры, агенты, кейсы, капсулы, брелки, патчи, граффити — автоподсказка по названию.",
-  },
-  {
-    icon: ListFilter,
-    title: "Гибкий список сделок",
-    text: "Фильтры по периоду, статусу и площадке, поиск по названию и сортировка по любой колонке.",
-  },
-];
+  { key: "profit", icon: Wallet },
+  { key: "dashboard", icon: BarChart3 },
+  { key: "import", icon: FileSpreadsheet },
+  { key: "currency", icon: Coins },
+  { key: "catalog", icon: Boxes },
+  { key: "list", icon: ListFilter },
+] as const;
+
+// Демо-цифры превью. Валюта фиксированная (это витрина, а не данные
+// пользователя), но формат и символ всё равно из Intl, а не из строки.
+const DEMO_CURRENCY = "RUB";
+const DEMO = {
+  netProfit: 18420,
+  turnover: 212300,
+  roiPct: 14.2,
+  holding: 52000,
+  rows: [
+    { name: "AK-47 | Redline (FT)", buy: 1500, sell: 2100, profit: 490 },
+    { name: "AWP | Asiimov (WW)", buy: 4050, sell: 3700, profit: -560 },
+    { name: "★ Karambit | Doppler (FN)", buy: 52000, sell: null, profit: null },
+  ],
+} as const;
 
 const CTA_PRIMARY =
   "inline-flex h-11 items-center justify-center rounded-xl bg-[#58e2b0] px-6 text-sm font-semibold text-slate-950 transition hover:bg-[#7fecc4]";
@@ -63,6 +56,18 @@ export default async function LandingPage({
   // CSP с nonce требует динамического рендера: nonce проставляется при SSR
   // из заголовка запроса, а у страницы, собранной на билде, запроса нет.
   await connection();
+  const t = await getTranslations("landing");
+  const td = withDynamicKeys(t);
+  const format = await getFormatter();
+  const money = (value: number, signed = false) =>
+    (signed && value > 0 ? "+" : "") +
+    format.number(value, {
+      style: "currency",
+      currency: DEMO_CURRENCY,
+      currencyDisplay: "narrowSymbol",
+      maximumFractionDigits: 0,
+    });
+
   const session = await auth();
   const loggedIn = !!session?.user;
 
@@ -82,11 +87,11 @@ export default async function LandingPage({
         </span>
         {loggedIn ? (
           <Link href="/app" className={CTA_GHOST + " h-9 px-4"}>
-            Открыть приложение
+            {t("openApp")}
           </Link>
         ) : (
           <Link href="/login" className="text-sm text-slate-300 hover:text-white">
-            Войти
+            {t("signIn")}
           </Link>
         )}
       </header>
@@ -96,41 +101,42 @@ export default async function LandingPage({
         <section className="flex flex-col items-center gap-6 text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#58e2b0]/30 bg-[#58e2b0]/10 px-3 py-1 text-xs font-medium text-[#7fecc4]">
             <span className="size-1.5 rounded-full bg-[#58e2b0]" />
-            Учёт арбитража скинов CS2
+            {t("badge")}
           </span>
           <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight text-white sm:text-6xl">
-            Узнай, сколько ты{" "}
-            <span className="bg-gradient-to-r from-[#7fecc4] to-[#9fead2] bg-clip-text text-transparent">
-              реально зарабатываешь
-            </span>{" "}
-            на скинах
+            {t.rich("headline", {
+              accent: (chunks) => (
+                <span className="bg-gradient-to-r from-[#7fecc4] to-[#9fead2] bg-clip-text text-transparent">
+                  {chunks}
+                </span>
+              ),
+            })}
           </h1>
           <p className="max-w-xl text-lg text-slate-400">
-            SkinLedger заменяет эксель-таблицу: заноси сделки, а сервис сам
-            считает прибыль с учётом комиссий и курсов валют.
+            {t("subtitle")}
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             {loggedIn ? (
               <Link href="/app" className={CTA_PRIMARY}>
-                Открыть приложение
+                {t("openApp")}
               </Link>
             ) : (
               <>
                 <Link href="/register" className={CTA_PRIMARY}>
-                  Начать бесплатно
+                  {t("startFree")}
                 </Link>
                 <Link href="/login" className={CTA_GHOST}>
-                  Войти
+                  {t("signIn")}
                 </Link>
               </>
             )}
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500">
-            <span>33 000+ предметов в каталоге</span>
+            <span>{t("statCatalog")}</span>
             <span className="hidden sm:inline">·</span>
-            <span>4 валюты с авто-курсом</span>
+            <span>{t("statCurrencies")}</span>
             <span className="hidden sm:inline">·</span>
-            <span>импорт из Excel</span>
+            <span>{t("statImport")}</span>
           </div>
         </section>
 
@@ -139,10 +145,10 @@ export default async function LandingPage({
           <div className="absolute -inset-x-8 -top-8 bottom-0 -z-10 rounded-[2rem] bg-gradient-to-b from-[#14b179]/10 to-transparent blur-2xl" />
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 shadow-2xl shadow-black/40 backdrop-blur-sm sm:p-5">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <PreviewStat label="Чистая прибыль" value="+18 420 ₽" tone="pos" />
-              <PreviewStat label="Оборот" value="212 300 ₽" />
-              <PreviewStat label="Рентабельность" value="14,2 %" tone="pos" />
-              <PreviewStat label="В холде" value="52 000 ₽" />
+              <PreviewStat label={t("demoNetProfit")} value={money(DEMO.netProfit, true)} tone="pos" />
+              <PreviewStat label={t("demoTurnover")} value={money(DEMO.turnover)} />
+              <PreviewStat label={t("demoRoi")} value={format.number(DEMO.roiPct / 100, "percent")} tone="pos" />
+              <PreviewStat label={t("demoHolding")} value={money(DEMO.holding)} />
             </div>
 
             {/* Мини-график */}
@@ -161,16 +167,23 @@ export default async function LandingPage({
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead className="text-slate-500">
                   <tr className="border-b border-white/10">
-                    <th className="p-2.5 font-normal">Скин</th>
-                    <th className="p-2.5 font-normal">Покупка</th>
-                    <th className="p-2.5 font-normal">Продажа</th>
-                    <th className="p-2.5 text-right font-normal">Прибыль</th>
+                    <th className="p-2.5 font-normal">{t("demoColItem")}</th>
+                    <th className="p-2.5 font-normal">{t("demoColBuy")}</th>
+                    <th className="p-2.5 font-normal">{t("demoColSell")}</th>
+                    <th className="p-2.5 text-right font-normal">{t("demoColProfit")}</th>
                   </tr>
                 </thead>
                 <tbody className="text-slate-300">
-                  <PreviewRow name="AK-47 | Redline (FT)" buy="1 500 ₽" sell="2 100 ₽" profit="+490 ₽" tone="pos" />
-                  <PreviewRow name="AWP | Asiimov (WW)" buy="4 050 ₽" sell="3 700 ₽" profit="−560 ₽" tone="neg" />
-                  <PreviewRow name="★ Karambit | Doppler (FN)" buy="52 000 ₽" sell="—" profit="в холде" />
+                  {DEMO.rows.map((row) => (
+                    <PreviewRow
+                      key={row.name}
+                      name={row.name}
+                      buy={money(row.buy)}
+                      sell={row.sell == null ? "—" : money(row.sell)}
+                      profit={row.profit == null ? t("demoHold") : money(row.profit, true)}
+                      tone={row.profit == null ? undefined : row.profit >= 0 ? "pos" : "neg"}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -180,22 +193,22 @@ export default async function LandingPage({
         {/* Возможности */}
         <section className="flex flex-col gap-8">
           <div className="text-center">
-            <h2 className="text-3xl font-semibold text-white">Что внутри</h2>
+            <h2 className="text-3xl font-semibold text-white">{t("featuresTitle")}</h2>
             <p className="mt-2 text-slate-400">
-              Всё, чтобы вести сделки и видеть реальную картину
+              {t("featuresSubtitle")}
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
               <div
-                key={f.title}
+                key={f.key}
                 className="group rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-[#58e2b0]/40 hover:bg-white/[0.05]"
               >
                 <div className="flex size-11 items-center justify-center rounded-xl border border-[#58e2b0]/20 bg-[#58e2b0]/10 text-[#7fecc4] transition group-hover:bg-[#58e2b0]/20">
                   <f.icon className="size-5" />
                 </div>
-                <h3 className="mt-4 font-semibold text-white">{f.title}</h3>
-                <p className="mt-1.5 text-sm text-slate-400">{f.text}</p>
+                <h3 className="mt-4 font-semibold text-white">{td(`feature.${f.key}.title`)}</h3>
+                <p className="mt-1.5 text-sm text-slate-400">{td(`feature.${f.key}.text`)}</p>
               </div>
             ))}
           </div>
@@ -205,25 +218,24 @@ export default async function LandingPage({
         <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-transparent p-6 sm:p-8">
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-violet-400/30 bg-violet-400/10 px-2.5 py-0.5 text-xs font-medium text-violet-300">
-              скоро
+              {t("soon")}
             </span>
-            <h2 className="text-2xl font-semibold text-white">Планируется</h2>
+            <h2 className="text-2xl font-semibold text-white">{t("planned")}</h2>
           </div>
           <p className="mt-2 text-sm text-slate-400">
-            Оставь email — напишем, когда появится. Так мы поймём, что делать
-            дальше.
+            {t("plannedNote")}
           </p>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              <h3 className="font-medium text-white">Автоимпорт из Steam и площадок</h3>
+              <h3 className="font-medium text-white">{t("plannedAutoImport")}</h3>
               <p className="mt-1 text-sm text-slate-400">
-                Подтягивать сделки автоматически, без выгрузки таблиц вручную.
+                {t("plannedAutoImportNote")}
               </p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              <h3 className="font-medium text-white">Алерты по ценам</h3>
+              <h3 className="font-medium text-white">{t("plannedAlerts")}</h3>
               <p className="mt-1 text-sm text-slate-400">
-                Уведомления, когда цена интересующего предмета доходит до нужной.
+                {t("plannedAlertsNote")}
               </p>
             </div>
           </div>
@@ -233,7 +245,7 @@ export default async function LandingPage({
         </section>
 
         <footer className="border-t border-white/10 pt-6 text-center text-sm text-slate-500">
-          SkinLedger — учёт арбитража скинов. Интерфейс на русском.
+          {t("footer")}
         </footer>
       </div>
     </main>

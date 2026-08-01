@@ -21,7 +21,7 @@ export const PLACEHOLDER_SKINS = [
  * показывает `idle`. Пока `active` false, анимация не идёт и подсказка равна
  * `idle` — так поле не мельтешит, когда пользователь в него уже пишет.
  */
-export function useTypedPlaceholder(active: boolean, idle = "Поиск"): string {
+export function useTypedPlaceholder(active: boolean, idle: string): string {
   const [typed, setTyped] = useState("");
 
   useEffect(() => {

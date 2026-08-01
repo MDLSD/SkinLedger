@@ -1,5 +1,7 @@
 "use server";
 
+import type { ErrorKey, ErrorValues } from "@/lib/error-keys";
+
 import { z } from "zod";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +9,7 @@ import { checkLimit, recordFailure } from "@/lib/rate-limit";
 import { clientIpFromHeaders } from "@/lib/client-ip";
 
 const schema = z.object({
-  email: z.email("Некорректный email"),
+  email: z.email("email"),
   feature: z.preprocess(
     (v) => (v === "" || v == null ? undefined : v),
     z.string().max(100).optional(),
@@ -18,7 +20,7 @@ const schema = z.object({
 const LIMIT = 10;
 const WINDOW_MS = 60 * 60_000;
 
-export type WaitlistState = { error?: string; success?: boolean };
+export type WaitlistState = { error?: ErrorKey; errorValues?: ErrorValues; success?: boolean };
 
 export async function joinWaitlistAction(
   _prev: WaitlistState,
@@ -33,7 +35,7 @@ export async function joinWaitlistAction(
   const ip = clientIpFromHeaders(await headers());
   const key = `waitlist:ip:${ip}`;
   if (checkLimit(key, LIMIT).limited) {
-    return { error: "Слишком много заявок. Попробуйте позже." };
+    return { error: "waitlistTooMany" };
   }
   recordFailure(key, WINDOW_MS);
 

@@ -1,6 +1,9 @@
 "use client";
 
+import { useErrorMessage } from "@/i18n/error-message";
+
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +52,10 @@ export function DealForm({
   initialWithSell,
   onDone,
 }: Props) {
+  const t = useTranslations("dealForm");
+  const locale = useLocale();
   const router = useRouter();
+  const errorMessage = useErrorMessage();
   const [state, formAction, pending] = useActionState(saveDealAction, {});
   const families = useSkinsIndex();
 
@@ -104,8 +110,8 @@ export function DealForm({
 
   const rateLabel = (factor: number | null, currency: string) => {
     if (currency === baseCurrency) return "1:1";
-    if (factor == null) return "курс недоступен";
-    const v = factor.toLocaleString("ru-RU", { maximumFractionDigits: 2 });
+    if (factor == null) return t("fxUnavailable");
+    const v = factor.toLocaleString(locale, { maximumFractionDigits: 2 });
     return `1 ${currency} = ${v} ${baseCurrency}`;
   };
 
@@ -238,29 +244,28 @@ export function DealForm({
           variant={mode === "buy" ? "default" : "outline"}
           onClick={() => setMode("buy")}
         >
-          Купил
+          {t("bought")}
         </Button>
         <Button
           type="button"
           variant={mode === "sold" ? "default" : "outline"}
           onClick={() => setMode("sold")}
         >
-          Купил и продал
+          {t("boughtAndSold")}
         </Button>
       </div>
 
       <div className="grid gap-1.5">
-        <Label>Название скина</Label>
+        <Label>{t("skinName")}</Label>
         <SkinCombobox value={skin} onSelect={onSelectSkin} autoFocus={!deal} />
         {legacyName && !skin && (
           <p className="text-xs text-muted-foreground">
-            Текущее значение: «{legacyName}». Выберите скин из справочника, чтобы
-            привязать каноничное название.
+            {t("legacyName", { name: legacyName })}
           </p>
         )}
         {marketHashName && (
           <p className="text-xs text-muted-foreground">
-            В справочнике: <span className="font-medium">{marketHashName}</span>
+            {t("inCatalog")} <span className="font-medium">{marketHashName}</span>
           </p>
         )}
       </div>
@@ -268,7 +273,7 @@ export function DealForm({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_80px] sm:items-end">
         {isSticker ? (
           <div className="grid gap-1.5">
-            <Label htmlFor="finish">Финиш</Label>
+            <Label htmlFor="finish">{t("finish")}</Label>
             <NativeSelect
               id="finish"
               value={finish}
@@ -284,7 +289,7 @@ export function DealForm({
         ) : isSkin ? (
           <>
             <div className="grid gap-1.5">
-              <Label htmlFor="wear">Износ</Label>
+              <Label htmlFor="wear">{t("wear")}</Label>
               <NativeSelect
                 id="wear"
                 value={wear}
@@ -328,7 +333,7 @@ export function DealForm({
           </>
         ) : null}
         <div className="grid gap-1.5">
-          <Label htmlFor="quantity">Кол-во</Label>
+          <Label htmlFor="quantity">{t("quantity")}</Label>
           <NumberInput
             id="quantity"
             name="quantity"
@@ -341,17 +346,17 @@ export function DealForm({
       </div>
 
       <fieldset className="rounded-lg border p-3">
-        <legend className="px-1 text-sm font-medium">Покупка</legend>
+        <legend className="px-1 text-sm font-medium">{t("buy")}</legend>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="col-span-2 grid gap-1.5">
-            <Label>Площадка</Label>
+            <Label>{t("platform")}</Label>
             <NativeSelect
               value={buyPlatformId}
               onChange={(e) => onBuyPlatformChange(e.target.value)}
               required
             >
               <option value="" disabled>
-                Выберите площадку
+                {t("pickPlatform")}
               </option>
               {platforms.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -361,7 +366,7 @@ export function DealForm({
             </NativeSelect>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="buyPrice">Цена за шт.</Label>
+            <Label htmlFor="buyPrice">{t("pricePerUnit")}</Label>
             <NumberInput
               id="buyPrice"
               name="buyPrice"
@@ -371,7 +376,7 @@ export function DealForm({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>Валюта</Label>
+            <Label>{t("currency")}</Label>
             <NativeSelect
               name="buyCurrency"
               value={buyCurrency}
@@ -385,7 +390,7 @@ export function DealForm({
             </NativeSelect>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="buyFeePct">Комиссия, %</Label>
+            <Label htmlFor="buyFeePct">{t("feePct")}</Label>
             <NumberInput
               id="buyFeePct"
               name="buyFeePct"
@@ -394,13 +399,13 @@ export function DealForm({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>Курс</Label>
+            <Label>{t("fxRate")}</Label>
             <div className="flex h-8 items-center text-sm text-muted-foreground">
               {rateLabel(buyFactor, buyCurrency)}
             </div>
           </div>
           <div className="col-span-2 grid gap-1.5">
-            <Label htmlFor="buyDate">Дата покупки</Label>
+            <Label htmlFor="buyDate">{t("buyDate")}</Label>
             <Input
               id="buyDate"
               name="buyDate"
@@ -414,17 +419,17 @@ export function DealForm({
 
       {withSell && (
         <fieldset className="rounded-lg border p-3">
-          <legend className="px-1 text-sm font-medium">Продажа</legend>
+          <legend className="px-1 text-sm font-medium">{t("sell")}</legend>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="col-span-2 grid gap-1.5">
-              <Label>Площадка</Label>
+              <Label>{t("platform")}</Label>
               <NativeSelect
                 value={sellPlatformId}
                 onChange={(e) => onSellPlatformChange(e.target.value)}
                 required={withSell}
               >
                 <option value="" disabled>
-                  Выберите площадку
+                  {t("pickPlatform")}
                 </option>
                 {platforms.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -435,7 +440,7 @@ export function DealForm({
             </div>
             {num(quantity) > 1 && (
               <div className="col-span-2 grid gap-1.5">
-                <Label htmlFor="sellQuantity">Продано, шт (из {num(quantity)})</Label>
+                <Label htmlFor="sellQuantity">{t("soldOf", { total: num(quantity) })}</Label>
                 <NumberInput
                   id="sellQuantity"
                   name="sellQuantity"
@@ -448,14 +453,13 @@ export function DealForm({
                 />
                 {num(sellQty) > 0 && num(sellQty) < num(quantity) && (
                   <p className="text-xs text-muted-foreground">
-                    Остаток {num(quantity) - num(sellQty)} шт. останется в холде
-                    отдельной сделкой.
+                    {t("remainderNote", { n: num(quantity) - num(sellQty) })}
                   </p>
                 )}
               </div>
             )}
             <div className="grid gap-1.5">
-              <Label htmlFor="sellPrice">Цена за шт.</Label>
+              <Label htmlFor="sellPrice">{t("pricePerUnit")}</Label>
               <NumberInput
                 id="sellPrice"
                 name="sellPrice"
@@ -465,7 +469,7 @@ export function DealForm({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>Валюта</Label>
+              <Label>{t("currency")}</Label>
               <NativeSelect
                 name="sellCurrency"
                 value={sellCurrency}
@@ -479,7 +483,7 @@ export function DealForm({
               </NativeSelect>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="sellFeePct">Комиссия, %</Label>
+              <Label htmlFor="sellFeePct">{t("feePct")}</Label>
               <NumberInput
                 id="sellFeePct"
                 name="sellFeePct"
@@ -488,14 +492,14 @@ export function DealForm({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>Курс</Label>
+              <Label>{t("fxRate")}</Label>
               <div className="flex h-8 items-center text-sm text-muted-foreground">
                 {rateLabel(sellFactor, sellCurrency)}
               </div>
             </div>
             <div className="col-span-2 grid gap-1.5">
               <Label htmlFor="sellDate">
-                Дата продажи
+                {t("sellDate")}
               </Label>
               <Input
                 id="sellDate"
@@ -516,12 +520,12 @@ export function DealForm({
       )}
 
       <div className="grid gap-1.5">
-        <Label htmlFor="note">Комментарий</Label>
+        <Label htmlFor="note">{t("note")}</Label>
         <Textarea
           id="note"
           name="note"
           rows={2}
-          placeholder="Необязательно"
+          placeholder={t("optional")}
           defaultValue={deal?.note ?? ""}
         />
       </div>
@@ -529,12 +533,12 @@ export function DealForm({
       <div className="rounded-lg bg-muted px-3 py-2 text-sm">
         {calc == null ? (
           <span className="text-muted-foreground">
-            Заполните цену покупки — расчёт появится здесь
+            {t("calcHint")}
           </span>
         ) : calc.profit == null ? (
           <span>
-            Затраты на покупку:{" "}
-            <b>{formatMoney(calc.cost, baseCurrency)}</b>
+            {t("buyCost")}{" "}
+            <b>{formatMoney(calc.cost, baseCurrency, locale)}</b>
           </span>
         ) : (
           <span
@@ -542,24 +546,26 @@ export function DealForm({
               calc.profit >= 0 ? "text-emerald-400" : "text-red-400"
             }
           >
-            Прибыль: <b>{formatMoney(calc.profit, baseCurrency, true)}</b>
-            {calc.margin != null && <> · маржа {formatPct(calc.margin)}</>}
+            {t("profit")} <b>{formatMoney(calc.profit, baseCurrency, locale, true)}</b>
+            {calc.margin != null && (
+              <> · {t("margin")} {formatPct(calc.margin, locale)}</>
+            )}
           </span>
         )}
       </div>
 
       {state.error && (
         <p className="text-sm text-red-400" role="alert">
-          {state.error}
+          {errorMessage(state.error, state.errorValues)}
         </p>
       )}
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onDone}>
-          Отмена
+          {t("cancel")}
         </Button>
         <Button type="submit" disabled={pending || !canonicalName}>
-          {pending ? "Сохранение…" : deal ? "Сохранить" : "Добавить сделку"}
+          {pending ? t("saving") : deal ? t("save") : t("addDeal")}
         </Button>
       </div>
     </form>

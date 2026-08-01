@@ -1,7 +1,8 @@
 // Гибкая нормализация «своих» таблиц при импорте: распознавание колонок по
 // синонимам (без переименования), извлечение качества из названия вида
 // «AWP | Corticera (Minimal Wear)», разбор дат в разных форматах.
-import { CSV_COLUMNS, parseStatus, type CsvKey } from "@/lib/deal-csv";
+import { CSV_HEADERS, CSV_KEYS, parseStatus, type CsvKey } from "@/lib/deal-csv";
+import type { ErrorKey, ErrorValues, LocalizedMessage } from "@/lib/error-keys";
 
 // Допустимые коды валют (совпадают с CURRENCIES в validation).
 const CURRENCY_CODES = ["RUB", "USD", "EUR", "CNY"];
@@ -147,10 +148,14 @@ const ALIASES: Record<CsvKey, string[]> = {
   ],
 };
 
-// Точные RU-заголовки шаблона тоже должны совпадать (на случай экспорта→импорта).
-for (const c of CSV_COLUMNS) {
-  const n = norm(c.header);
-  if (!ALIASES[c.key].includes(n)) ALIASES[c.key].push(n);
+// Точные заголовки шаблона тоже должны совпадать (на случай экспорта→импорта) —
+// и русского, и английского: выгрузку делают в своей локали, а импортируют
+// её обратно в любой.
+for (const headers of Object.values(CSV_HEADERS)) {
+  for (const key of CSV_KEYS) {
+    const n = norm(headers[key]);
+    if (n && !ALIASES[key].includes(n)) ALIASES[key].push(n);
+  }
 }
 
 /**
@@ -654,7 +659,8 @@ export const FIELD_ORDER: CsvKey[] = [
 
 export type AnalyzeState = {
   ok?: boolean;
-  error?: string;
+  error?: ErrorKey;
+  errorValues?: ErrorValues;
   headers?: string[];
   rows?: string[][]; // все строки данных (для коммита)
   mapping?: FieldMapping;
@@ -663,16 +669,17 @@ export type AnalyzeState = {
   sheetNames?: string[];
   sheet?: string;
   currencyDetected?: string | null;
-  notes?: string[]; // информационные пометки анализа
+  notes?: LocalizedMessage[]; // информационные пометки анализа
 };
 
 export type CommitState = {
-  error?: string;
+  error?: ErrorKey;
+  errorValues?: ErrorValues;
   imported?: number;
   skipped?: number;
-  rowErrors?: { row: number; message: string }[];
-  warnings?: string[];
+  rowErrors?: { row: number; message: LocalizedMessage }[];
+  warnings?: LocalizedMessage[];
   createdIds?: string[];
 };
 
-export type UndoState = { error?: string; undone?: number };
+export type UndoState = { error?: ErrorKey; undone?: number };

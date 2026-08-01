@@ -1,4 +1,4 @@
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
 import { redirect } from "@/i18n/navigation";
 import { prisma } from "@/lib/prisma";
@@ -47,6 +47,7 @@ export default async function DashboardPage({
   const { locale: rawLocale } = await params;
   const locale = toLocale(rawLocale);
   setRequestLocale(locale);
+  const t = await getTranslations("dashboard");
 
   const session = await auth();
   if (!session?.user?.id) redirect({ href: "/login", locale });
@@ -122,7 +123,7 @@ export default async function DashboardPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Дашборд</h1>
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <DashboardPeriod period={f.period} from={f.from} to={f.to} />
       </div>
 
@@ -130,21 +131,21 @@ export default async function DashboardPage({
         source={ratesSource}
         unresolvedFx={unresolvedFx}
         truncated={truncated}
-        excludedLabel="сделок не учтено"
+        excludedLabel="excluded"
       />
 
       {goal && (
         <div className="rounded-lg border bg-card p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h3 className="flex items-center gap-1 text-sm font-medium">
-              Цель месяца · прибыль
-              <Hint text="Прогресс к личной цели прибыли за текущий календарный месяц (независимо от фильтра периода). Цель задаётся в Настройках." />
+              {t("goal")}
+              <Hint text={t("goalHint")} />
             </h3>
             <div className="text-sm">
               <span className={`font-semibold ${dash.thisMonthProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {formatMoney(dash.thisMonthProfit, cur, true)}
+                {formatMoney(dash.thisMonthProfit, cur, locale, true)}
               </span>
-              <span className="text-muted-foreground"> / {formatMoney(goal, cur)}</span>
+              <span className="text-muted-foreground"> / {formatMoney(goal, cur, locale)}</span>
               <span className="ml-2 text-muted-foreground">{Math.round(goalPct ?? 0)}%</span>
             </div>
           </div>
@@ -158,16 +159,16 @@ export default async function DashboardPage({
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Stat label="Чистая прибыль" value={formatMoney(c.netProfit, cur, true)} tone={c.netProfit >= 0 ? "pos" : "neg"} hint="Суммарная прибыль по закрытым сделкам за выбранный период: выручка минус затраты, с учётом комиссий и курсов валют." />
-        <Stat label="Оборот (продажи)" value={formatMoney(c.turnover, cur)} hint="Сумма всех продаж за период (выручка после комиссии продажи). Показывает масштаб торговли, а не заработок." />
-        <Stat label="Рентабельность вложений" value={c.roiPct == null ? "—" : formatPct(c.roiPct)} tone={c.roiPct == null ? undefined : c.roiPct >= 0 ? "pos" : "neg"} hint="ROI портфеля: общая прибыль ÷ общие затраты × 100. Взвешена по размеру сделок — крупные влияют сильнее." />
-        <Stat label="Средняя маржа" value={c.avgMargin == null ? "—" : formatPct(c.avgMargin)} tone={c.avgMargin == null ? undefined : c.avgMargin >= 0 ? "pos" : "neg"} hint="Среднее арифметическое маржи по сделкам. Все сделки равны независимо от суммы — типичная выгодность одной сделки." />
-        <Stat label="Средняя прибыль/сделку" value={c.avgProfitPerDeal == null ? "—" : formatMoney(c.avgProfitPerDeal, cur, true)} tone={c.avgProfitPerDeal == null ? undefined : c.avgProfitPerDeal >= 0 ? "pos" : "neg"} sub={c.closedCount ? `${c.closedCount} закрытых` : undefined} hint="Чистая прибыль ÷ число закрытых сделок за период." />
-        <Stat label="Лучшая сделка" value={c.bestTrade == null ? "—" : formatMoney(c.bestTrade, cur, true)} tone={c.bestTrade == null ? undefined : c.bestTrade >= 0 ? "pos" : "neg"} hint="Максимальная прибыль одной сделки за период." />
-        <Stat label="Средний срок сделки" value={c.avgHoldDays == null ? "—" : `${c.avgHoldDays} дн.`} hint="Сколько в среднем дней проходит от покупки до продажи. Меньше — быстрее оборачивается капитал." />
-        <Stat label="Заморожено в холде" value={formatMoney(c.frozenInHolding, cur)} hint="Стоимость покупки всех непроданных позиций (снимок на сейчас, без учёта фильтра периода)." />
-        <Stat label="Позиций в холде" value={String(c.holdingCount)} sub={c.holdingCount ? `можно продавать: ${c.tradableCount}` : undefined} hint="Сколько предметов ещё не продано. «Можно продавать» — у скольких уже прошёл 7-дневный трейд-бан Steam." />
-        <Stat label="Мёртвый капитал" value={formatMoney(dash.deadCapital.amount, cur)} tone={dash.deadCapital.amount > 0 ? "neg" : undefined} sub={dash.deadCapital.count ? `${dash.deadCapital.count} поз. в холде > 60 дн` : "нет застрявших > 60 дн"} hint="Деньги, застрявшие в холде дольше 60 дней. Кандидаты на то, чтобы сбросить и высвободить капитал." />
+        <Stat label={t("netProfit")} value={formatMoney(c.netProfit, cur, locale, true)} tone={c.netProfit >= 0 ? "pos" : "neg"} hint={t("netProfitHint")} />
+        <Stat label={t("turnover")} value={formatMoney(c.turnover, cur, locale)} hint={t("turnoverHint")} />
+        <Stat label={t("roi")} value={c.roiPct == null ? "—" : formatPct(c.roiPct, locale)} tone={c.roiPct == null ? undefined : c.roiPct >= 0 ? "pos" : "neg"} hint={t("roiHint")} />
+        <Stat label={t("avgMargin")} value={c.avgMargin == null ? "—" : formatPct(c.avgMargin, locale)} tone={c.avgMargin == null ? undefined : c.avgMargin >= 0 ? "pos" : "neg"} hint={t("avgMarginHint")} />
+        <Stat label={t("avgProfit")} value={c.avgProfitPerDeal == null ? "—" : formatMoney(c.avgProfitPerDeal, cur, locale, true)} tone={c.avgProfitPerDeal == null ? undefined : c.avgProfitPerDeal >= 0 ? "pos" : "neg"} sub={c.closedCount ? t("closedCount", { count: c.closedCount }) : undefined} hint={t("avgProfitHint")} />
+        <Stat label={t("bestTrade")} value={c.bestTrade == null ? "—" : formatMoney(c.bestTrade, cur, locale, true)} tone={c.bestTrade == null ? undefined : c.bestTrade >= 0 ? "pos" : "neg"} hint={t("bestTradeHint")} />
+        <Stat label={t("avgHold")} value={c.avgHoldDays == null ? "—" : t("daysShort", { count: c.avgHoldDays })} hint={t("avgHoldHint")} />
+        <Stat label={t("frozen")} value={formatMoney(c.frozenInHolding, cur, locale)} hint={t("frozenHint")} />
+        <Stat label={t("holdingCount")} value={String(c.holdingCount)} sub={c.holdingCount ? t("tradable", { count: c.tradableCount }) : undefined} hint={t("holdingCountHint")} />
+        <Stat label={t("deadCapital")} value={formatMoney(dash.deadCapital.amount, cur, locale)} tone={dash.deadCapital.amount > 0 ? "neg" : undefined} sub={dash.deadCapital.count ? t("deadCapitalCount", { count: dash.deadCapital.count }) : t("deadCapitalNone")} hint={t("deadCapitalHint")} />
       </div>
 
       <DashboardCharts
@@ -179,25 +180,25 @@ export default async function DashboardPage({
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <TopList title="Топ-5 прибыльных" deals={dash.topProfit} currency={cur} tone="pos" hint="Пять сделок с наибольшей прибылью за выбранный период." />
-        <TopList title="Топ-5 убыточных" deals={dash.topLoss} currency={cur} tone="neg" hint="Пять сделок с наибольшим убытком за выбранный период." />
+        <TopList title={t("topProfit")} deals={dash.topProfit} currency={cur} locale={locale} tone="pos" hint={t("topProfitHint")} emptyLabel={t("noDataPeriod")} />
+        <TopList title={t("topLoss")} deals={dash.topLoss} currency={cur} locale={locale} tone="neg" hint={t("topLossHint")} emptyLabel={t("noDataPeriod")} />
       </div>
 
       <div className="rounded-lg border bg-card p-4">
         <h3 className="mb-3 flex items-center gap-1 text-sm font-medium">
-          Площадки продажи: прибыль и маржа
-          <Hint text="Прибыль и фактическая маржа по площадкам продажи. Маржа = сумма прибыли ÷ сумма себестоимости на площадке × 100." />
+          {t("byPlatform")}
+          <Hint text={t("byPlatformHint")} />
         </h3>
         {dash.platforms.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Нет закрытых сделок за период.</p>
+          <p className="text-sm text-muted-foreground">{t("noClosedDeals")}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted-foreground">
-                <th className="pb-2 font-normal">Площадка</th>
-                <th className="pb-2 text-right font-normal">Сделок</th>
-                <th className="pb-2 text-right font-normal">Ср. маржа</th>
-                <th className="pb-2 text-right font-normal">Прибыль</th>
+                <th className="pb-2 font-normal">{t("platform")}</th>
+                <th className="pb-2 text-right font-normal">{t("dealsCol")}</th>
+                <th className="pb-2 text-right font-normal">{t("avgMarginCol")}</th>
+                <th className="pb-2 text-right font-normal">{t("profitCol")}</th>
               </tr>
             </thead>
             <tbody>
@@ -206,10 +207,10 @@ export default async function DashboardPage({
                   <td className="py-1.5">{p.name}</td>
                   <td className="py-1.5 text-right">{p.count}</td>
                   <td className={`py-1.5 text-right ${p.margin == null ? "text-muted-foreground" : p.margin >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {p.margin == null ? "—" : formatPct(p.margin)}
+                    {p.margin == null ? "—" : formatPct(p.margin, locale)}
                   </td>
                   <td className={`py-1.5 text-right ${p.profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {formatMoney(p.profit, cur, true)}
+                    {formatMoney(p.profit, cur, locale, true)}
                   </td>
                 </tr>
               ))}
@@ -251,14 +252,18 @@ function TopList({
   title,
   deals,
   currency,
+  locale,
   tone,
   hint,
+  emptyLabel,
 }: {
   title: string;
   deals: DealBrief[];
   currency: string;
+  locale: string;
   tone: "pos" | "neg";
   hint?: string;
+  emptyLabel: string;
 }) {
   const color = tone === "pos" ? "text-emerald-400" : "text-red-400";
   return (
@@ -268,7 +273,7 @@ function TopList({
         {hint && <Hint text={hint} />}
       </h3>
       {deals.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Нет данных за период.</p>
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
       ) : (
         <ul className="space-y-2">
           {deals.map((d) => (
@@ -280,10 +285,10 @@ function TopList({
                 )}
               </span>
               <span className={`whitespace-nowrap font-medium ${color}`}>
-                {formatMoney(d.profit, currency, true)}
+                {formatMoney(d.profit, currency, locale, true)}
                 {d.margin != null && (
                   <span className="ml-1 text-xs text-muted-foreground">
-                    {formatPct(d.margin)}
+                    {formatPct(d.margin, locale)}
                   </span>
                 )}
               </span>

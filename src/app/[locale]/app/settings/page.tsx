@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/auth";
 import { redirect } from "@/i18n/navigation";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +12,16 @@ import { PlatformSettings } from "@/components/platform-settings";
 import { DeleteAccount } from "@/components/delete-account";
 import { CURRENCIES } from "@/lib/validation";
 import { toLocale } from "@/i18n/routing";
+
+// Именованные форматы next-intl требуют объявления в конфиге; без него
+// format.dateTime(d, "short") отдаёт сырой Date.toString(). Задаём явно.
+const DATE_TIME = {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+} as const;
 
 type Params = Promise<{ locale: string }>;
 
@@ -30,6 +40,8 @@ export default async function SettingsPage({ params }: { params: Params }) {
   const { locale: rawLocale } = await params;
   const locale = toLocale(rawLocale);
   setRequestLocale(locale);
+  const t = await getTranslations("settings");
+  const format = await getFormatter();
 
   const session = await auth();
   if (!session?.user?.id) redirect({ href: "/login", locale });
@@ -66,54 +78,50 @@ export default async function SettingsPage({ params }: { params: Params }) {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">Настройки</h1>
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
 
       <section className="rounded-lg border bg-card p-4">
-        <h2 className="text-sm font-medium">Валюта</h2>
+        <h2 className="text-sm font-medium">{t("currency")}</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
-          Все суммы (цены, прибыль, дашборд) пересчитываются в основную валюту по
-          текущему курсу. При смене валюты все сделки отобразятся в новой валюте.
+          {t("currencyNote")}
         </p>
         <CurrencySettings current={base} />
       </section>
 
       <section className="rounded-lg border bg-card p-4">
-        <h2 className="text-sm font-medium">Цель по прибыли</h2>
+        <h2 className="text-sm font-medium">{t("goal")}</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
-          Задай цель чистой прибыли за месяц — на дашборде появится прогресс-бар.
-          Пусто или 0 — цель снята.
+          {t("goalNote")}
         </p>
         <GoalSettings current={user.monthlyGoal == null ? null : Number(user.monthlyGoal)} currency={base} />
       </section>
 
       <section className="rounded-lg border bg-card p-4">
-        <h2 className="text-sm font-medium">Пароль</h2>
+        <h2 className="text-sm font-medium">{t("password")}</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
-          После смены пароля все входы на всех устройствах перестают
-          действовать — войдите заново с новым паролем.
+          {t("passwordNote")}
         </p>
         <PasswordSettings />
       </section>
 
       <section className="rounded-lg border bg-card p-4">
-        <h2 className="text-sm font-medium">Свои площадки и комиссии</h2>
+        <h2 className="text-sm font-medium">{t("platforms")}</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
-          Добавьте площадки, которых нет в списке, и задайте их комиссии — они
-          подставятся при выборе площадки в сделке и при импорте.
+          {t("platformsNote")}
         </p>
         <PlatformSettings custom={customPlatforms} seeded={seededPlatforms} />
       </section>
 
       <section className="rounded-lg border bg-card p-4">
         <h2 className="mb-1 text-sm font-medium">
-          Курсы к {base} {CURRENCY_SYMBOL[base] ?? ""}
+          {t("ratesTo", { currency: `${base} ${CURRENCY_SYMBOL[base] ?? ""}` })}
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
           {source === "live"
-            ? `Обновлено: ${new Date(updatedAt).toLocaleString("ru-RU")}`
+            ? t("ratesUpdated", { at: format.dateTime(new Date(updatedAt), DATE_TIME) })
             : source === "cache"
-              ? `Обновить не удалось, курсы от ${new Date(updatedAt).toLocaleString("ru-RU")}`
-              : "Используются запасные курсы (парсер недоступен)"}
+              ? t("ratesStale", { at: format.dateTime(new Date(updatedAt), DATE_TIME) })
+              : t("ratesFallback")}
         </p>
         <table className="text-sm">
           <tbody>
@@ -124,7 +132,7 @@ export default async function SettingsPage({ params }: { params: Params }) {
                     1 {c} {CURRENCY_SYMBOL[c] ?? ""}
                   </td>
                   <td className="py-1 font-medium">
-                    {fxFactor(c, base, rates)?.toLocaleString("ru-RU", {
+                    {fxFactor(c, base, rates)?.toLocaleString(locale, {
                       maximumFractionDigits: 3,
                     }) ?? "—"}{" "}
                     {CURRENCY_SYMBOL[base] ?? base}
@@ -136,10 +144,9 @@ export default async function SettingsPage({ params }: { params: Params }) {
       </section>
 
       <section className="rounded-lg border border-destructive/30 p-4">
-        <h2 className="text-sm font-medium text-destructive">Удаление аккаунта</h2>
+        <h2 className="text-sm font-medium text-destructive">{t("deleteAccount")}</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
-          Удалит аккаунт и все данные (сделки, свои площадки) без возможности
-          восстановления.
+          {t("deleteAccountNote")}
         </p>
         <DeleteAccount />
       </section>

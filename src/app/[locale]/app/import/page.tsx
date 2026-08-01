@@ -22,37 +22,34 @@ export default async function ImportPage({ params }: { params: Params }) {
   const { locale: rawLocale } = await params;
   const locale = toLocale(rawLocale);
   setRequestLocale(locale);
+  const t = await getTranslations("importPage");
 
   const session = await auth();
   if (!session?.user?.id) redirect({ href: "/login", locale });
 
   return (
     <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold">Импорт сделок</h1>
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
 
       <section className="space-y-3 rounded-lg border p-4 text-sm">
-        <h2 className="font-medium">Загрузите свою таблицу как есть</h2>
+        <h2 className="font-medium">{t("subtitle")}</h2>
         <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
           <li>
-            Excel (.xlsx), CSV или текст из заметок — переименовывать колонки не
-            нужно, распознаём по заголовкам и по значениям. Баннеры/итоги сверху и
-            снизу таблицы пропускаем сами.
+            {t("bullet1")}
           </li>
           <li>
-            Качество можно писать прямо в названии:{" "}
-            <b>AWP | Corticera (Minimal Wear)</b> — износ извлечём.
+            {t.rich("bullet2", { b: (chunks) => <b>{chunks}</b> })}
           </li>
           <li>
-            После загрузки покажем <b>превью</b>: как распознаны колонки, валюта и
-            формат даты — всё можно поправить до импорта, а импорт можно откатить.
+            {t.rich("bullet3", { b: (chunks) => <b>{chunks}</b> })}
           </li>
         </ul>
         <a
-          href="/api/deals/template"
+          href={`/api/deals/template?locale=${locale}`}
           download
           className="inline-block font-medium text-primary underline underline-offset-4"
         >
-          Не с чего начать? Скачать шаблон-пример (CSV)
+          {t("template")}
         </a>
       </section>
 

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArrowRight, TrendingDown, TrendingUp } from "lucide-react";
-import { setRequestLocale } from "next-intl/server";
+import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { localePrefix, routing, toLocale } from "@/i18n/routing";
+import { withDynamicKeys, type DynamicTranslator } from "@/i18n/dynamic";
 import { SourceIcon } from "@/components/source-icon";
 import { SkinPriceChart } from "@/components/skin-price-chart";
 import { SkinOffers } from "@/components/skin-offers";
@@ -13,7 +14,7 @@ import { formatMoney, formatPct } from "@/lib/deal-math";
 import { fxFactor } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
 import { netSellRevenue } from "@/lib/prices/profit";
-import { loadItemPage, RARITY_RU, WEAR_RU, type ItemPageData } from "@/lib/prices/item-page";
+import { loadItemPage, type ItemPageData } from "@/lib/prices/item-page";
 
 // Публичная зона (ТЗ 5): страница индексируется, поэтому рендер серверный, а
 // не клиентский — бот должен видеть цены в HTML (ТЗ 7.1 допускает SSR либо
@@ -24,8 +25,18 @@ type Params = Promise<{ locale: string; slug: string }>;
 
 const SITE = process.env.AUTH_URL ?? "http://localhost:3000";
 
-const ruRarity = (r: string | null) => (r ? (RARITY_RU[r] ?? r) : null);
-const ruWear = (w: string | null) => (w ? (WEAR_RU[w] ?? w) : null);
+/**
+ * Подписи справочных значений. Ключ — сырое значение из каталога; если
+ * перевода нет (значение появилось в игре раньше, чем у нас в словаре),
+ * показываем как есть, а не заглушку.
+ */
+function makeLabeler(t: DynamicTranslator, prefix: string) {
+  return (value: string | null): string | null => {
+    if (!value) return null;
+    const key = `${prefix}.${value}`;
+    return t.has(key) ? t(key) : value;
+  };
+}
 
 /** Абсолютный адрес страницы предмета в конкретной локали. */
 const itemUrl = (locale: string, slug: string) =>
@@ -35,20 +46,22 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { locale: rawLocale, slug } = await params;
   const locale = toLocale(rawLocale);
   const data = await loadItemPage(slug);
-  if (!data) return { title: "Предмет не найден — SkinLedger" };
+  const tm = await getTranslations({ locale, namespace: "item" });
+  if (!data) return { title: tm("metaNotFound") };
 
   const name = data.item.marketHashName;
   const url = itemUrl(locale, data.item.slug);
   const priceLine =
     data.market.low != null
-      ? `от ${formatMoney(data.market.low, "USD")} на ${data.offers.length} площадках`
-      : "цены пока не загружены";
+      ? tm("metaPriceFrom", {
+          price: formatMoney(data.market.low, "USD", locale),
+          count: data.offers.length,
+        })
+      : tm("metaNoPrices");
 
   return {
-    title: `${name} — цены и предложения | SkinLedger`,
-    description:
-      `${name}: ${priceLine}. Сравнение цен по площадкам, история, ` +
-      `лучшая связка для перепродажи с учётом комиссий.`,
+    title: tm("metaTitle", { name }),
+    description: tm("metaDescription", { name, priceLine }),
     // hreflang: обе версии страницы существуют по разным адресам, и без
     // languages поисковик считал бы их дублями друг друга.
     alternates: {
@@ -61,15 +74,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     // площадках — это пустая страница, а массив таких вредит всему домену.
     robots: data.thin ? { index: false, follow: true } : undefined,
     openGraph: {
-      title: `${name} — цены и предложения`,
-      description: `Цены на ${data.offers.length} площадках, график и расчёт прибыли.`,
+      title: tm("ogTitle", { name }),
+      description: tm("ogDescription", { count: data.offers.length }),
       url,
       type: "website",
       images: data.item.image ? [{ url: data.item.image }] : undefined,
     },
     twitter: {
       card: "summary_large_image",
-      title: `${name} — цены и предложения`,
+      title: tm("ogTitle", { name }),
       images: data.item.image ? [data.item.image] : undefined,
     },
   };
@@ -105,7 +118,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 /** Только процент со стрелкой — для строки «Изменение цены». */
-function Pct({ pct }: { pct: number | null }) {
+function Pct({ pct, locale }: { pct: number | null; locale: string }) {
   if (pct == null) return <span>—</span>;
   const up = pct >= 0;
   return (
@@ -113,19 +126,19 @@ function Pct({ pct }: { pct: number | null }) {
       className={`inline-flex items-center gap-1 tabular-nums ${up ? "text-primary" : "text-destructive"}`}
     >
       {up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-      {formatPct(pct)}
+      {formatPct(pct, locale)}
     </span>
   );
 }
 
-function Delta({ abs, pct }: { abs: React.ReactNode; pct: number | null }) {
+function Delta({ abs, pct, locale }: { abs: React.ReactNode; pct: number | null; locale: string }) {
   if (pct == null) return <span className="text-muted-foreground">—</span>;
   const up = pct >= 0;
   return (
     <span className={up ? "text-primary" : "text-destructive"}>
       <span className="inline-flex items-center gap-1">
         {up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-        {abs} ({formatPct(pct)})
+        {abs} ({formatPct(pct, locale)})
       </span>
     </span>
   );
@@ -136,10 +149,14 @@ function JsonLd({
   data,
   faq,
   locale,
+  crumbHome,
+  crumbSkins,
 }: {
   data: ItemPageData;
   faq: { q: string; a: string }[];
   locale: string;
+  crumbHome: string;
+  crumbSkins: string;
 }) {
   const url = itemUrl(locale, data.item.slug);
   const prices = data.offers.map((o) => o.price);
@@ -172,8 +189,8 @@ function JsonLd({
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Главная", item: SITE },
-      { "@type": "ListItem", position: 2, name: "Скины", item: `${SITE}/skins` },
+      { "@type": "ListItem", position: 1, name: crumbHome, item: SITE },
+      { "@type": "ListItem", position: 2, name: crumbSkins, item: `${SITE}/skins` },
       ...(data.item.weapon
         ? [{ "@type": "ListItem", position: 3, name: data.item.weapon, item: `${SITE}/skins` }]
         : []),
@@ -210,15 +227,22 @@ export default async function SkinPage({ params }: { params: Params }) {
   const { locale: rawLocale, slug } = await params;
   const locale = toLocale(rawLocale);
   setRequestLocale(locale);
+  const t = await getTranslations("item");
+  const format = await getFormatter();
+  const tc = withDynamicKeys(await getTranslations("catalog"));
+  const td = withDynamicKeys(t);
+  const rarityLabel = makeLabeler(tc, "rarity");
+  const wearLabel = makeLabeler(tc, "wear");
+  const kindLabel = makeLabeler(tc, "kind");
 
   const [data, ratesResult] = await Promise.all([loadItemPage(slug), getRates()]);
   if (!data) notFound();
 
   const cur = await displayCurrency();
   const fx = fxFactor("USD", cur, ratesResult.rates);
-  const money = (usd: number) => (fx == null ? formatMoney(usd, "USD") : formatMoney(usd * fx, cur));
+  const money = (usd: number) => (fx == null ? formatMoney(usd, "USD", locale) : formatMoney(usd * fx, cur, locale));
   const signed = (usd: number) =>
-    fx == null ? formatMoney(usd, "USD", true) : formatMoney(usd * fx, cur, true);
+    fx == null ? formatMoney(usd, "USD", locale, true) : formatMoney(usd * fx, cur, locale, true);
 
   const { item, offers, market, totals, changes, best, variants, overview, periods, orders, similar, chart } =
     data;
@@ -233,40 +257,51 @@ export default async function SkinPage({ params }: { params: Params }) {
   const faq: { q: string; a: string }[] = [];
   if (market.low != null && offers.length) {
     faq.push({
-      q: `Какая текущая цена на ${item.marketHashName}?`,
-      a:
-        `Самая низкая цена среди ${offers.length} отслеживаемых площадок — ${money(market.low)} ` +
-        `(${offers[0].title}). Медианная цена по площадкам — ${money(market.median ?? market.low)}. ` +
-        `Цены обновляются по расписанию и хранятся в нашей базе.`,
+      q: t("faqPriceQ", { name: item.marketHashName }),
+      a: t("faqPriceA", {
+        count: offers.length,
+        low: money(market.low),
+        source: offers[0].title,
+        median: money(market.median ?? market.low),
+      }),
     });
   }
   if (variants.length > 1) {
     const withPrice = variants.filter((v) => v.price != null).slice(0, 5);
     if (withPrice.length) {
       faq.push({
-        q: `Сколько стоят другие варианты ${overview.skinName ?? item.marketHashName}?`,
-        a:
-          `Минимальные цены по вариантам: ` +
-          withPrice
-            .map((v) => `${[v.prefix, v.label].filter(Boolean).join(" ")} — ${money(v.price!)}`)
-            .join(", ") +
-          ".",
+        q: t("faqVariantsQ", { name: overview.skinName ?? item.marketHashName }),
+        a: t("faqVariantsA", {
+          list: withPrice
+            .map(
+              (v) =>
+                `${[v.prefix, wearLabel(v.label)].filter(Boolean).join(" ")} — ${money(v.price!)}`,
+            )
+            .join(", "),
+        }),
       });
     }
   }
   if (best) {
     faq.push({
-      q: `Можно ли заработать на перепродаже ${item.marketHashName}?`,
-      a:
-        `Сейчас лучшая связка: купить на ${best.buy.title} за ${money(best.buy.price)} ` +
-        `и продать на ${best.sell.title} за ${money(best.sell.price)}. ` +
-        `После комиссий покупки, продажи и вывода остаётся ${signed(best.profit)} (${formatPct(best.profitPct)}).`,
+      q: t("faqProfitQ", { name: item.marketHashName }),
+      a: t("faqProfitA", {
+        buySource: best.buy.title,
+        buyPrice: money(best.buy.price),
+        sellSource: best.sell.title,
+        sellPrice: money(best.sell.price),
+        profit: signed(best.profit),
+        pct: formatPct(best.profitPct, locale),
+      }),
     });
   }
   if (totals.sales30d != null) {
     faq.push({
-      q: `Насколько ликвиден ${item.marketHashName}?`,
-      a: `За последние 30 дней на отслеживаемых площадках прошло ${totals.sales30d.toLocaleString("ru-RU")} продаж, сейчас выставлено ${totals.offers?.toLocaleString("ru-RU") ?? "—"} предложений.`,
+      q: t("faqLiquidityQ", { name: item.marketHashName }),
+      a: t("faqLiquidityA", {
+        sales: format.number(totals.sales30d),
+        offers: totals.offers != null ? format.number(totals.offers) : "—",
+      }),
     });
   }
 
@@ -274,17 +309,23 @@ export default async function SkinPage({ params }: { params: Params }) {
     <>
       <SiteHeader />
       <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-      <JsonLd data={data} faq={faq} locale={locale} />
+      <JsonLd
+        data={data}
+        faq={faq}
+        locale={locale}
+        crumbHome={t("crumbHome")}
+        crumbSkins={t("crumbSkins")}
+      />
 
 
 
       {/* Крошки (ТЗ 7.3) */}
       <nav className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <Link href="/" className="hover:text-foreground">
-          Главная
+          {t("crumbHome")}
         </Link>
         <span>/</span>
-        <span>CS2 Скины</span>
+        <span>{t("crumbSkins")}</span>
         {item.collection && (
           <>
             <span>/</span>
@@ -300,7 +341,7 @@ export default async function SkinPage({ params }: { params: Params }) {
         {overview.rarity && (
           <>
             <span>/</span>
-            <span>{ruRarity(overview.rarity)}</span>
+            <span>{rarityLabel(overview.rarity)}</span>
           </>
         )}
       </nav>
@@ -308,7 +349,7 @@ export default async function SkinPage({ params }: { params: Params }) {
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">{item.marketHashName}</h1>
         {overview.rarity && (
-          <span className="rounded bg-muted px-2 py-0.5 text-xs">{ruRarity(overview.rarity)}</span>
+          <span className="rounded bg-muted px-2 py-0.5 text-xs">{rarityLabel(overview.rarity)}</span>
         )}
         {item.stattrak && (
           <span className="rounded bg-[#cf6a32]/20 px-2 py-0.5 text-xs font-medium text-[#cf6a32]">
@@ -340,7 +381,7 @@ export default async function SkinPage({ params }: { params: Params }) {
 
           {variants.length > 1 && (
             <Panel
-              title="Виды предмета"
+              title={t("variants")}
               action={<span className="text-xs text-muted-foreground">{variants.length}</span>}
             >
               <div className="grid grid-cols-2 gap-2">
@@ -350,7 +391,7 @@ export default async function SkinPage({ params }: { params: Params }) {
                       {v.prefix && (
                         <span className="block text-[10px] text-muted-foreground">{v.prefix}</span>
                       )}
-                      <span className="block truncate text-xs">{v.label}</span>
+                      <span className="block truncate text-xs">{wearLabel(v.label) ?? t("noVariant")}</span>
                       <span className="block text-xs font-medium tabular-nums">
                         {v.price != null ? money(v.price) : "—"}
                       </span>
@@ -377,15 +418,15 @@ export default async function SkinPage({ params }: { params: Params }) {
             </Panel>
           )}
 
-          <Panel title="Обзор предмета">
-            <Row label="Категория" value={overview.kindLabel} />
-            {overview.weapon && <Row label="Оружие" value={overview.weapon} />}
-            {overview.rarity && <Row label="Редкость" value={ruRarity(overview.rarity)} />}
-            {overview.skinName && <Row label="Раскраска" value={overview.skinName} />}
-            {overview.wear && <Row label="Износ" value={ruWear(overview.wear)} />}
-            {item.collection && <Row label="Коллекция" value={item.collection} />}
+          <Panel title={t("overview")}>
+            <Row label={t("category")} value={kindLabel(overview.kindLabel)} />
+            {overview.weapon && <Row label={t("weapon")} value={overview.weapon} />}
+            {overview.rarity && <Row label={t("rarity")} value={rarityLabel(overview.rarity)} />}
+            {overview.skinName && <Row label={t("paint")} value={overview.skinName} />}
+            {overview.wear && <Row label={t("wear")} value={wearLabel(overview.wear)} />}
+            {item.collection && <Row label={t("collection")} value={item.collection} />}
             <Row
-              label="Диапазон цен"
+              label={t("priceRange")}
               value={
                 overview.priceRange
                   ? `${money(overview.priceRange[0])} — ${money(overview.priceRange[1])}`
@@ -393,22 +434,22 @@ export default async function SkinPage({ params }: { params: Params }) {
               }
             />
             <Row
-              label="Предложений продажи"
+              label={t("sellOffers")}
               value={totals.offers?.toLocaleString("ru-RU") ?? "—"}
             />
-            <Row label="StatTrak™ доступен" value={overview.stattrakAvailable ? "Да" : "Нет"} />
-            <Row label="Souvenir доступен" value={overview.souvenirAvailable ? "Да" : "Нет"} />
+            <Row label={t("stattrakAvailable")} value={t(overview.stattrakAvailable ? "yes" : "no")} />
+            <Row label={t("souvenirAvailable")} value={t(overview.souvenirAvailable ? "yes" : "no")} />
           </Panel>
 
-          <Panel title="Изменение цен">
+          <Panel title={t("priceChange")}>
             <Row
-              label="Текущая цена"
+              label={t("currentPrice")}
               value={market.median != null ? money(market.median) : "—"}
             />
             {periods.map((p) => (
               <Row
                 key={p.label}
-                label={`Мин. / макс. за ${p.label}`}
+                label={t("minMaxFor", { period: td(`period.${p.label}`) })}
                 value={
                   p.low != null && p.high != null ? `${money(p.low)} — ${money(p.high)}` : "—"
                 }
@@ -419,17 +460,17 @@ export default async function SkinPage({ params }: { params: Params }) {
               .map((p) => (
                 <Row
                   key={`c-${p.label}`}
-                  label={`Изменение за ${p.label}`}
+                  label={t("changeFor", { period: td(`period.${p.label}`) })}
                   value={
-                    <Delta abs={p.change != null ? signed(p.change) : "—"} pct={p.changePct} />
+                    <Delta abs={p.change != null ? signed(p.change) : "—"} pct={p.changePct} locale={locale} />
                   }
                 />
               ))}
           </Panel>
 
-          <Panel title="Статистика продаж">
+          <Panel title={t("salesStats")}>
             <Row
-              label="Продаж за 30 дней"
+              label={t("sales30d")}
               value={totals.sales30d?.toLocaleString("ru-RU") ?? "—"}
             />
             {offers.slice(0, 5).map((o) => (
@@ -447,17 +488,17 @@ export default async function SkinPage({ params }: { params: Params }) {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
               {
-                label: "Рыночная цена",
+                label: t("marketPrice"),
                 value: market.median != null ? money(market.median) : "—",
-                hint: `медиана по ${offers.length} площадкам`,
+                hint: t("medianOver", { count: offers.length }),
               },
               {
-                label: "Самая низкая",
+                label: t("lowest"),
                 value: market.low != null ? money(market.low) : "—",
                 hint: offers[0]?.title,
               },
               {
-                label: "Средняя за 7 дней",
+                label: t("avg7d"),
                 value: market.avg7 != null ? money(market.avg7) : "—",
                 hint:
                   week?.low != null && week.high != null
@@ -465,10 +506,10 @@ export default async function SkinPage({ params }: { params: Params }) {
                     : undefined,
               },
               {
-                label: "Разница цен",
+                label: t("spread"),
                 value: spread != null ? money(spread) : "—",
                 hint:
-                  spreadPct != null ? `${formatPct(spreadPct)} между площадками` : undefined,
+                  spreadPct != null ? t("spreadHint", { pct: formatPct(spreadPct, locale) }) : undefined,
               },
             ].map((c) => (
               <div key={c.label} className="rounded-lg border border-border bg-card p-4">
@@ -480,38 +521,39 @@ export default async function SkinPage({ params }: { params: Params }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>Изменение цены:</span>
+            <span>{t("priceChangeLabel")}</span>
             {([
-              ["24ч", changes.d1],
-              ["7д", changes.d7],
-              ["30д", changes.d30],
+              ["h24", changes.d1],
+              ["d7", changes.d7],
+              ["d30", changes.d30],
             ] as const).map(([label, pct]) => (
               <span key={label} className="inline-flex items-center gap-1">
-                <Pct pct={pct} />
-                <span>{label}</span>
+                <Pct pct={pct} locale={locale} />
+                <span>{td(`delta.${label}`)}</span>
               </span>
             ))}
           </div>
 
           <Panel
-            title="Предложения на площадках"
+            title={t("offersTitle")}
             action={
               <span className="text-xs text-muted-foreground">
-                обновлено{" "}
-                {offers[0]
-                  ? offers[0].fetchedAt.toLocaleString("ru-RU", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "—"}
+                {t("updatedAt", {
+                  at: offers[0]
+                    ? format.dateTime(offers[0].fetchedAt, {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—",
+                })}
               </span>
             }
           >
             {offers.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Цены по этому предмету пока не загружены.
+                {t("noOffers")}
               </p>
             ) : (
               <SkinOffers
@@ -528,7 +570,7 @@ export default async function SkinPage({ params }: { params: Params }) {
             )}
           </Panel>
 
-          <Panel title="История цен">
+          <Panel title={t("priceHistory")}>
             <SkinPriceChart
               points={chart.points}
               sources={chart.sources}
@@ -540,12 +582,12 @@ export default async function SkinPage({ params }: { params: Params }) {
 
           {/* «Как на этом заработать» — расчёт связки по-чековому (ТЗ 3.4) */}
           {best && (
-            <Panel title="Как на этом заработать">
+            <Panel title={t("howToProfit")}>
               <div className="grid gap-4 md:grid-cols-[1fr_260px]">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
                     <span className="flex items-center gap-2">
-                      Купить на
+                      {t("buyOn")}
                       <SourceIcon
                         slug={best.buy.slug}
                         title={best.buy.title}
@@ -555,7 +597,7 @@ export default async function SkinPage({ params }: { params: Params }) {
                     </span>
                     <ArrowRight className="size-4 text-muted-foreground" />
                     <span className="flex items-center gap-2">
-                      продать на
+                      {t("sellOn")}
                       <SourceIcon
                         slug={best.sell.slug}
                         title={best.sell.title}
@@ -565,20 +607,21 @@ export default async function SkinPage({ params }: { params: Params }) {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Считаем профит до покупки — как по чеку: цена покупки, цена продажи и все
-                    комиссии площадок. Подобрать такие связки по всему каталогу можно в{" "}
-                    <Link href="/app/prices" className="text-primary hover:underline">
-                      таблице сравнения
-                    </Link>
-                    .
+                    {t.rich("profitNote", {
+                      link: (chunks) => (
+                        <Link href="/app/prices" className="text-primary hover:underline">
+                          {chunks}
+                        </Link>
+                      ),
+                    })}
                   </p>
                 </div>
 
                 <div className="rounded-lg border border-border/60 p-3 text-xs">
-                  <Row label="Покупка" value={money(best.buy.price)} />
-                  <Row label="Продажа" value={money(best.sell.price)} />
+                  <Row label={t("buy")} value={money(best.buy.price)} />
+                  <Row label={t("sell")} value={money(best.sell.price)} />
                   <Row
-                    label="Комиссии площадок"
+                    label={t("platformFees")}
                     value={
                       <span className="text-destructive">
                         {signed(
@@ -590,13 +633,13 @@ export default async function SkinPage({ params }: { params: Params }) {
                     }
                   />
                   <div className="mt-2 flex items-baseline justify-between border-t border-border pt-2">
-                    <span className="text-muted-foreground">Профит</span>
+                    <span className="text-muted-foreground">{t("profit")}</span>
                     <span
                       className={`text-base font-semibold tabular-nums ${
                         best.profit > 0 ? "text-primary" : "text-destructive"
                       }`}
                     >
-                      {signed(best.profit)} ({formatPct(best.profitPct)})
+                      {signed(best.profit)} ({formatPct(best.profitPct, locale)})
                     </span>
                   </div>
                 </div>
@@ -606,7 +649,7 @@ export default async function SkinPage({ params }: { params: Params }) {
 
           {orders.length > 0 && (
             <Panel
-              title="Лучшие ордера на покупку"
+              title={t("bestOrders")}
               action={<span className="text-xs text-muted-foreground">{orders.length}</span>}
             >
               <ul className="space-y-1.5">
@@ -624,14 +667,14 @@ export default async function SkinPage({ params }: { params: Params }) {
                 ))}
               </ul>
               <p className="mt-3 text-xs text-muted-foreground">
-                По одному лучшему ордеру с площадки: глубину стакана источник цен не отдаёт.
+                {t("bestOrdersNote")}
               </p>
             </Panel>
           )}
 
           {similar.length > 0 && (
             <Panel
-              title="Похожие предметы"
+              title={t("similar")}
               action={<span className="text-xs text-muted-foreground">{similar.length}</span>}
             >
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
@@ -659,7 +702,7 @@ export default async function SkinPage({ params }: { params: Params }) {
           )}
 
           {faq.length > 0 && (
-            <Panel title="Частые вопросы">
+            <Panel title={t("faq")}>
               <div className="space-y-2">
                 {faq.map((f) => (
                   <details
@@ -676,8 +719,7 @@ export default async function SkinPage({ params }: { params: Params }) {
 
           {data.thin && (
             <p className="rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground">
-              По этому предмету есть цена меньше чем на двух площадках, поэтому страница закрыта
-              от индексации до появления данных.
+              {t("thinNote")}
             </p>
           )}
         </main>

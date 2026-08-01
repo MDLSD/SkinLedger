@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
+import { useErrorMessage } from "@/i18n/error-message";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,17 +23,17 @@ type Props = {
 };
 
 export function AuthForm({ mode, action }: Props) {
+  const t = useTranslations("auth");
+  const errorMessage = useErrorMessage();
   const [state, formAction, pending] = useActionState(action, {});
   const isLogin = mode === "login";
 
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>{isLogin ? "Вход" : "Регистрация"}</CardTitle>
+        <CardTitle>{isLogin ? t("signIn") : t("signUp")}</CardTitle>
         <CardDescription>
-          {isLogin
-            ? "Войдите, чтобы вернуться к своим сделкам"
-            : "Создайте аккаунт и начните вести учёт сделок"}
+          {isLogin ? t("signInSubtitle") : t("signUpSubtitle")}
         </CardDescription>
       </CardHeader>
       <form action={formAction}>
@@ -48,7 +50,7 @@ export function AuthForm({ mode, action }: Props) {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password">Пароль</Label>
+            <Label htmlFor="password">{t("password")}</Label>
             <Input
               id="password"
               name="password"
@@ -60,31 +62,27 @@ export function AuthForm({ mode, action }: Props) {
           </div>
           {state.error && (
             <p className="text-sm text-red-400" role="alert">
-              {state.error}
+              {errorMessage(state.error, state.errorValues)}
             </p>
           )}
         </CardContent>
         <CardFooter className="mt-6 flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={pending}>
-            {pending
-              ? "Подождите…"
-              : isLogin
-                ? "Войти"
-                : "Зарегистрироваться"}
+            {pending ? t("pending") : isLogin ? t("signInAction") : t("signUpAction")}
           </Button>
           <p className="text-sm text-muted-foreground">
             {isLogin ? (
               <>
-                Нет аккаунта?{" "}
+                {t("noAccount")}{" "}
                 <Link href="/register" className="underline">
-                  Зарегистрироваться
+                  {t("signUpAction")}
                 </Link>
               </>
             ) : (
               <>
-                Уже есть аккаунт?{" "}
+                {t("haveAccount")}{" "}
                 <Link href="/login" className="underline">
-                  Войти
+                  {t("signInAction")}
                 </Link>
               </>
             )}

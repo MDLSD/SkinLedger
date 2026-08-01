@@ -1,5 +1,8 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
+import { withDynamicKeys } from "@/i18n/dynamic";
+
 import { useState } from "react";
 import {
   CartesianGrid,
@@ -22,19 +25,34 @@ const AXIS = "#92a1bf";
 // Пресеты периода (ТЗ 3.4). Вся история уже на странице, поэтому переключение
 // не ходит на сервер — иначе страница стала бы динамической и потеряла ISR.
 const PRESETS = [
-  { label: "1н", days: 7 },
-  { label: "1м", days: 30 },
-  { label: "3м", days: 90 },
-  { label: "6м", days: 180 },
-  { label: "Всё", days: null },
+  { key: "w1", days: 7 },
+  { key: "m1", days: 30 },
+  { key: "m3", days: 90 },
+  { key: "m6", days: 180 },
+  { key: "all", days: null },
 ] as const;
 
-/** Компактная подпись оси: «16,6 к ₽» вместо «16 619,62 ₽» — иначе перенос. */
-function tick(v: number, cur: string): string {
+/**
+ * Компактная подпись оси: «16,6 к ₽» вместо «16 619,62 ₽» — иначе перенос.
+ * Символ валюты и разделители берёт Intl, сокращение тысяч — переводы.
+ */
+function tick(
+  v: number,
+  cur: string,
+  locale: string,
+  thousand: (v: string) => string,
+): string {
   const abs = Math.abs(v);
-  const sym = cur === "USD" ? "$" : cur === "RUB" ? "₽" : cur;
-  if (abs >= 1000) return `${(v / 1000).toLocaleString("ru-RU", { maximumFractionDigits: 1 })} к ${sym}`;
-  return `${v.toLocaleString("ru-RU", { maximumFractionDigits: abs < 10 ? 2 : 0 })} ${sym}`;
+  const compact = (n: number, digits: number) =>
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: cur,
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+    }).format(n);
+  if (abs >= 1000) return thousand(compact(v / 1000, 1));
+  return compact(v, abs < 10 ? 2 : 0);
 }
 
 function median(values: number[]): number | null {
@@ -54,11 +72,14 @@ type Props = {
 };
 
 export function SkinPriceChart({ points, sources, cur, fx, now }: Props) {
+  const t = useTranslations("chart");
+  const td = withDynamicKeys(t);
+  const locale = useLocale();
   // Переключатель площадок: данные уже на странице, скрываем/показываем линии.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [days, setDays] = useState<number | null>(30);
   const money = (usd: number) =>
-    fx == null || cur === "USD" ? formatMoney(usd, "USD") : formatMoney(usd * fx, cur);
+    fx == null || cur === "USD" ? formatMoney(usd, "USD", locale) : formatMoney(usd * fx, cur, locale);
 
   const toggle = (slug: string) =>
     setHidden((prev) => {
@@ -93,7 +114,7 @@ export function SkinPriceChart({ points, sources, cur, fx, now }: Props) {
   if (!points.length) {
     return (
       <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
-        За выбранный период истории цен нет.
+        {t("noHistory")}
       </div>
     );
   }
@@ -113,7 +134,7 @@ export function SkinPriceChart({ points, sources, cur, fx, now }: Props) {
                   ? "border-border text-muted-foreground"
                   : "border-border bg-muted/40 text-foreground"
               }`}
-              title={off ? "Показать линию" : "Скрыть линию"}
+              title={off ? t("showLine") : t("hideLine")}
             >
               <span
                 className="size-2.5 rounded-sm"
@@ -126,7 +147,7 @@ export function SkinPriceChart({ points, sources, cur, fx, now }: Props) {
         <span className="ml-auto flex items-center gap-1">
           {PRESETS.map((p) => (
             <button
-              key={p.label}
+              key={p.key}
               type="button"
               onClick={() => setDays(p.days)}
               className={`rounded px-2 py-1 text-xs transition-colors ${
@@ -135,7 +156,7 @@ export function SkinPriceChart({ points, sources, cur, fx, now }: Props) {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {p.label}
+              {td(`preset.${p.key}`)}
             </button>
           ))}
         </span>
@@ -165,7 +186,14 @@ export function SkinPriceChart({ points, sources, cur, fx, now }: Props) {
               tickLine={false}
               axisLine={false}
               width={68}
-              tickFormatter={(v: number) => tick(fx == null ? v : v * fx, fx == null ? "USD" : cur)}
+              tickFormatter={(v: number) =>
+                tick(
+                  fx == null ? v : v * fx,
+                  fx == null ? "USD" : cur,
+                  locale,
+                  (formatted) => t("thousand", { v: formatted }),
+                )
+              }
               domain={["auto", "auto"]}
             />
             <Tooltip
@@ -219,16 +247,16 @@ export function SkinPriceChart({ points, sources, cur, fx, now }: Props) {
 
       {stats && (
         <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-          <span>За период</span>
+          <span>{t("forPeriod")}</span>
           <span className="ml-auto flex flex-wrap gap-x-4 tabular-nums">
             <span>
-              Мин: <span className="text-foreground">{money(stats.min)}</span>
+              {t("min")} <span className="text-foreground">{money(stats.min)}</span>
             </span>
             <span>
-              Макс: <span className="text-foreground">{money(stats.max)}</span>
+              {t("max")} <span className="text-foreground">{money(stats.max)}</span>
             </span>
             <span>
-              Средняя: <span className="text-foreground">{money(stats.avg)}</span>
+              {t("avg")} <span className="text-foreground">{money(stats.avg)}</span>
             </span>
           </span>
         </div>

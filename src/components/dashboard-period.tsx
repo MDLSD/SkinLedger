@@ -1,5 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { withDynamicKeys } from "@/i18n/dynamic";
+
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/native-select";
@@ -8,6 +11,8 @@ import { PERIOD_OPTIONS, type Period } from "@/lib/deal-list";
 type Props = { period: Period; from: string; to: string };
 
 export function DashboardPeriod({ period, from, to }: Props) {
+  const t = useTranslations("dashboard");
+  const td = withDynamicKeys(t);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -31,8 +36,8 @@ export function DashboardPeriod({ period, from, to }: Props) {
         onChange={(e) => go({ period: e.target.value as Period })}
       >
         {PERIOD_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
+          <option key={o} value={o}>
+            {td(`periodOption.${o}`)}
           </option>
         ))}
       </NativeSelect>
@@ -40,7 +45,7 @@ export function DashboardPeriod({ period, from, to }: Props) {
         <div className="flex items-center gap-1">
           <Input
             type="date"
-            aria-label="Дата начала"
+            aria-label={t("dateFrom")}
             className="h-8 w-36"
             value={from}
             onChange={(e) => go({ from: e.target.value })}
@@ -48,7 +53,7 @@ export function DashboardPeriod({ period, from, to }: Props) {
           <span className="text-muted-foreground">–</span>
           <Input
             type="date"
-            aria-label="Дата конца"
+            aria-label={t("dateTo")}
             className="h-8 w-36"
             value={to}
             onChange={(e) => go({ to: e.target.value })}

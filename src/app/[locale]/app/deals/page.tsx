@@ -69,7 +69,7 @@ export default async function DealsPage({
         source={ratesSource}
         unresolvedFx={unresolvedFx}
         truncated={truncated}
-        excludedLabel="сделок скрыто"
+        excludedLabel="hidden"
       />
       <DealsClient
         deals={deals}

@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { Compass } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
  */
 export default async function NotFound() {
   await connection();
+  const t = await getTranslations("notFound");
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-5 p-6 text-center">
@@ -19,14 +21,14 @@ export default async function NotFound() {
       </div>
       <div className="space-y-2">
         <h1 className="text-3xl font-bold">
-          404 — <span className="text-primary">страница не найдена</span>
+          {t.rich("code", { s: (chunks) => <span className="text-primary">{chunks}</span> })}
         </h1>
         <p className="max-w-sm text-muted-foreground">
-          Ссылка устарела или адрес набран с опечаткой.
+          {t("description")}
         </p>
       </div>
       <Button nativeButton={false} render={<Link href="/" />}>
-        На главную
+        {t("home")}
       </Button>
     </main>
   );
