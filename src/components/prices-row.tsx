@@ -23,6 +23,7 @@ import {
 import { Link } from "@/i18n/navigation";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { SourceIcon } from "@/components/source-icon";
+import { WatchToggle } from "@/components/watch-toggle";
 import { formatMoney, formatPct } from "@/lib/deal-math";
 import type { ComparisonRow } from "@/lib/prices/compare";
 import {
@@ -147,6 +148,10 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
   return (
     <>
       <TableRow className="border-border/60">
+        {/* Списки пользователя: избранное и «скрыть» (ТЗ 3.1) */}
+        <TableCell className="w-20">
+          <WatchToggle item={r.marketHashName} state={r.watch} />
+        </TableCell>
         {/* Предмет: клик по названию копирует market_hash_name */}
         <TableCell className="max-w-[420px]">
           <span className="flex items-center gap-3">

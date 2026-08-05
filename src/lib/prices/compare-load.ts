@@ -38,6 +38,7 @@ type SourceRow = {
 export async function loadComparison(
   f: PriceFilters,
   sources: SourceRow[],
+  userId?: string,
 ): Promise<ComparisonResult> {
   const now = Date.now();
   const bySlug = new Map(sources.map((s) => [s.slug, s]));
@@ -83,6 +84,15 @@ export async function loadComparison(
     }),
   ]);
 
+  // Списки пользователя: чёрный список прячем всегда, избранное — фильтр.
+  const watch = userId
+    ? await prisma.watchItem.findMany({
+        where: { userId },
+        select: { marketHashName: true, kind: true },
+      })
+    : [];
+  const watchBy = new Map(watch.map((w) => [w.marketHashName, w.kind]));
+
   const sellMap = new Map(sellQuotes.map((q) => [q.marketHashName, q]));
   const priceOf = (
     q: { priceMin: unknown; priceOrder: unknown; priceAvg30: unknown; priceMedian30: unknown },
@@ -115,6 +125,11 @@ export async function loadComparison(
     if (!Number.isFinite(buyPrice) || !Number.isFinite(sellPrice)) continue;
     matched++;
 
+    const watchKind = watchBy.get(bq.marketHashName) ?? null;
+    // Чёрный список — это «больше не показывай», поэтому до фильтров.
+    if (watchKind === "blocked") continue;
+    if (f.fav && watchKind !== "favorite") continue;
+
     if (qNorm && !bq.marketHashName.toLowerCase().includes(qNorm)) continue;
     if (buyMinP != null && buyPrice < buyMinP) continue;
     if (buyMaxP != null && buyPrice > buyMaxP) continue;
@@ -138,6 +153,7 @@ export async function loadComparison(
     rows.push({
       marketHashName: bq.marketHashName,
       slug: null,
+      watch: watchKind === "favorite" || watchKind === "blocked" ? watchKind : null,
       image: null,
       titleTop: "",
       titleMain: bq.marketHashName,

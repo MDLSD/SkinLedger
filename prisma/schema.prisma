@@ -28,8 +28,28 @@ model User {
   deals         Deal[]
   platforms     Platform[]
   priceProfiles PriceProfile[]
+  watchItems    WatchItem[]
 
   @@map("users")
+}
+
+// Списки пользователя по предметам: избранное и чёрный список (ТЗ 3.1,
+// колонка «Избранное / +»). Одна строка на пару (пользователь, предмет):
+// предмет не может быть одновременно избранным и скрытым.
+model WatchItem {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  // Мягкая ссылка на каталог, как и в котировках: список переживает предмет,
+  // который временно пропал из выгрузки.
+  marketHashName String   @map("market_hash_name")
+  kind           String // "favorite" | "blocked"
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, marketHashName])
+  @@index([userId, kind])
+  @@map("watch_items")
 }
 
 // Шаблон настроек таблицы цен: сохранённый набор параметров (площадки, тип

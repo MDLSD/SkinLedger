@@ -493,7 +493,14 @@
     "min": "Min:",
     "max": "Max:",
     "avg": "Average:",
-    "noData": "No data"
+    "noData": "No data",
+    "watchColumn": "Fav.",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "hideItem": "Hide item",
+    "onlyFavorites": "Favorites only",
+    "hiddenHint": "Hidden items are not shown in the table. You can bring them back in the table settings.",
+    "unhideAll": "Show hidden ({count})"
   },
   "offers": {
     "sortBy": "Sort:",

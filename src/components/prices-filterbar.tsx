@@ -2,17 +2,24 @@
 
 import { useTranslations } from "next-intl";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import { Eye, Star } from "lucide-react";
 import { NumberInput } from "@/components/number-input";
+import { clearHiddenItems } from "@/lib/actions/watchlist";
 import { buildPriceQuery, type PriceFilters } from "@/lib/prices/compare";
 
-type Props = { filters: PriceFilters };
+type Props = {
+  filters: PriceFilters;
+  /** Сколько предметов пользователь скрыл: без счётчика их не вернуть. */
+  hidden: number;
+};
 
-export function PricesFilterBar({ filters }: Props) {
+export function PricesFilterBar({ filters, hidden }: Props) {
   const t = useTranslations("prices");
   const router = useRouter();
   const pathname = usePathname();
+  const [, startTransition] = useTransition();
 
   const go = (overrides: Partial<PriceFilters>) => {
     router.replace(pathname + buildPriceQuery(filters, { ...overrides, page: 1 }), {
@@ -30,6 +37,13 @@ export function PricesFilterBar({ filters }: Props) {
     setMinProfit(filters.minProfit);
     setMinLiq(filters.minLiq);
   }
+
+  const onUnhide = () => {
+    startTransition(async () => {
+      await clearHiddenItems();
+      router.refresh();
+    });
+  };
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounced = (overrides: Partial<PriceFilters>) => {
@@ -66,6 +80,32 @@ export function PricesFilterBar({ filters }: Props) {
         />
       </label>
 
+      {/* Режим просмотра, а не настройка: в шаблон профиля не сохраняется. */}
+      <button
+        type="button"
+        onClick={() => go({ fav: !filters.fav })}
+        aria-pressed={filters.fav}
+        className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition-colors ${
+          filters.fav
+            ? "border-[#f0a020]/60 bg-[#f0a020]/10 text-foreground"
+            : "border-border text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        <Star className="size-3.5" fill={filters.fav ? "currentColor" : "none"} />
+        {t("onlyFavorites")}
+      </button>
+
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={onUnhide}
+          title={t("hiddenHint")}
+          className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Eye className="size-3.5" />
+          {t("unhideAll", { count: hidden })}
+        </button>
+      )}
     </div>
   );
 }

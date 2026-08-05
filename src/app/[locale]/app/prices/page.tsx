@@ -97,7 +97,7 @@ export default async function PricesPage({
 
   const hasData = sources.length > 0;
   const result = hasData
-    ? await loadComparison(filters, sources)
+    ? await loadComparison(filters, sources, session.user.id)
     : { rows: [], total: 0, page: 1, pageCount: 1, matched: 0, now: 0 };
 
   // Вторая строка цены — в валюте пользователя (курс из парсера).
@@ -115,6 +115,11 @@ export default async function PricesPage({
   ]);
   const cur = user?.baseCurrency ?? "RUB";
   const fx = fxFactor("USD", cur, ratesResult.rates);
+
+  // Счётчик скрытых: без него кнопку возврата некуда повесить.
+  const hiddenCount = await prisma.watchItem.count({
+    where: { userId: session.user.id, kind: "blocked" },
+  });
 
   const buyTitle = sources.find((s) => s.slug === filters.buy)?.title ?? filters.buy;
   const sellTitle = sources.find((s) => s.slug === filters.sell)?.title ?? filters.sell;
@@ -145,7 +150,7 @@ export default async function PricesPage({
           </p>
         </div>
 
-        <PricesFilterBar filters={filters} />
+        <PricesFilterBar filters={filters} hidden={hiddenCount} />
 
         {!hasData ? (
           <p className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
@@ -178,6 +183,7 @@ export default async function PricesPage({
             <Table className="[&_td]:px-4 [&_td]:py-3 [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:h-12 [&_th]:border-b [&_th]:border-border [&_th]:bg-card [&_th]:px-4 [&_th]:text-xs [&_th]:font-normal [&_th]:text-muted-foreground">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-20">{t("watchColumn")}</TableHead>
                   {/* display:flex на самой th выключил бы её из табличной
                       раскладки — вместе с липкостью. Флекс во вложенном span. */}
                   <TableHead>
@@ -226,7 +232,7 @@ export default async function PricesPage({
                     cur={cur}
                     fx={fx}
                     now={result.now}
-                    colSpan={6}
+                    colSpan={7}
                   />
                 ))}
               </TableBody>

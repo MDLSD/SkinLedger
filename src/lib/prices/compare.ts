@@ -54,6 +54,8 @@ export type PriceFilters = {
   sellMaxQty: string;
   minProfit: string; // минимальная маржа, %
   minLiq: string; // минимум продаж/30д на площадке продажи
+  /** Показывать только избранное. Чёрный список скрывается всегда. */
+  fav: boolean;
   sort: SortKey;
   dir: "asc" | "desc";
   page: number;
@@ -90,7 +92,8 @@ export const EMPTY_RANGES: Record<(typeof RANGE_KEYS)[number], string> = {
 
 /** Строка настроек без ссылки на шаблон — именно она в шаблоне и хранится. */
 export function profileQuery(f: PriceFilters): string {
-  return buildPriceQuery(f, { profile: "" });
+  // fav — режим просмотра, а не настройка: в шаблон он не сохраняется.
+  return buildPriceQuery(f, { profile: "", fav: false });
 }
 
 /** Обмен сторонами: площадка, тип цены и все диапазоны. */
@@ -147,6 +150,7 @@ export function parsePriceFilters(sp: RawParams, sourceSlugs: string[]): PriceFi
     sellMaxQty: str(sp.sellMaxQty).slice(0, 12),
     minProfit: str(sp.minProfit).slice(0, 12),
     minLiq: str(sp.minLiq).slice(0, 12),
+    fav: str(sp.fav) === "1",
     sort,
     dir,
     page,
@@ -165,6 +169,7 @@ export function buildPriceQuery(f: PriceFilters, overrides: Partial<PriceFilters
   for (const k of RANGE_KEYS) if (m[k]) p.set(k, m[k]);
   if (m.minProfit) p.set("minProfit", m.minProfit);
   if (m.minLiq) p.set("minLiq", m.minLiq);
+  if (m.fav) p.set("fav", "1");
   if (m.sort !== "profitPct") p.set("sort", m.sort);
   if (m.dir !== "desc") p.set("dir", m.dir);
   if (m.page > 1) p.set("page", String(m.page));
@@ -177,6 +182,8 @@ export function buildPriceQuery(f: PriceFilters, overrides: Partial<PriceFilters
 export type ComparisonRow = {
   marketHashName: string;
   slug: string | null; // ЧПУ публичной страницы предмета
+  /** «favorite» / «blocked» / null — состояние в списках пользователя. */
+  watch: "favorite" | "blocked" | null;
   image: string | null;
   // Две строки названия, как в референсе: «AK-47» сверху, «Elite Build
   // (Battle-Scarred)» снизу. Для не-скинов сверху вид предмета.
