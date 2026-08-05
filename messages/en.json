@@ -304,7 +304,10 @@
     "cancel": "Cancel",
     "saving": "Saving…",
     "save": "Save",
-    "addDeal": "Add deal"
+    "addDeal": "Add deal",
+    "marketOnPlatform": "Market on {platform}: {price}",
+    "marketLowest": "Cheapest on {platform}: {price} (of {count} marketplaces)",
+    "usePrice": "use"
   },
   "combobox": {
     "loadingCatalog": "Loading the catalog…",

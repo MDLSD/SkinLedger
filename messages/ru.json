@@ -304,7 +304,10 @@
     "cancel": "Отмена",
     "saving": "Сохранение…",
     "save": "Сохранить",
-    "addDeal": "Добавить сделку"
+    "addDeal": "Добавить сделку",
+    "marketOnPlatform": "Рынок на {platform}: {price}",
+    "marketLowest": "Дешевле всего на {platform}: {price} (из {count} площадок)",
+    "usePrice": "подставить"
   },
   "combobox": {
     "loadingCatalog": "Загрузка справочника…",

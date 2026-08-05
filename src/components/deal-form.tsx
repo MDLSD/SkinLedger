@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/native-select";
 import { SkinCombobox } from "@/components/skin-combobox";
+import { MarketPriceHint } from "@/components/market-price-hint";
 import { saveDealAction } from "@/lib/actions/deals";
 import {
   buyCostBase,
@@ -107,6 +108,10 @@ export function DealForm({
   // Курсы к базовой валюте берём из парсера (авто-конвертация, без ручного ввода).
   const buyFactor = fxFactor(buyCurrency, baseCurrency, rates);
   const sellFactor = fxFactor(sellCurrency, baseCurrency, rates);
+  // Котировки рынка хранятся в USD, а поле цены — в валюте сделки.
+  const buyUsdFactor = fxFactor("USD", buyCurrency, rates);
+  const sellUsdFactor = fxFactor("USD", sellCurrency, rates);
+  const platformName = (id: string) => platforms.find((p) => p.id === id)?.name ?? null;
 
   const rateLabel = (factor: number | null, currency: string) => {
     if (currency === baseCurrency) return "1:1";
@@ -374,6 +379,13 @@ export function DealForm({
               onChange={(e) => setBuyPrice(e.target.value)}
               required
             />
+            <MarketPriceHint
+              item={marketHashName}
+              platform={platformName(buyPlatformId)}
+              currency={buyCurrency}
+              fx={buyUsdFactor}
+              onPick={setBuyPrice}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label>{t("currency")}</Label>
@@ -466,6 +478,13 @@ export function DealForm({
                 value={sellPrice}
                 onChange={(e) => setSellPrice(e.target.value)}
                 required={withSell}
+              />
+              <MarketPriceHint
+                item={marketHashName}
+                platform={platformName(sellPlatformId)}
+                currency={sellCurrency}
+                fx={sellUsdFactor}
+                onPick={setSellPrice}
               />
             </div>
             <div className="grid gap-1.5">
