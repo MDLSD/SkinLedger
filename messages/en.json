@@ -189,7 +189,12 @@
       "month": "Month",
       "quarter": "Quarter",
       "custom": "Custom"
-    }
+    },
+    "holdMarket": "Hold at market",
+    "holdMarketCoverage": "{priced} of {total} positions",
+    "holdMarketHint": "What you would actually receive if you sold the whole hold right now: for each position we take the marketplace with the best revenue after sell and withdrawal fees. Positions without a catalog link or without quotes are excluded.",
+    "holdUnrealized": "Unrealized profit",
+    "holdUnrealizedHint": "The gap between the market value of your hold and what you put into it — the profit you would lock in by selling now. Counted only for positions that have quotes."
   },
   "charts": {
     "million": "{v}M",

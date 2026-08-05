@@ -7,6 +7,7 @@ import { dealFxRate } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
 import { parseDealFilters, periodRange } from "@/lib/deal-list";
 import { computeDashboard, type DashDeal, type DealBrief } from "@/lib/dashboard";
+import { loadHoldingMarket } from "@/lib/prices/holding-market";
 import { DashboardCharts } from "@/components/dashboard-charts";
 import { DashboardPeriod } from "@/components/dashboard-period";
 import { Hint } from "@/components/hint";
@@ -76,6 +77,10 @@ export default async function DashboardPage({
       getRates(),
     ]);
   const cur = user.baseCurrency;
+
+  // Переоценка холда по рынку (ТЗ 6): считается отдельно от агрегатов,
+  // потому что источник данных другой — котировки, а не сами сделки.
+  const holdMarket = await loadHoldingMarket(userId, cur, rates);
 
   let unresolvedFx = 0;
   const deals: DashDeal[] = dealRows.flatMap((d) => {
@@ -167,6 +172,31 @@ export default async function DashboardPage({
         <Stat label={t("bestTrade")} value={c.bestTrade == null ? "—" : formatMoney(c.bestTrade, cur, locale, true)} tone={c.bestTrade == null ? undefined : c.bestTrade >= 0 ? "pos" : "neg"} hint={t("bestTradeHint")} />
         <Stat label={t("avgHold")} value={c.avgHoldDays == null ? "—" : t("daysShort", { count: c.avgHoldDays })} hint={t("avgHoldHint")} />
         <Stat label={t("frozen")} value={formatMoney(c.frozenInHolding, cur, locale)} hint={t("frozenHint")} />
+        <Stat
+          label={t("holdMarket")}
+          value={holdMarket.priced ? formatMoney(holdMarket.marketValue, cur, locale) : "—"}
+          sub={
+            holdMarket.positions
+              ? t("holdMarketCoverage", { priced: holdMarket.priced, total: holdMarket.positions })
+              : undefined
+          }
+          hint={t("holdMarketHint")}
+        />
+        <Stat
+          label={t("holdUnrealized")}
+          value={
+            holdMarket.priced
+              ? formatMoney(holdMarket.profit, cur, locale, true)
+              : "—"
+          }
+          tone={holdMarket.priced ? (holdMarket.profit >= 0 ? "pos" : "neg") : undefined}
+          sub={
+            holdMarket.profitPct == null
+              ? undefined
+              : formatPct(holdMarket.profitPct, locale)
+          }
+          hint={t("holdUnrealizedHint")}
+        />
         <Stat label={t("holdingCount")} value={String(c.holdingCount)} sub={c.holdingCount ? t("tradable", { count: c.tradableCount }) : undefined} hint={t("holdingCountHint")} />
         <Stat label={t("deadCapital")} value={formatMoney(dash.deadCapital.amount, cur, locale)} tone={dash.deadCapital.amount > 0 ? "neg" : undefined} sub={dash.deadCapital.count ? t("deadCapitalCount", { count: dash.deadCapital.count }) : t("deadCapitalNone")} hint={t("deadCapitalHint")} />
       </div>
