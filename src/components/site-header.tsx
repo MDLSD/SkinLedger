@@ -16,6 +16,7 @@ const NAV = [
   { href: "/app", key: "dashboard" },
   { href: "/app/deals", key: "deals" },
   { href: "/app/prices", key: "prices" },
+  { href: "/app/spreads", key: "spreads" },
   { href: "/app/import", key: "import" },
   { href: "/app/settings", key: "settings" },
 ] as const;

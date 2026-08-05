@@ -24,7 +24,8 @@
     "import": "Import",
     "settings": "Settings",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "spreads": "Spreads"
   },
   "catalog": {
     "kind": {
@@ -725,5 +726,28 @@
     "undoNothing": "Nothing to roll back",
     "undoNoData": "No data to roll back",
     "undoFailed": "Couldn't roll back the import"
+  },
+  "spreads": {
+    "metaTitle": "Top spreads — SkinLedger",
+    "title": "Top spreads",
+    "subtitle": "The best marketplace pair for every item: where to buy cheaper and where to sell higher, with buy, sell and withdrawal fees taken into account.",
+    "search": "Search by name",
+    "searchPlaceholder": "AWP | Asiimov…",
+    "marginAtLeast": "Margin ≥ %",
+    "salesAtLeast": "Sales/30d ≥",
+    "priceFrom": "Price from, $",
+    "priceTo": "Price to, $",
+    "reset": "Reset",
+    "found": "spreads found",
+    "ofTraded": "of {count} items traded on two or more marketplaces",
+    "empty": "Nothing matched the filters. Try lowering the margin or liquidity threshold.",
+    "item": "Item",
+    "buyOn": "Buy on",
+    "sellOn": "Sell on",
+    "margin": "Margin",
+    "profit": "Profit",
+    "sales30d": "Sales [30d]",
+    "prev": "Back",
+    "next": "Next"
   }
 }
