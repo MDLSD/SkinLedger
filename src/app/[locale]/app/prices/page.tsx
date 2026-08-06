@@ -9,9 +9,8 @@ import { PricesSidebar } from "@/components/prices-sidebar";
 import { PricesFilterBar } from "@/components/prices-filterbar";
 import { SourceIcon } from "@/components/source-icon";
 import { PricesSearch } from "@/components/prices-search";
-import { PriceRow } from "@/components/prices-row";
+import { PricesRows } from "@/components/prices-rows";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { CURRENCY_SYMBOL, fxFactor } from "@/lib/currency";
 import { getRates } from "@/lib/rates";
 import {
@@ -233,52 +232,24 @@ export default async function PricesPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {result.rows.map((r) => (
-                  <PriceRow
-                    key={r.marketHashName}
-                    r={r}
-                    buy={filters.buy}
-                    sell={filters.sell}
-                    buyTitle={buyTitle}
-                    sellTitle={sellTitle}
-                    cur={cur}
-                    fx={fx}
-                    now={result.now}
-                    colSpan={7}
-                    charts={limits.charts}
-                  />
-                ))}
+                <PricesRows
+                  initial={result.rows}
+                  query={buildPriceQuery(filters)}
+                  hasMore={result.page < result.pageCount}
+                  buy={filters.buy}
+                  sell={filters.sell}
+                  buyTitle={buyTitle}
+                  sellTitle={sellTitle}
+                  cur={cur}
+                  fx={fx}
+                  now={result.now}
+                  colSpan={7}
+                  charts={limits.charts}
+                />
               </TableBody>
             </Table>
           </div>
 
-          {result.pageCount > 1 && (
-            <div className="flex shrink-0 items-center justify-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                nativeButton={false}
-                render={<Link href={buildPriceQuery(filters, { page: result.page - 1 })} scroll={false} />}
-                aria-disabled={result.page <= 1}
-                className={result.page <= 1 ? "pointer-events-none opacity-50" : ""}
-              >
-                {t("prev")}
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                {result.page} / {result.pageCount}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                nativeButton={false}
-                render={<Link href={buildPriceQuery(filters, { page: result.page + 1 })} scroll={false} />}
-                aria-disabled={result.page >= result.pageCount}
-                className={result.page >= result.pageCount ? "pointer-events-none opacity-50" : ""}
-              >
-                {t("next")}
-              </Button>
-            </div>
-          )}
           </>
         )}
       </div>

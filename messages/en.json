@@ -437,8 +437,6 @@
     "colProfit": "Profit",
     "colUpdated": "Updated",
     "colSales30d": "Sales [30d]",
-    "prev": "Back",
-    "next": "Next",
     "searchPlaceholder": "Search by name",
     "marginAtLeast": "Margin ≥ %",
     "salesAtLeast": "Sales/30d ≥",
@@ -501,7 +499,8 @@
     "hideItem": "Hide item",
     "onlyFavorites": "Favorites only",
     "hiddenHint": "Hidden items are not shown in the table. You can bring them back in the table settings.",
-    "unhideAll": "Show hidden ({count})"
+    "unhideAll": "Show hidden ({count})",
+    "loadMore": "Load more"
   },
   "offers": {
     "sortBy": "Sort:",
