@@ -39,21 +39,21 @@ export default async function BillingPage({ params }: { params: Params }) {
 
   const plan = effectivePlan(user);
   const free = PLAN_LIMITS.free;
-  const pro = PLAN_LIMITS.pro;
 
+  // Три платные функции, все на странице «Таблица»: цена без потолка,
+  // все площадки и графики по клику на цену. Бесплатная карточка перечисляет
+  // те же три пункта в урезанном виде — так видно, за что именно платят.
   const freeFeatures = [
     t("featurePublic"),
     t("featurePrice", { price: free.maxItemPrice ?? 0 }),
     t("featureSources", { count: free.maxSources ?? 0 }),
-    t("featureProfiles", { count: free.maxProfiles }),
-    t("featureFavorites", { count: free.maxFavorites }),
+    t("featureNoCharts"),
   ];
   const proFeatures = [
+    t("featurePublic"),
     t("featurePriceAll"),
     t("featureSourcesAll"),
-    t("featureSpreads"),
-    t("featureProfiles", { count: pro.maxProfiles }),
-    t("featureFavorites", { count: pro.maxFavorites }),
+    t("featureCharts"),
   ];
 
   return (

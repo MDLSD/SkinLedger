@@ -1,20 +1,21 @@
 // Тарифы (ТЗ 6 и 7.7). Монетизируется не знание цены, а инструмент: цены на
-// публичной странице предмета открыты всем, а таблица сравнения, связки и
-// фильтры на бесплатном тарифе ограничены.
+// публичной странице предмета открыты всем, а таблица сравнения на бесплатном
+// тарифе ограничена.
+//
+// Всё платное живёт на одной странице — «Таблица» (/app/prices): потолок цены
+// предмета, число площадок и графики, раскрывающиеся по клику на цену.
 //
 // Чистый модуль без prisma: лимиты нужны и на сервере, и в интерфейсе.
 
 export type Plan = "free" | "pro";
 
 export type PlanLimits = {
-  /** Потолок цены покупки в инструменте, USD. null — без потолка. */
+  /** Потолок цены покупки в таблице, USD. null — без потолка. */
   maxItemPrice: number | null;
   /** Сколько площадок-источников доступно. null — все. */
   maxSources: number | null;
-  /** Сохранённых шаблонов настроек таблицы. */
-  maxProfiles: number;
-  /** Предметов в избранном. */
-  maxFavorites: number;
+  /** Графики и стакан по клику на цену. */
+  charts: boolean;
 };
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
@@ -22,14 +23,12 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     // Как у конкурента: бесплатно видно только дешёвый сегмент.
     maxItemPrice: 2,
     maxSources: 3,
-    maxProfiles: 1,
-    maxFavorites: 20,
+    charts: false,
   },
   pro: {
     maxItemPrice: null,
     maxSources: null,
-    maxProfiles: 20,
-    maxFavorites: 1000,
+    charts: true,
   },
 };
 

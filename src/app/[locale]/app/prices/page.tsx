@@ -245,6 +245,7 @@ export default async function PricesPage({
                     fx={fx}
                     now={result.now}
                     colSpan={7}
+                    charts={limits.charts}
                   />
                 ))}
               </TableBody>

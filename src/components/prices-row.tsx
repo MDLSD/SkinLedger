@@ -8,6 +8,7 @@ import {
   ArrowLeftRight,
   Check,
   Copy,
+  Lock,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -49,6 +50,8 @@ type Props = {
   fx: number | null;
   now: number;
   colSpan: number;
+  /** Графики и стакан — платная функция (ТЗ 6). */
+  charts: boolean;
 };
 
 /** «3 мин», «6 ч», «2 д» — свежесть котировки. */
@@ -126,7 +129,18 @@ function SkinThumb({
   );
 }
 
-export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colSpan }: Props) {
+export function PriceRow({
+  r,
+  buy,
+  sell,
+  buyTitle,
+  sellTitle,
+  cur,
+  fx,
+  now,
+  colSpan,
+  charts,
+}: Props) {
   const t = useTranslations("prices");
   const tc = withDynamicKeys(useTranslations("catalog"));
   const locale = useLocale();
@@ -263,17 +277,53 @@ export function PriceRow({ r, buy, sell, buyTitle, sellTitle, cur, fx, now, colS
       {open && (
         <TableRow className="border-border/60 hover:bg-transparent">
           <TableCell colSpan={colSpan} className="bg-background/40 p-0">
-            <ItemPanel
-              item={r.marketHashName}
-              slugs={[buy, sell]}
-              titles={{ [buy]: buyTitle, [sell]: sellTitle }}
-              cur={cur}
-              fx={fx}
-            />
+            {/* На бесплатном тарифе панель всё равно раскрывается: так видно,
+                за что предлагают заплатить, а не просто «клик не работает». */}
+            {charts ? (
+              <ItemPanel
+                item={r.marketHashName}
+                slugs={[buy, sell]}
+                titles={{ [buy]: buyTitle, [sell]: sellTitle }}
+                cur={cur}
+                fx={fx}
+              />
+            ) : (
+              <ChartLocked slug={r.slug} />
+            )}
           </TableCell>
         </TableRow>
       )}
     </>
+  );
+}
+
+/**
+ * Заглушка вместо панели на бесплатном тарифе. Ссылка на страницу предмета
+ * рядом с кнопкой тарифа не случайна: там график по этому же предмету открыт,
+ * и обещание «цены открыты всем» не выглядит обманом.
+ */
+function ChartLocked({ slug }: { slug: string | null }) {
+  const t = useTranslations("billing");
+  const tp = useTranslations("prices");
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-5">
+      <Lock className="size-5 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium">{t("chartLocked")}</div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t("chartLockedText")}</p>
+      </div>
+      {slug && (
+        <Link href={`/skins/${slug}`} className="text-xs text-muted-foreground hover:underline">
+          {tp("openChartPublic")}
+        </Link>
+      )}
+      <Link
+        href="/app/billing"
+        className="rounded-md border border-primary/60 bg-primary/10 px-3 py-1.5 text-xs font-medium hover:bg-primary/20"
+      >
+        {t("bannerCta")}
+      </Link>
+    </div>
   );
 }
 

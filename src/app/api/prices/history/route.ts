@@ -3,13 +3,25 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isPeriod, type Period } from "@/lib/prices/detail";
 import { loadItemDetail } from "@/lib/prices/history";
+import { limitsFor } from "@/lib/plan";
 
 // История цен и стакан по предмету для панели, раскрывающейся под строкой
-// таблицы. Только для авторизованных: это те же данные, что и в /app/prices.
+// таблицы. Платная функция (ТЗ 6), поэтому проверка тарифа именно здесь:
+// закрыть панель только в интерфейсе — значит оставить данные доступными
+// прямым запросом. Графики на публичной странице предмета идут отдельным
+// путём и остаются открытыми всем.
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const planUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { plan: true, planUntil: true },
+  });
+  if (!limitsFor(planUser).charts) {
+    return NextResponse.json({ error: "plan" }, { status: 402 });
   }
 
   const url = new URL(req.url);
