@@ -104,12 +104,11 @@ export default async function PricesPage({
   // остальные выпадают, но в списке панели остаются — с меткой тарифа.
   const sources = allowedSources(allSources, limits);
   const slugs = sources.map((s) => s.slug);
+  // Доступные — наверх списка: платные внизу не мешают выбирать из своих.
   const allowed = new Set(slugs);
-  const sidebarSources = allSources.map(({ slug, title }) => ({
-    slug,
-    title,
-    locked: !allowed.has(slug),
-  }));
+  const sidebarSources = allSources
+    .map(({ slug, title }) => ({ slug, title, locked: !allowed.has(slug) }))
+    .sort((a, b) => Number(a.locked) - Number(b.locked));
   const filters = parsePriceFilters(await searchParams, slugs);
 
   const hasData = sources.length > 0;
