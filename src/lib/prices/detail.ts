@@ -40,4 +40,9 @@ export type ItemDetail = {
   item: string;
   period: Period;
   sources: SourceDetail[];
+  /**
+   * История и статистика не отданы: тариф без графиков (ТЗ 6). Стакан при
+   * этом приходит — это те же текущие цены, что уже видны в строке таблицы.
+   */
+  locked?: boolean;
 };

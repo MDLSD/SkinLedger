@@ -9,25 +9,34 @@ import {
   type SourceDetail,
 } from "./detail";
 
-/** История и стакан по предмету на нескольких площадках за период. */
+/**
+ * История и стакан по предмету на нескольких площадках за период.
+ *
+ * `includeHistory: false` — для бесплатного тарифа: сам запрос к истории не
+ * выполняется, а не выполняется и отбрасывается. Стакан отдаётся: это те же
+ * текущие цены, что уже стоят в строке таблицы, скрывать их не от чего.
+ */
 export async function loadItemDetail(
   item: string,
   slugs: string[],
   period: Period,
+  includeHistory = true,
 ): Promise<ItemDetail> {
   const days = periodDays(period);
   const since = days == null ? undefined : new Date(Date.now() - days * 86400_000);
 
   const [history, quotes] = await Promise.all([
-    prisma.priceHistory.findMany({
-      where: {
-        marketHashName: item,
-        sourceSlug: { in: slugs },
-        ...(since ? { ts: { gte: since } } : {}),
-      },
-      orderBy: { ts: "asc" },
-      select: { sourceSlug: true, price: true, ts: true },
-    }),
+    includeHistory
+      ? prisma.priceHistory.findMany({
+          where: {
+            marketHashName: item,
+            sourceSlug: { in: slugs },
+            ...(since ? { ts: { gte: since } } : {}),
+          },
+          orderBy: { ts: "asc" },
+          select: { sourceSlug: true, price: true, ts: true },
+        })
+      : [],
     prisma.priceQuote.findMany({
       where: { marketHashName: item, sourceSlug: { in: slugs } },
       select: { sourceSlug: true, priceMin: true, priceOrder: true, offersCount: true },
@@ -68,5 +77,5 @@ export async function loadItemDetail(
     };
   });
 
-  return { item, period, sources };
+  return { item, period, sources, ...(includeHistory ? {} : { locked: true }) };
 }

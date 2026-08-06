@@ -6,10 +6,10 @@ import { loadItemDetail } from "@/lib/prices/history";
 import { limitsFor } from "@/lib/plan";
 
 // История цен и стакан по предмету для панели, раскрывающейся под строкой
-// таблицы. Платная функция (ТЗ 6), поэтому проверка тарифа именно здесь:
-// закрыть панель только в интерфейсе — значит оставить данные доступными
-// прямым запросом. Графики на публичной странице предмета идут отдельным
-// путём и остаются открытыми всем.
+// таблицы. История — платная функция (ТЗ 6), и проверка тарифа именно здесь:
+// закрыть график только в интерфейсе — значит оставить данные доступными
+// прямым запросом. Стакан отдаём всем: это текущие цены, они и так в строке.
+// Графики на публичной странице предмета идут отдельным путём и открыты всем.
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -20,9 +20,7 @@ export async function GET(req: Request) {
     where: { id: session.user.id },
     select: { plan: true, planUntil: true },
   });
-  if (!limitsFor(planUser).charts) {
-    return NextResponse.json({ error: "plan" }, { status: 402 });
-  }
+  const charts = limitsFor(planUser).charts;
 
   const url = new URL(req.url);
   const item = (url.searchParams.get("item") ?? "").slice(0, 200);
@@ -46,7 +44,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "sources required" }, { status: 400 });
   }
 
-  const detail = await loadItemDetail(item, slugs, period);
+  const detail = await loadItemDetail(item, slugs, period, charts);
   return NextResponse.json(detail, {
     headers: { "Cache-Control": "private, max-age=30" },
   });

@@ -277,19 +277,16 @@ export function PriceRow({
       {open && (
         <TableRow className="border-border/60 hover:bg-transparent">
           <TableCell colSpan={colSpan} className="bg-background/40 p-0">
-            {/* На бесплатном тарифе панель всё равно раскрывается: так видно,
-                за что предлагают заплатить, а не просто «клик не работает». */}
-            {charts ? (
-              <ItemPanel
-                item={r.marketHashName}
-                slugs={[buy, sell]}
-                titles={{ [buy]: buyTitle, [sell]: sellTitle }}
-                cur={cur}
-                fx={fx}
-              />
-            ) : (
-              <ChartLocked slug={r.slug} />
-            )}
+            {/* На бесплатном тарифе панель раскрывается такой же: стакан и
+                текущие цены на месте, замок стоит только вместо графика. */}
+            <ItemPanel
+              item={r.marketHashName}
+              slugs={[buy, sell]}
+              titles={{ [buy]: buyTitle, [sell]: sellTitle }}
+              cur={cur}
+              fx={fx}
+              charts={charts}
+            />
           </TableCell>
         </TableRow>
       )}
@@ -298,31 +295,27 @@ export function PriceRow({
 }
 
 /**
- * Заглушка вместо панели на бесплатном тарифе. Ссылка на страницу предмета
- * рядом с кнопкой тарифа не случайна: там график по этому же предмету открыт,
- * и обещание «цены открыты всем» не выглядит обманом.
+ * Замок на месте графика: панель открывается такой же, как на Pro, но вместо
+ * кривой — предложение подписки. Так видно, что именно даёт подписка, а не
+ * просто «клик не работает».
  */
-function ChartLocked({ slug }: { slug: string | null }) {
+function ChartLocked() {
   const t = useTranslations("billing");
-  const tp = useTranslations("prices");
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-5">
-      <Lock className="size-5 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{t("chartLocked")}</div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t("chartLockedText")}</p>
-      </div>
-      {slug && (
-        <Link href={`/skins/${slug}`} className="text-xs text-muted-foreground hover:underline">
-          {tp("openChartPublic")}
-        </Link>
-      )}
-      <Link
-        href="/app/billing"
-        className="rounded-md border border-primary/60 bg-primary/10 px-3 py-1.5 text-xs font-medium hover:bg-primary/20"
-      >
-        {t("bannerCta")}
-      </Link>
+    <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+      <span className="flex size-9 items-center justify-center rounded-lg bg-destructive/15 text-destructive">
+        <Lock className="size-4.5" />
+      </span>
+      <span className="text-sm font-semibold">{t("chartLocked")}</span>
+      <p className="text-xs text-muted-foreground">
+        {t.rich("chartLockedText", {
+          a: (chunks) => (
+            <Link href="/app/billing" className="text-primary underline underline-offset-2">
+              {chunks}
+            </Link>
+          ),
+        })}
+      </p>
     </div>
   );
 }
@@ -334,12 +327,14 @@ function ItemPanel({
   titles,
   cur,
   fx,
+  charts,
 }: {
   item: string;
   slugs: string[];
   titles: Record<string, string>;
   cur: string;
   fx: number | null;
+  charts: boolean;
 }) {
   const [period, setPeriod] = useState<Period>("1w");
   const [data, setData] = useState<ItemDetail | null>(null);
@@ -380,6 +375,7 @@ function ItemPanel({
           onPeriod={setPeriod}
           cur={cur}
           fx={fx}
+          charts={charts}
         />
       ))}
     </div>
@@ -396,6 +392,7 @@ function SourcePanel({
   onPeriod,
   cur,
   fx,
+  charts,
 }: {
   slug: string;
   title: string;
@@ -406,6 +403,7 @@ function SourcePanel({
   onPeriod: (p: Period) => void;
   cur: string;
   fx: number | null;
+  charts: boolean;
 }) {
   const t = useTranslations("prices");
   const locale = useLocale();
@@ -447,8 +445,12 @@ function SourcePanel({
 
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_240px]">
         {/* График продаж */}
-        <div className="h-56">
-          {loading ? (
+        {/* min-w-0: иначе замок задаёт колонке минимальную ширину по своему
+            содержимому и таблица получает горизонтальную прокрутку. */}
+        <div className="h-56 min-w-0">
+          {!charts ? (
+            <ChartLocked />
+          ) : loading ? (
             <Centered>{t("loading")}</Centered>
           ) : error ? (
             <Centered>{t("historyFailed")}</Centered>
