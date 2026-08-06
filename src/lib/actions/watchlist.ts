@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { limitsFor } from "@/lib/plan";
 
 /** Состояние предмета в списках пользователя. null — ни в одном. */
 export type WatchKind = "favorite" | "blocked" | null;
@@ -21,6 +22,19 @@ export async function setWatchState(marketHashName: string, kind: WatchKind): Pr
 
   const item = marketHashName.trim().slice(0, 200);
   if (!item) return;
+
+  // Избранное ограничено тарифом; чёрный список — нет: он ничего не открывает.
+  if (kind === "favorite") {
+    const [count, planUser] = await Promise.all([
+      prisma.watchItem.count({ where: { userId, kind: "favorite" } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planUntil: true } }),
+    ]);
+    const already = await prisma.watchItem.findUnique({
+      where: { userId_marketHashName: { userId, marketHashName: item } },
+      select: { kind: true },
+    });
+    if (already?.kind !== "favorite" && count >= limitsFor(planUser).maxFavorites) return;
+  }
 
   if (kind == null) {
     await prisma.watchItem.deleteMany({ where: { userId, marketHashName: item } });

@@ -21,6 +21,8 @@ import {
   type SortKey,
 } from "@/lib/prices/compare";
 import { loadComparison } from "@/lib/prices/compare-load";
+import { allowedSources, effectivePlan, limitsFor } from "@/lib/plan";
+import { PlanBanner } from "@/components/plan-banner";
 
 type Params = Promise<{ locale: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -87,17 +89,26 @@ export default async function PricesPage({
   const session = await auth();
   if (!session?.user?.id) redirect({ href: "/login", locale });
 
-  const sources = await prisma.marketSource.findMany({
+  const planUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { plan: true, planUntil: true },
+  });
+  const plan = effectivePlan(planUser);
+  const limits = limitsFor(planUser);
+
+  const allSources = await prisma.marketSource.findMany({
     where: { isActive: true },
     orderBy: { title: "asc" },
     select: { slug: true, title: true, buyFeePct: true, sellFeePct: true, withdrawFeePct: true },
   });
+  // На бесплатном тарифе доступна часть площадок (ТЗ 6).
+  const sources = allowedSources(allSources, limits);
   const slugs = sources.map((s) => s.slug);
   const filters = parsePriceFilters(await searchParams, slugs);
 
   const hasData = sources.length > 0;
   const result = hasData
-    ? await loadComparison(filters, sources, session.user.id)
+    ? await loadComparison(filters, sources, session.user.id, limits.maxItemPrice)
     : { rows: [], total: 0, page: 1, pageCount: 1, matched: 0, now: 0 };
 
   // Вторая строка цены — в валюте пользователя (курс из парсера).
@@ -150,6 +161,7 @@ export default async function PricesPage({
           </p>
         </div>
 
+        <PlanBanner plan={plan} limits={limits} hiddenSources={allSources.length - sources.length} />
         <PricesFilterBar filters={filters} hidden={hiddenCount} />
 
         {!hasData ? (

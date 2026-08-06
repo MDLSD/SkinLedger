@@ -6,12 +6,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { limitsFor } from "@/lib/plan";
 
 // profileId возвращается, чтобы клиент сразу переключился в только что
 // созданный шаблон и дальнейшие правки писались уже в него.
 export type ProfileState = { error?: ErrorKey; profileId?: string; errorValues?: ErrorValues };
 
-const MAX_PROFILES = 20;
+// Потолок зависит от тарифа (ТЗ 6): бесплатному — один шаблон.
 
 // query — строка параметров таблицы («?buy=…&sell=…»), её же кладём в адрес.
 const profileSchema = z.object({
@@ -47,9 +48,13 @@ export async function savePriceProfile(
     select: { id: true },
   });
   if (!existing) {
-    const count = await prisma.priceProfile.count({ where: { userId } });
-    if (count >= MAX_PROFILES) {
-      return { error: "profileLimit", errorValues: { max: MAX_PROFILES } };
+    const [count, planUser] = await Promise.all([
+      prisma.priceProfile.count({ where: { userId } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { plan: true, planUntil: true } }),
+    ]);
+    const maxProfiles = limitsFor(planUser).maxProfiles;
+    if (count >= maxProfiles) {
+      return { error: "profileLimit", errorValues: { max: maxProfiles } };
     }
   }
 

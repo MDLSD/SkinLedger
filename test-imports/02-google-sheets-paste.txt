@@ -1,0 +1,8 @@
+Скин	Куплено на	Куплено за	Дата покупки	Продано на	Продано за	Дата продажи
+AWP | Neo-Noir (Minimal Wear)	market csgo	4 350,00 ₽	14.06.2026	steam	5 120,50 ₽	02.07.2026
+AK-47 | Bloodsport (Field-Tested)	steam	2 890,00 ₽	21.05.2026	market csgo	3 015,00 ₽	18.06.2026
+M4A1-S | Printstream (Well-Worn)	lis-skins	6 700,00 ₽	03.03.2026	market csgo	7 890,00 ₽	29.06.2026
+Butterfly Knife | Tiger Tooth (Factory New)	market csgo	78 400,00 ₽	11.01.2026
+Five-SeveN | Hyper Beast (Battle-Scarred)	steam	310,00 ₽	30.06.2026	steam	295,00 ₽	05.07.2026
+Sticker | Katowice 2014 | Titan (Holo)	market csgo	112 000,00 ₽	09.02.2026	lis-skins	145 500,00 ₽	14.07.2026
+Operation Bravo Case	market csgo	1 240,00 ₽	17.04.2026	steam	1 780,00 ₽	20.04.2026

@@ -25,7 +25,8 @@
     "settings": "Settings",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "spreads": "Spreads"
+    "spreads": "Spreads",
+    "billing": "Plan"
   },
   "catalog": {
     "kind": {
@@ -749,5 +750,31 @@
     "sales30d": "Sales [30d]",
     "prev": "Back",
     "next": "Next"
+  },
+  "billing": {
+    "bannerLimits": "Free plan: the tool shows items under ${price} and {sources} marketplaces.",
+    "bannerHiddenSources": "{count} more are hidden.",
+    "bannerCta": "Remove limits",
+    "metaTitle": "Plan — SkinLedger",
+    "title": "Plan",
+    "subtitle": "Item pages and prices are open to everyone. What you pay for is the tool: pair comparison, spreads and filters.",
+    "current": "Your plan",
+    "free": "Free",
+    "pro": "Pro",
+    "until": "active until {date}",
+    "unlimited": "no expiry date",
+    "featurePrice": "Items under ${price}",
+    "featurePriceAll": "Items at any price",
+    "featureSources": "{count} marketplaces in comparison",
+    "featureSourcesAll": "All marketplaces in comparison",
+    "featureProfiles": "Saved presets: {count}",
+    "featureFavorites": "Favorites: up to {count} items",
+    "featureSpreads": "Top spreads across the whole catalog",
+    "featurePublic": "Item pages, prices and charts",
+    "ctaRequest": "Request access",
+    "ctaSent": "Request received — we will write when payments open.",
+    "paymentsSoon": "Payments are not connected yet: we are collecting requests and will open subscriptions together with billing.",
+    "yourPlanFree": "You are on the free plan.",
+    "yourPlanPro": "Thanks for supporting the project."
   }
 }

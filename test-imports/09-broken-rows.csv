@@ -1,0 +1,14 @@
+Название;Качество;Кол-во;Площадка покупки;Цена покупки;Дата покупки;Статус;Площадка продажи;Цена продажи;Дата продажи;Комментарий
+AWP | Exothermic;Field-Tested;1;market csgo;305,05;20.07.2026;продано;steam;373,92;20.07.2026;нормальная строка
+;Minimal Wear;1;steam;500;01.06.2026;продано;steam;600;10.06.2026;пустое название
+AK-47 | Redline;Field-Tested;1;market csgo;1200;15.06.2026;продано;steam;1500;01.06.2026;продажа раньше покупки
+M4A4 | Desolate Space;Field-Tested;0;steam;800;12.06.2026;в холде;;;;количество 0
+Glock-18 | Water Elemental;Well-Worn;1;steam;-350;08.06.2026;в холде;;;;отрицательная цена
+P90 | Death by Kitty;Minimal Wear;1;market csgo;цена уточняется;03.06.2026;в холде;;;;цена не число
+Desert Eagle | Conspiracy;Factory New;1;steam;2400;12.06.2026;продано;steam;;18.06.2026;продано без цены
+"Fracture Case";;100;market csgo;95;05.06.2026;продано;steam;140;09.06.2026;"комментарий с ; точкой с запятой"
+Nova | Koi;Factory New;1;steam;120;;в холде;;;;нет даты покупки
+"AWP | Man-o'-war";Field-Tested;1;lis-skins;7800;30.02.2026;в холде;;;;несуществующая дата 30 февраля
+M4A1-S | Blue Phosphor;Factory New;1;market csgo;15600;01.06.2026;продано;steam;19200;12.06.2026;"многострочный
+комментарий в кавычках"
+StatTrak™ AWP | Neo-Noir;Minimal Wear;1;steam;12000;10.06.2026;продано;market csgo;11500;25.06.2026;комиссия 150%

@@ -39,6 +39,11 @@ function push2(list: Best2, slug: string, value: number, better: (a: number, b: 
 export async function loadSpreads(
   f: SpreadFilters,
   userId: string,
+  /** Лимиты тарифа: потолок цены и набор доступных площадок. */
+  plan: { maxItemPrice: number | null; sourceSlugs: string[] | null } = {
+    maxItemPrice: null,
+    sourceSlugs: null,
+  },
 ): Promise<SpreadsResult> {
   const [quotes, sources, watch] = await Promise.all([
     prisma.priceQuote.findMany({
@@ -65,8 +70,12 @@ export async function loadSpreads(
     }),
   ]);
 
+  // Бесплатному тарифу доступна часть площадок — связки ищем только по ним.
+  const allowed = plan.sourceSlugs ? new Set(plan.sourceSlugs) : null;
+  const usable = allowed ? sources.filter((s) => allowed.has(s.slug)) : sources;
+
   const feesBySlug = new Map<string, SourceFees>(
-    sources.map((s) => [
+    usable.map((s) => [
       s.slug,
       {
         buyFeePct: Number(s.buyFeePct),
@@ -75,7 +84,7 @@ export async function loadSpreads(
       },
     ]),
   );
-  const titleBySlug = new Map(sources.map((s) => [s.slug, s.title]));
+  const titleBySlug = new Map(usable.map((s) => [s.slug, s.title]));
   const watchBy = new Map(watch.map((w) => [w.marketHashName, w.kind]));
 
   // Сводим котировки по предмету: цена покупки (после комиссии покупки) и
@@ -140,6 +149,7 @@ export async function loadSpreads(
     const buyPrice = agg.rawBuy.get(pair.buy.slug);
     const sellPrice = agg.rawSell.get(pair.sell.slug);
     if (buyPrice == null || sellPrice == null) continue;
+    if (plan.maxItemPrice != null && buyPrice > plan.maxItemPrice) continue;
     if (minP != null && buyPrice < minP) continue;
     if (maxP != null && buyPrice > maxP) continue;
 

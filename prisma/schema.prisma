@@ -17,6 +17,12 @@ model User {
   email        String   @unique
   passwordHash String   @map("password_hash")
   baseCurrency String   @default("RUB") @map("base_currency")
+  // Тариф (этап 2, фаза 5): "free" | "pro". Оплаты пока нет, поле меняется
+  // вручную — платёжный провайдер подключается отдельно.
+  plan         String   @default("free")
+  // До какого момента действует pro. null у бесплатного тарифа и у
+  // бессрочного доступа, выданного вручную.
+  planUntil    DateTime? @map("plan_until")
   // Личная цель по чистой прибыли за месяц (в основной валюте). null — не задана.
   monthlyGoal  Decimal? @map("monthly_goal")
   createdAt    DateTime @default(now()) @map("created_at")

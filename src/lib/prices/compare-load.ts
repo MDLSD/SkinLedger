@@ -39,6 +39,8 @@ export async function loadComparison(
   f: PriceFilters,
   sources: SourceRow[],
   userId?: string,
+  /** Потолок цены покупки бесплатного тарифа, USD; null — без потолка. */
+  maxItemPrice?: number | null,
 ): Promise<ComparisonResult> {
   const now = Date.now();
   const bySlug = new Map(sources.map((s) => [s.slug, s]));
@@ -131,6 +133,8 @@ export async function loadComparison(
     if (f.fav && watchKind !== "favorite") continue;
 
     if (qNorm && !bq.marketHashName.toLowerCase().includes(qNorm)) continue;
+    // Потолок бесплатного тарифа — до пользовательских фильтров.
+    if (maxItemPrice != null && buyPrice > maxItemPrice) continue;
     if (buyMinP != null && buyPrice < buyMinP) continue;
     if (buyMaxP != null && buyPrice > buyMaxP) continue;
     if (sellMinP != null && sellPrice < sellMinP) continue;

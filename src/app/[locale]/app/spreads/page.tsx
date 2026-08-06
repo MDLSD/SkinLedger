@@ -28,6 +28,8 @@ import {
   type SpreadSort,
 } from "@/lib/prices/spreads";
 import { loadSpreads } from "@/lib/prices/spreads-load";
+import { allowedSources, effectivePlan, limitsFor } from "@/lib/plan";
+import { PlanBanner } from "@/components/plan-banner";
 
 type Params = Promise<{ locale: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -56,11 +58,25 @@ export default async function SpreadsPage({
   const userId = session.user.id;
 
   const filters = parseSpreadFilters(await searchParams);
-  const [result, user, ratesResult] = await Promise.all([
-    loadSpreads(filters, userId),
-    prisma.user.findUnique({ where: { id: userId }, select: { baseCurrency: true } }),
+  const [user, allSources, ratesResult] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { baseCurrency: true, plan: true, planUntil: true },
+    }),
+    prisma.marketSource.findMany({
+      where: { isActive: true },
+      orderBy: { title: "asc" },
+      select: { slug: true },
+    }),
     getRates(),
   ]);
+  const plan = effectivePlan(user);
+  const limits = limitsFor(user);
+  const sources = allowedSources(allSources, limits);
+  const result = await loadSpreads(filters, userId, {
+    maxItemPrice: limits.maxItemPrice,
+    sourceSlugs: limits.maxSources == null ? null : sources.map((s) => s.slug),
+  });
 
   const cur = await displayCurrency(user?.baseCurrency);
   const fx = fxFactor("USD", cur, ratesResult.rates);
@@ -85,6 +101,7 @@ export default async function SpreadsPage({
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
+      <PlanBanner plan={plan} limits={limits} hiddenSources={allSources.length - sources.length} />
       <SpreadsFilterBar filters={filters} />
 
       <p className="text-sm text-muted-foreground">
