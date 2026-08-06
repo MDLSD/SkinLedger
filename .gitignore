@@ -45,3 +45,9 @@ prisma/dev.db*
 src/generated/
 !.env.example
 .claude/settings.local.json
+
+# графы graphify (генерируются локально)
+graphify-out/
+
+# сохранённые референсы страниц (HTML-дампы чужих сайтов)
+*TradeOn Pulse*
