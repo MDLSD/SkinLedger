@@ -100,9 +100,16 @@ export default async function PricesPage({
     orderBy: { title: "asc" },
     select: { slug: true, title: true, buyFeePct: true, sellFeePct: true, withdrawFeePct: true },
   });
-  // На бесплатном тарифе доступна часть площадок (ТЗ 6).
+  // На бесплатном тарифе доступна часть площадок (ТЗ 6). Из выборки данных
+  // остальные выпадают, но в списке панели остаются — с меткой тарифа.
   const sources = allowedSources(allSources, limits);
   const slugs = sources.map((s) => s.slug);
+  const allowed = new Set(slugs);
+  const sidebarSources = allSources.map(({ slug, title }) => ({
+    slug,
+    title,
+    locked: !allowed.has(slug),
+  }));
   const filters = parsePriceFilters(await searchParams, slugs);
 
   const hasData = sources.length > 0;
@@ -140,11 +147,7 @@ export default async function PricesPage({
     // контейнера приложения (mx-auto max-w-[1600px] + паддинги).
     <div className="flex flex-col gap-4 lg:mx-[calc(50%-50vw)] lg:flex-row lg:items-start lg:gap-6">
       {/* В клиент отдаём только простые поля: Decimal-комиссии не сериализуются. */}
-      <PricesSidebar
-        filters={filters}
-        sources={sources.map(({ slug, title }) => ({ slug, title }))}
-        profiles={profiles}
-      />
+      <PricesSidebar filters={filters} sources={sidebarSources} profiles={profiles} />
 
       {/* Колонка во всю высоту экрана: шапка страницы, фильтры и заголовок
           таблицы стоят на месте, прокручивается только тело таблицы. */}
@@ -160,7 +163,7 @@ export default async function PricesPage({
           </p>
         </div>
 
-        <PlanBanner plan={plan} limits={limits} hiddenSources={allSources.length - sources.length} />
+        <PlanBanner plan={plan} limits={limits} lockedSources={allSources.length - sources.length} />
         <PricesFilterBar filters={filters} hidden={hiddenCount} />
 
         {!hasData ? (

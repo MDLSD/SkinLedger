@@ -38,7 +38,8 @@ import {
   type PriceFilters,
 } from "@/lib/prices/compare";
 
-type SourceOption = { slug: string; title: string };
+/** locked — площадка есть, но недоступна тарифу (ТЗ 6). */
+type SourceOption = { slug: string; title: string; locked?: boolean };
 type Profile = { id: string; name: string; query: string };
 type Go = (overrides: Partial<PriceFilters>) => void;
 
@@ -65,6 +66,7 @@ function SourceSelect({
   sources: SourceOption[];
   onChange: (v: string) => void;
 }) {
+  const tb = useTranslations("billing");
   return (
     <Select
       value={value}
@@ -86,10 +88,22 @@ function SourceSelect({
         </SelectValue>
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false} className="max-h-80 p-1">
+        {/* Недоступные тарифу площадки остаются в списке — приглушённые и с
+            меткой: пустой список не показывает, чего лишается пользователь. */}
         {sources.map((s) => (
-          <SelectItem key={s.slug} value={s.slug} className="gap-2 py-2">
+          <SelectItem
+            key={s.slug}
+            value={s.slug}
+            disabled={s.locked}
+            className={`gap-2 py-2 ${s.locked ? "opacity-50" : ""}`}
+          >
             <SourceIcon slug={s.slug} title={s.title} className="size-7 text-[11px]" />
             {s.title}
+            {s.locked && (
+              <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {tb("pro")}
+              </span>
+            )}
           </SelectItem>
         ))}
       </SelectContent>

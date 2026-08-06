@@ -10,11 +10,12 @@ import type { Plan, PlanLimits } from "@/lib/plan";
 export async function PlanBanner({
   plan,
   limits,
-  hiddenSources,
+  lockedSources,
 }: {
   plan: Plan;
   limits: PlanLimits;
-  hiddenSources: number;
+  /** Сколько площадок в списке помечены как платные. */
+  lockedSources: number;
 }) {
   if (plan === "pro") return null;
   const t = await getTranslations("billing");
@@ -27,7 +28,7 @@ export async function PlanBanner({
           price: limits.maxItemPrice ?? 0,
           sources: limits.maxSources ?? 0,
         })}
-        {hiddenSources > 0 && ` ${t("bannerHiddenSources", { count: hiddenSources })}`}
+        {lockedSources > 0 && ` ${t("bannerLockedSources", { count: lockedSources })}`}
       </span>
       <Link href="/app/billing" className="ml-auto font-medium text-destructive hover:underline">
         {t("bannerCta")}

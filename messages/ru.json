@@ -728,7 +728,7 @@
   },
   "billing": {
     "bannerLimits": "Бесплатный тариф: в таблице видны предметы дешевле {price} $ и {sources} площадки, графики цен закрыты.",
-    "bannerHiddenSources": "Ещё {count} площадок скрыто.",
+    "bannerLockedSources": "Ещё {count} площадок отмечены в списке как платные.",
     "bannerCta": "Снять ограничения",
     "chartLocked": "Нет подписки",
     "chartLockedText": "Для доступа к статистике нужно иметь <a>подписку</a>",

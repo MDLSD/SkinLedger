@@ -728,7 +728,7 @@
   },
   "billing": {
     "bannerLimits": "Free plan: the table shows items under ${price} and {sources} marketplaces, price charts are locked.",
-    "bannerHiddenSources": "{count} more marketplaces are hidden.",
+    "bannerLockedSources": "{count} more marketplaces are marked as paid in the list.",
     "bannerCta": "Remove limits",
     "chartLocked": "No subscription",
     "chartLockedText": "Statistics require a <a>subscription</a>",
